@@ -61,7 +61,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/auth/onboarding" className="hover:text-emerald-400 transition">
-                  สมัครเป็น Companion ร่วมงานกับเรา
+                  สมัครเป็นผู้ช่วยกับเรา
                 </Link>
               </li>
             </ul>
@@ -71,7 +71,7 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4 text-sm tracking-wider uppercase">มาตรฐานความปลอดภัย</h4>
             <ul className="space-y-2.5 text-sm text-slate-400">
-              <li>• ตรวจสอบบัตรประชาชน Companion (KYC)</li>
+              <li>• สแกนใบหน้าผู้ช่วย</li>
               <li>• ปักหมุดระบุพิกัดจุดรับ-ส่งชัดเจน</li>
               <li>• ระบบรีวิวและให้คะแนนดาวจริง</li>
               <li>• ข้อมูลติดต่อฉุกเฉินสำหรับครอบครัว</li>
@@ -80,7 +80,7 @@ export default function Footer() {
         </div>
 
         <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Care Companion - พัฒนาเพื่อการเรียนรู้และการใช้งานจริง (Assignment + Midterm)</p>
+          <p>© {new Date().getFullYear()} Care Companion</p>
         </div>
       </div>
     </footer>

@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, ShieldCheck, MapPin, Heart, ArrowRight, Calendar } from 'lucide-react';
+import { Search, ArrowRight, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+
+import Image from 'next/image';
+import companionImg from '@/assets/images/companion.jpg';
 
 export default function Hero() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -35,45 +38,50 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-emerald-50/60 via-teal-50/20 to-white pt-16 pb-20 lg:pt-24 lg:pb-28">
-      {/* Decorative Blur Backgrounds */}
-      <div className="absolute top-0 right-1/2 translate-x-1/2 -mt-20 w-[700px] h-[350px] rounded-full bg-emerald-200/30 blur-3xl pointer-events-none" />
+    <section className="relative overflow-hidden flex flex-col justify-center min-h-[calc(100vh-5rem)] min-h-[calc(100dvh-5rem)] py-12 sm:py-16 lg:py-20">
+      {/* Background Image from assets/images/companion.jpg */}
+      <div className="absolute inset-0">
+        <Image
+          src={companionImg}
+          alt="Care Companion"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-top"
+        />
+        {/* Overlays for smooth seamless blend from white navbar and readable text */}
+        <div className="absolute inset-0 bg-white/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white" />
+      </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative text-center">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-800 text-xs sm:text-sm font-semibold border border-emerald-200 shadow-xs mb-6">
-          <ShieldCheck className="w-4 h-4 text-emerald-700" />
-          <span>แพลตฟอร์มบริการผู้ช่วยร่วมเดินทางที่คุณวางใจได้</span>
-        </div>
-
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Main Title */}
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-950 tracking-tight leading-[1.18] max-w-4xl mx-auto">
-          เพื่อนร่วมทางที่คุณไว้วางใจ{' '}
-          <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-950 max-w-4xl mx-auto leading-normal sm:leading-relaxed">
+          <span className="block">เพื่อนร่วมทางที่คุณไว้วางใจ</span>
+          <span className="block mt-2 sm:mt-3 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent pb-1">
             อุ่นใจทุกก้าวที่ไปทำธุระ
           </span>
         </h1>
 
         {/* Description */}
-        <p className="mt-6 text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-6 text-base sm:text-lg text-gray-700 font-medium max-w-2xl mx-auto leading-relaxed">
           บริการผู้ช่วยร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่เดินทางคนเดียวไม่สะดวก ช่วยดูแลอำนวยความสะดวกในการไปพบแพทย์ ทำธุรกรรมธนาคาร ติดต่อราชการ หรือซื้อของนอกบ้าน
         </p>
 
-        {/* Main Action Buttons */}
-        <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-4">
+        {/* Main Action Buttons: Stacked vertically with wider bars */}
+        <div className="mt-9 flex flex-col items-center justify-center gap-3.5 max-w-md mx-auto w-full">
           <Link
             href="/companions"
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-700 text-white text-base sm:text-lg font-bold hover:bg-emerald-800 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-3 active:scale-95"
+            className="w-full py-4 px-8 rounded-2xl bg-emerald-700 text-white text-base sm:text-lg font-bold hover:bg-emerald-800 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-3 active:scale-95 cursor-pointer"
           >
             <Search className="w-5 h-5" />
             ค้นหาผู้ช่วย
-            <ArrowRight className="w-5 h-5" />
           </Link>
 
           {isLoggedIn ? (
             <Link
               href="/customer/dashboard"
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white text-emerald-800 border-2 border-emerald-200 text-base sm:text-lg font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95"
+              className="w-full py-4 px-8 rounded-2xl bg-white text-emerald-800 border-2 border-emerald-200 text-base sm:text-lg font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95"
             >
               <Calendar className="w-5 h-5 text-emerald-600" />
               ไปยังคำขอของฉัน
@@ -81,7 +89,7 @@ export default function Hero() {
           ) : (
             <button
               onClick={handleGoogleLogin}
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white text-gray-800 border-2 border-gray-200 text-base sm:text-lg font-bold hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-3 shadow-xs active:scale-95 cursor-pointer"
+              className="w-full py-4 px-8 rounded-2xl bg-white text-gray-800 border-2 border-gray-200 text-base sm:text-lg font-bold hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-3 shadow-xs active:scale-95 cursor-pointer"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -104,33 +112,6 @@ export default function Hero() {
               เข้าสู่ระบบด้วย Google
             </button>
           )}
-        </div>
-
-        {/* Trust Badges */}
-        <div className="mt-14 pt-8 border-t border-gray-200/80 grid grid-cols-3 gap-6 text-center max-w-2xl mx-auto">
-          <div className="flex flex-col items-center">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <strong className="text-gray-900 font-bold text-xs sm:text-sm">Verified 100%</strong>
-            <span className="text-[11px] sm:text-xs text-gray-500">ตรวจเอกสารยืนยันตัวตน</span>
-          </div>
-
-          <div className="flex flex-col items-center">
-            <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center mb-1.5">
-              <MapPin className="w-4 h-4" />
-            </div>
-            <strong className="text-gray-900 font-bold text-xs sm:text-sm">ปักหมุด GPS</strong>
-            <span className="text-[11px] sm:text-xs text-gray-500">ระบุพิกัดรับ-ส่งชัดเจน</span>
-          </div>
-
-          <div className="flex flex-col items-center">
-            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center mb-1.5">
-              <Heart className="w-4 h-4" />
-            </div>
-            <strong className="text-gray-900 font-bold text-xs sm:text-sm">อุ่นใจทุกเส้นทาง</strong>
-            <span className="text-[11px] sm:text-xs text-gray-500">รีวิวคะแนนจากผู้ใช้จริง</span>
-          </div>
         </div>
       </div>
     </section>

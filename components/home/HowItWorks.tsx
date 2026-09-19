@@ -32,9 +32,6 @@ export default function HowItWorks() {
     <section id="how-it-works" className="py-20 bg-slate-50 border-y border-slate-200/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-teal-700 bg-teal-100 px-3 py-1 rounded-full">
-            Simple Process
-          </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-950 tracking-tight">
             ขั้นตอนการใช้บริการ Care Companion
           </h2>
@@ -53,7 +50,7 @@ export default function HowItWorks() {
               >
                 <div>
                   <div className="flex items-center justify-between mb-5">
-                    <span className="text-3xl font-black text-emerald-100 font-mono">
+                    <span className="text-3xl font-black text-emerald-600 font-mono">
                       {item.step}
                     </span>
                     <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center">

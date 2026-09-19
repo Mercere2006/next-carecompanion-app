@@ -8,6 +8,7 @@ import { BookingDetailData } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
 import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import Swal from 'sweetalert2';
 
 export default function CustomerDashboard() {
   const supabase = createClient();
@@ -33,15 +34,14 @@ export default function CustomerDashboard() {
         .select(`
           *,
           companion:profiles!bookings_companion_id_fkey(full_name, avatar_url, phone, email),
-          category:service_categories(id, name, icon),
-          review:reviews(id, rating, comment)
+          category:service_categories(*),
+          review:reviews(*)
         `)
         .eq('customer_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setBookings(data as unknown as BookingDetailData[]);
-      }
+      if (error) throw error;
+      setBookings((data as unknown as BookingDetailData[]) || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -54,7 +54,24 @@ export default function CustomerDashboard() {
   }, [fetchBookings]);
 
   const handleCancelBooking = async (bookingId: string) => {
-    if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำขอนี้?')) return;
+    const result = await Swal.fire({
+      title: 'ต้องการยกเลิกคำขอนี้ใช่หรือไม่?',
+      text: 'หากยกเลิกแล้ว คำขอนี้จะไม่ถูกดำเนินการต่อ คุณแน่ใจหรือไม่?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48', // rose-600
+      cancelButtonColor: '#64748b',  // slate-500
+      confirmButtonText: 'ใช่, ยกเลิกคำขอ',
+      cancelButtonText: 'ไม่, กลับไปก่อน',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl font-sans border border-gray-100',
+        confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+        cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+      },
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       const { error } = await supabase
@@ -63,9 +80,31 @@ export default function CustomerDashboard() {
         .eq('id', bookingId);
 
       if (error) throw error;
+
+      await Swal.fire({
+        title: 'ยกเลิกคำขอเรียบร้อยแล้ว',
+        icon: 'success',
+        confirmButtonColor: '#059669', // emerald-600
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
+
       fetchBookings();
     } catch (err) {
-      alert('ไม่สามารถยกเลิกได้: ' + (err as Error).message);
+      Swal.fire({
+        title: 'ไม่สามารถยกเลิกได้',
+        text: (err as Error).message,
+        icon: 'error',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
     }
   };
 
@@ -88,12 +127,33 @@ export default function CustomerDashboard() {
 
       if (error) throw error;
 
-      alert('ขอบคุณสำหรับคะแนนและรีวิวของคุณ!');
+      await Swal.fire({
+        title: 'บันทึกรีวิวสำเร็จ',
+        text: 'ขอบคุณสำหรับคะแนนและรีวิวของคุณ!',
+        icon: 'success',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
+
       setSelectedBookingForReview(null);
       setComment('');
       fetchBookings();
     } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + (err as Error).message);
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: (err as Error).message,
+        icon: 'error',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
     } finally {
       setSubmittingReview(false);
     }

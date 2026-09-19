@@ -1,14 +1,24 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import LocationPicker from '@/components/maps/LocationPicker';
 import { createClient } from '@/lib/supabase/client';
 import { formatPrice } from '@/lib/utils';
-import { Calendar, Clock, HeartHandshake, ShieldAlert, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  HeartHandshake,
+  ShieldAlert,
+  ArrowLeft,
+  CheckCircle2,
+  Sparkles,
+  LogIn,
+} from 'lucide-react';
 import Link from 'next/link';
+import Swal from 'sweetalert2';
 
 const SERVICE_CATEGORIES = [
   { id: 1, name: 'พบแพทย์ / ไปโรงพยาบาล' },
@@ -18,14 +28,9 @@ const SERVICE_CATEGORIES = [
   { id: 5, name: 'ธุระทั่วไปนอกบ้าน' },
 ];
 
-export default function BookingPage({
-  params,
-}: {
-  params: Promise<{ companionId: string }>;
-}) {
+function BookingForm({ companionId }: { companionId: string }) {
   const router = useRouter();
-  const resolvedParams = use(params);
-  const companionId = resolvedParams.companionId;
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -33,6 +38,7 @@ export default function BookingPage({
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [companionRate, setCompanionRate] = useState(250);
   const [companionName, setCompanionName] = useState('ผู้ช่วยร่วมเดินทาง');
+  const [isPrefilled, setIsPrefilled] = useState(false);
 
   // Form states
   const [categoryId, setCategoryId] = useState(1);
@@ -56,13 +62,10 @@ export default function BookingPage({
   useEffect(() => {
     async function loadData() {
       // 1. Check user auth
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // Must sign in
-        setUser(null);
-      } else {
-        setUser(user);
-      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user ? { id: user.id } : null);
 
       // 2. Load companion info
       if (!companionId.startsWith('demo-')) {
@@ -82,7 +85,63 @@ export default function BookingPage({
             setCompanionName(profileData.full_name);
           }
         }
+      } else if (companionId === 'demo-1') {
+        setCompanionName('คุณวิมล สุขเกษม');
+        setCompanionRate(250);
+      } else if (companionId === 'demo-2') {
+        setCompanionName('คุณประสิทธิ์ อิ่มเอิบ');
+        setCompanionRate(300);
+      } else if (companionId === 'demo-3') {
+        setCompanionName('คุณกานดา รุ่งเรือง');
+        setCompanionRate(280);
       }
+
+      // 3. Handle Pre-filling from Search Params or sessionStorage
+      let categoryParam = searchParams.get('category');
+      let areaParam = searchParams.get('area');
+      let needParam = searchParams.get('need');
+
+      if (typeof window !== 'undefined') {
+        try {
+          const saved = sessionStorage.getItem('pending_booking_requirements');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (!categoryParam && parsed.category) categoryParam = parsed.category;
+            if (!areaParam && parsed.area) areaParam = parsed.area;
+            if (!needParam && parsed.need) needParam = parsed.need;
+          }
+        } catch (e) {
+          console.error('Failed to parse sessionStorage requirements', e);
+        }
+      }
+
+      let hadPrefill = false;
+
+      if (categoryParam) {
+        hadPrefill = true;
+        const matched = SERVICE_CATEGORIES.find(
+          (c) =>
+            c.name.toLowerCase() === categoryParam?.toLowerCase() ||
+            categoryParam?.includes(c.name) ||
+            c.name.includes(categoryParam!)
+        );
+        if (matched) {
+          setCategoryId(matched.id);
+          setErrandTitle(`${matched.name}${areaParam ? ` (เขต${areaParam})` : ''}`);
+        }
+      }
+
+      if (areaParam) {
+        hadPrefill = true;
+        setOriginAddress(areaParam);
+      }
+
+      if (needParam) {
+        hadPrefill = true;
+        setSpecialNeeds(needParam);
+      }
+
+      setIsPrefilled(hadPrefill);
 
       // Default date to tomorrow
       const tomorrow = new Date();
@@ -93,17 +152,62 @@ export default function BookingPage({
     }
 
     loadData();
-  }, [companionId, supabase]);
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? { id: session.user.id } : null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [companionId, searchParams, supabase]);
+
+  const handleGoogleLogin = async () => {
+    // Save current form state to sessionStorage so nothing is lost upon redirect
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(
+        'pending_booking_requirements',
+        JSON.stringify({
+          companionId,
+          category: SERVICE_CATEGORIES.find((c) => c.id === categoryId)?.name || '',
+          area: originAddress,
+          need: specialNeeds,
+        })
+      );
+    }
+
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+          window.location.pathname + window.location.search
+        )}`,
+      },
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert('กรุณาเข้าสู่ระบบด้วย Google ก่อนทำการจองบริการ');
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.href,
+      await Swal.fire({
+        title: 'กรุณาเข้าสู่ระบบก่อนจอง',
+        text: 'ระบบจะนำคุณไปเข้าสู่ระบบด้วย Google และจะพาคุณกลับมาส่งคำขอนี้ต่อทันที',
+        icon: 'info',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'เข้าสู่ระบบด้วย Google',
+        showCancelButton: true,
+        cancelButtonText: 'ยกเลิก',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+          cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
         },
+      }).then((res) => {
+        if (res.isConfirmed) {
+          handleGoogleLogin();
+        }
       });
       return;
     }
@@ -140,7 +244,22 @@ export default function BookingPage({
 
       if (error) throw error;
 
-      alert('สร้างคำขอจองบริการเรียบร้อยแล้ว! กำลังนำคุณไปยังหน้าติดตามสถานะ');
+      // Clear pending storage
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('pending_booking_requirements');
+      }
+
+      await Swal.fire({
+        title: 'สร้างคำขอสำเร็จ!',
+        text: 'สร้างคำขอจองบริการเรียบร้อยแล้ว กำลังนำคุณไปยังหน้าติดตามสถานะ',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+        },
+      });
+
       router.push('/customer/dashboard');
     } catch (err: unknown) {
       console.error(err);
@@ -192,9 +311,45 @@ export default function BookingPage({
             </div>
           </div>
 
+          {/* Prefilled Info Badge */}
+          {isPrefilled && (
+            <div className="px-4 py-3 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-2xs">
+              <Sparkles className="w-5 h-5 text-teal-600 shrink-0" />
+              <span>
+                <strong>ดึงข้อมูลจากเงื่อนไขที่คุณค้นหาอัตโนมัติ:</strong> คุณสามารถปรับเปลี่ยนหรือเพิ่มเติมข้อมูลในแบบฟอร์มด้านล่างได้ตามต้องการ
+              </span>
+            </div>
+          )}
+
+          {/* Auth Warning Banner if not logged in */}
+          {!user && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
+                  <LogIn className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm sm:text-base text-gray-900">
+                    กรุณาเข้าสู่ระบบด้วย Google ก่อนส่งคำขอจอง
+                  </h4>
+                  <p className="text-xs text-gray-600">
+                    ข้อมูลที่คุณกรอกจะถูกเก็บไว้ และนำคุณกลับมาส่งคำขอต่อหลังเข้าสู่ระบบทันที
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm shrink-0 cursor-pointer active:scale-95"
+              >
+                เข้าสู่ระบบด้วย Google
+              </button>
+            </div>
+          )}
+
           {/* Ethical Disclaimer Warning */}
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 text-xs leading-relaxed flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
             <div>
               <strong>คำเตือนด้านความปลอดภัย:</strong> Companion มีหน้าที่อำนวยความสะดวกในการเดินทางและช่วยทำธุระเท่านั้น ไม่ใช่ผู้ให้บริการทางการแพทย์ หากผู้เดินทางมีโรคประจำตัวร้ายแรงหรือต้องการการดูแลพยาบาล กรุณามีผู้ดูแลหลักร่วมเดินทางด้วย
             </div>
@@ -217,11 +372,16 @@ export default function BookingPage({
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => setCategoryId(cat.id)}
-                    className={`px-4 py-3 rounded-xl border text-sm font-semibold text-left transition flex items-center justify-between ${
+                    onClick={() => {
+                      setCategoryId(cat.id);
+                      if (!errandTitle || errandTitle.startsWith('พบแพทย์') || errandTitle.startsWith('ติดต่อ') || errandTitle.startsWith('ซื้อ')) {
+                        setErrandTitle(`${cat.name}${originAddress ? ` (${originAddress})` : ''}`);
+                      }
+                    }}
+                    className={`px-4 py-3 rounded-xl border text-sm font-semibold text-left transition flex items-center justify-between cursor-pointer ${
                       categoryId === cat.id
                         ? 'border-emerald-600 bg-emerald-50 text-emerald-800 shadow-xs'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
                     }`}
                   >
                     <span>{cat.name}</span>
@@ -280,7 +440,7 @@ export default function BookingPage({
                     setOriginLat(lat);
                     setOriginLng(lng);
                   }}
-                  placeholder="เช่น คอนโด ลุมพินี พาร์ค พระราม 9"
+                  placeholder="เช่น คอนโด ลุมพินี พาร์ค พระราม 9 หรือ เขตบางกอกน้อย"
                 />
 
                 <LocationPicker
@@ -361,7 +521,7 @@ export default function BookingPage({
                 type="text"
                 value={specialNeeds}
                 onChange={(e) => setSpecialNeeds(e.target.value)}
-                placeholder="เช่น ใช้วีลแชร์ของตนเอง, เดินช้าต้องช่วยพยุง, ช่วยถือถุงของหนัก"
+                placeholder="เช่น ใช้วีลแชร์ของตนเอง, เดินช้าต้องช่วยพยุง, ต้องการคนมีรถยนต์ส่วนตัว"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-gray-900"
               />
             </div>
@@ -378,7 +538,7 @@ export default function BookingPage({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-700 text-white font-bold text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-700 text-white font-bold text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
               >
                 <HeartHandshake className="w-5 h-5" />
                 {submitting ? 'กำลังส่งคำขอ...' : 'ยืนยันการส่งคำขอจอง'}
@@ -390,5 +550,24 @@ export default function BookingPage({
 
       <Footer />
     </div>
+  );
+}
+
+export default function BookingPage({
+  params,
+}: {
+  params: Promise<{ companionId: string }>;
+}) {
+  const resolvedParams = use(params);
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <BookingForm companionId={resolvedParams.companionId} />
+    </Suspense>
   );
 }

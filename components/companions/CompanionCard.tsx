@@ -5,16 +5,20 @@ import { formatPrice } from '@/lib/utils';
 
 interface CompanionCardProps {
   companion: CompanionCardData;
+  onSelect?: (companion: CompanionCardData) => void;
 }
 
-export default function CompanionCard({ companion }: CompanionCardProps) {
+export default function CompanionCard({ companion, onSelect }: CompanionCardProps) {
   return (
     <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group">
       <div>
         {/* Top Header: Avatar & Rate */}
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-200 shrink-0">
+            <Link
+              href={`/companions/${companion.id}`}
+              className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-200 shrink-0 hover:scale-105 transition"
+            >
               {companion.profile?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -25,12 +29,15 @@ export default function CompanionCard({ companion }: CompanionCardProps) {
               ) : (
                 <User className="w-8 h-8 text-emerald-600" />
               )}
-            </div>
+            </Link>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="font-bold text-gray-950 text-lg group-hover:text-emerald-700 transition">
+                <Link
+                  href={`/companions/${companion.id}`}
+                  className="font-bold text-gray-950 text-lg group-hover:text-emerald-700 hover:underline transition"
+                >
                   {companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
-                </h3>
+                </Link>
                 {companion.verification_status === 'verified' && (
                   <span title="ยืนยันตัวตนผ่านบัตรประชาชนแล้ว">
                     <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -68,7 +75,7 @@ export default function CompanionCard({ companion }: CompanionCardProps) {
           </p>
         )}
 
-        {/* Available Schedule (ช่วงเวลาที่สะดวก - ตามโจทย์) */}
+        {/* Available Schedule */}
         {companion.available_schedule && (
           <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50/70 px-3 py-1.5 rounded-xl border border-emerald-100 mb-3">
             <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -107,13 +114,24 @@ export default function CompanionCard({ companion }: CompanionCardProps) {
       </div>
 
       {/* Action CTA */}
-      <Link
-        href={`/companions/${companion.id}`}
-        className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-emerald-200 hover:border-emerald-700 shadow-2xs"
-      >
-        เลือก Companion ท่านนี้
-        <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
-      </Link>
+      {onSelect ? (
+        <button
+          type="button"
+          onClick={() => onSelect(companion)}
+          className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-emerald-200 hover:border-emerald-700 shadow-2xs cursor-pointer active:scale-98"
+        >
+          เลือก Companion ท่านนี้
+          <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
+        </button>
+      ) : (
+        <Link
+          href={`/companions/${companion.id}`}
+          className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-emerald-200 hover:border-emerald-700 shadow-2xs"
+        >
+          เลือก Companion ท่านนี้
+          <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
+        </Link>
+      )}
     </div>
   );
 }

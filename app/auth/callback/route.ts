@@ -34,6 +34,10 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/companion/profile`);
         }
 
+        if (next && next !== '/') {
+          return NextResponse.redirect(`${origin}${next}`);
+        }
+
         if (profile?.role === 'admin') {
           return NextResponse.redirect(`${origin}/admin`);
         } else if (profile?.role === 'companion') {
