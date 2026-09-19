@@ -42,6 +42,7 @@ function BookingForm({ companionId }: { companionId: string }) {
 
   // Form states
   const [categoryId, setCategoryId] = useState(1);
+  const [customCategory, setCustomCategory] = useState('');
   const [errandTitle, setErrandTitle] = useState('');
   const [errandDetails, setErrandDetails] = useState('');
   const [originAddress, setOriginAddress] = useState('');
@@ -127,7 +128,13 @@ function BookingForm({ companionId }: { companionId: string }) {
         );
         if (matched) {
           setCategoryId(matched.id);
+          setCustomCategory('');
           setErrandTitle(`${matched.name}${areaParam ? ` (เขต${areaParam})` : ''}`);
+        } else {
+          // Custom errand type specified
+          setCategoryId(99);
+          setCustomCategory(categoryParam);
+          setErrandTitle(`${categoryParam}${areaParam ? ` (เขต${areaParam})` : ''}`);
         }
       }
 
@@ -171,7 +178,7 @@ function BookingForm({ companionId }: { companionId: string }) {
         'pending_booking_requirements',
         JSON.stringify({
           companionId,
-          category: SERVICE_CATEGORIES.find((c) => c.id === categoryId)?.name || '',
+          category: categoryId === 99 ? customCategory : (SERVICE_CATEGORIES.find((c) => c.id === categoryId)?.name || ''),
           area: originAddress,
           need: specialNeeds,
         })
@@ -225,9 +232,11 @@ function BookingForm({ companionId }: { companionId: string }) {
       const { error } = await supabase.from('bookings').insert({
         customer_id: user.id,
         companion_id: companionId.startsWith('demo-') ? user.id : companionId,
-        category_id: categoryId,
+        category_id: categoryId === 99 ? 5 : categoryId,
         errand_title: errandTitle,
-        errand_details: errandDetails,
+        errand_details: customCategory
+          ? `[ประเภทธุระระบุเอง: ${customCategory}] ${errandDetails}`.trim()
+          : errandDetails,
         origin_address: originAddress,
         origin_lat: originLat,
         origin_lng: originLng,
@@ -280,32 +289,32 @@ function BookingForm({ companionId }: { companionId: string }) {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 w-full min-w-0">
         <Link
           href={`/companions/${companionId}`}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-emerald-700 mb-6 transition"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-gray-500 hover:text-emerald-700 mb-4 sm:mb-6 transition"
         >
           <ArrowLeft className="w-4 h-4" />
           ย้อนกลับไปดูโปรไฟล์ผู้ช่วย
         </Link>
 
-        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-gray-200/80 shadow-lg space-y-8">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-gray-200/80 shadow-lg space-y-6 sm:space-y-8">
           {/* Header */}
-          <div className="border-b border-gray-100 pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+          <div className="border-b border-gray-100 pb-5 sm:pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
                 Booking Request
               </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 mt-2">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-gray-950 mt-2 break-words">
                 นัดหมายผู้ช่วยร่วมเดินทาง
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs sm:text-sm text-gray-600 mt-1">
                 ผู้ช่วยของคุณ: <strong className="text-emerald-700">{companionName}</strong> ({formatPrice(companionRate)}/ชม.)
               </p>
             </div>
-            <div className="text-right bg-emerald-50 px-5 py-3 rounded-2xl border border-emerald-200">
+            <div className="text-left sm:text-right bg-emerald-50 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-emerald-200 shrink-0 w-full sm:w-auto flex sm:block justify-between items-center">
               <span className="text-xs text-emerald-800 font-medium block">ประเมินราคารวม</span>
-              <span className="text-2xl font-black text-emerald-700">
+              <span className="text-xl sm:text-2xl font-black text-emerald-700">
                 {formatPrice(totalPrice)}
               </span>
             </div>
@@ -374,6 +383,7 @@ function BookingForm({ companionId }: { companionId: string }) {
                     type="button"
                     onClick={() => {
                       setCategoryId(cat.id);
+                      setCustomCategory('');
                       if (!errandTitle || errandTitle.startsWith('พบแพทย์') || errandTitle.startsWith('ติดต่อ') || errandTitle.startsWith('ซื้อ')) {
                         setErrandTitle(`${cat.name}${originAddress ? ` (${originAddress})` : ''}`);
                       }
@@ -390,7 +400,44 @@ function BookingForm({ companionId }: { companionId: string }) {
                     )}
                   </button>
                 ))}
+
+                {/* Custom / Other Category */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryId(99);
+                    if (customCategory) {
+                      setErrandTitle(`${customCategory}${originAddress ? ` (${originAddress})` : ''}`);
+                    }
+                  }}
+                  className={`px-4 py-3 rounded-xl border text-sm font-semibold text-left transition flex items-center justify-between cursor-pointer ${
+                    categoryId === 99
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800 shadow-xs'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
+                  }`}
+                >
+                  <span>✏️ อื่นๆ (ระบุเอง)</span>
+                  {categoryId === 99 && (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  )}
+                </button>
               </div>
+
+              {categoryId === 99 && (
+                <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <input
+                    type="text"
+                    required
+                    value={customCategory}
+                    onChange={(e) => {
+                      setCustomCategory(e.target.value);
+                      setErrandTitle(`${e.target.value}${originAddress ? ` (${originAddress})` : ''}`);
+                    }}
+                    placeholder="พิมพ์ระบุประเภทธุระของคุณ เช่น พาไปตัดแว่น, พาไปงานมงคล, ไปตรวจสายตา..."
+                    className="w-full px-4 py-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/40 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+              )}
             </div>
 
             {/* 2. Title & Details */}
@@ -513,10 +560,13 @@ function BookingForm({ companionId }: { companionId: string }) {
             </div>
 
             {/* 5. Special Needs */}
-            <div className="space-y-1.5">
-              <label className="block text-sm font-bold text-gray-900">
-                5. ความช่วยเหลือพิเศษ (ถ้ามี)
-              </label>
+            <div className="space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="block text-sm font-bold text-gray-900">
+                  5. ความช่วยเหลือพิเศษ (ถ้ามี)
+                </label>
+                <span className="text-xs text-gray-500">เลือกตัวเลือกด้านล่าง หรือพิมพ์ระบุเองได้</span>
+              </div>
               <input
                 type="text"
                 value={specialNeeds}
@@ -524,13 +574,46 @@ function BookingForm({ companionId }: { companionId: string }) {
                 placeholder="เช่น ใช้วีลแชร์ของตนเอง, เดินช้าต้องช่วยพยุง, ต้องการคนมีรถยนต์ส่วนตัว"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-gray-900"
               />
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-xs text-gray-500 font-medium">ตัวเลือกแนะนำ:</span>
+                {[
+                  'ช่วยพยุงเดิน',
+                  'ใช้วีลแชร์ / เข็นรถ',
+                  'มีรถยนต์ส่วนตัว',
+                  'สื่อสารภาษาอังกฤษ',
+                ].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      if (!specialNeeds) {
+                        setSpecialNeeds(tag);
+                      } else if (!specialNeeds.includes(tag)) {
+                        setSpecialNeeds(`${specialNeeds}, ${tag}`);
+                      }
+                    }}
+                    className="px-2.5 py-1 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200 transition font-medium cursor-pointer"
+                  >
+                    + {tag}
+                  </button>
+                ))}
+                {specialNeeds && (
+                  <button
+                    type="button"
+                    onClick={() => setSpecialNeeds('')}
+                    className="px-2 py-1 text-xs text-rose-600 hover:underline cursor-pointer ml-auto"
+                  >
+                    ล้างข้อความ
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Submit Action */}
-            <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div>
                 <span className="text-xs text-gray-500 block">ยอดรวมทั้งสิ้น (ชำระหลังเสร็จสิ้นภารกิจ)</span>
-                <span className="text-3xl font-black text-emerald-700">
+                <span className="text-2xl sm:text-3xl font-black text-emerald-700">
                   {formatPrice(totalPrice)}
                 </span>
               </div>
@@ -538,7 +621,7 @@ function BookingForm({ companionId }: { companionId: string }) {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-700 text-white font-bold text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-2xl bg-emerald-700 text-white font-bold text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
               >
                 <HeartHandshake className="w-5 h-5" />
                 {submitting ? 'กำลังส่งคำขอ...' : 'ยืนยันการส่งคำขอจอง'}

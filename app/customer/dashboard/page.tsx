@@ -163,21 +163,21 @@ export default function CustomerDashboard() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+      <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 w-full min-w-0">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight break-words">
               คำขอใช้บริการของฉัน
             </h1>
-            <p className="text-gray-600 text-sm mt-1">
+            <p className="text-gray-600 text-xs sm:text-sm mt-1">
               ติดตามสถานะการจอง ข้อมูลผู้ช่วยร่วมเดินทาง และประวัติการเดินทางของคุณ
             </p>
           </div>
 
           <Link
             href="/companions"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800 shadow-md shadow-emerald-200 transition"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800 shadow-md shadow-emerald-200 transition"
           >
             <Plus className="w-4 h-4" />
             จองผู้ช่วยร่วมเดินทางใหม่
@@ -192,19 +192,19 @@ export default function CustomerDashboard() {
             ))}
           </div>
         ) : bookings.length > 0 ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {bookings.map((booking) => {
               const statusInfo = getStatusBadgeInfo(booking.status);
 
               return (
                 <div
                   key={booking.id}
-                  className="bg-white rounded-3xl p-6 sm:p-7 border border-gray-200/80 shadow-xs space-y-5"
+                  className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 border border-gray-200/80 shadow-xs space-y-4 sm:space-y-5 min-w-0"
                 >
                   {/* Top Bar: Title, Category & Status */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
                           {booking.category?.name || 'ธุระทั่วไป'}
                         </span>
@@ -212,12 +212,12 @@ export default function CustomerDashboard() {
                           สร้างเมื่อ {formatThaiDate(booking.created_at)}
                         </span>
                       </div>
-                      <h2 className="text-xl font-bold text-gray-950 mt-1.5">
+                      <h2 className="text-lg sm:text-xl font-bold text-gray-950 mt-1.5 break-words">
                         {booking.errand_title}
                       </h2>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span
                         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusInfo.bgColor}`}
                       >
@@ -333,14 +333,14 @@ export default function CustomerDashboard() {
                   </div>
 
                   {/* Actions Bar */}
-                  <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                  <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     {/* Navigation Links */}
                     <div className="flex items-center gap-2">
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&origin=${booking.origin_lat || ''},${booking.origin_lng || ''}&destination=${booking.destination_lat || ''},${booking.destination_lng || ''}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
                       >
                         <Navigation className="w-3.5 h-3.5 text-blue-600" />
                         ดูเส้นทางบน Google Maps
@@ -348,11 +348,11 @@ export default function CustomerDashboard() {
                     </div>
 
                     {/* State Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-end gap-2">
                       {booking.status === 'pending' && (
                         <button
                           onClick={() => handleCancelBooking(booking.id)}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 transition"
+                          className="w-full sm:w-auto text-xs font-semibold px-4 py-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 transition cursor-pointer text-center"
                         >
                           ยกเลิกคำขอ
                         </button>
@@ -365,7 +365,7 @@ export default function CustomerDashboard() {
                             setRating(5);
                             setComment('');
                           }}
-                          className="text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition flex items-center gap-1.5"
+                          className="w-full sm:w-auto text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Star className="w-3.5 h-3.5 fill-white" />
                           ให้คะแนนและรีวิว

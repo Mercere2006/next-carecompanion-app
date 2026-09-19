@@ -65,23 +65,23 @@ export default async function CompanionDetailPage({
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 w-full min-w-0">
         {/* Back Link */}
         <Link
           href="/companions"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-emerald-700 mb-6 transition"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-gray-500 hover:text-emerald-700 mb-4 sm:mb-6 transition"
         >
           <ArrowLeft className="w-4 h-4" />
           ย้อนกลับไปหน้ารายชื่อ Companion
         </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Profile Info (Col 1 & 2) */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs space-y-6">
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-gray-200/80 shadow-xs space-y-5 sm:space-y-6">
               {/* Header */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                <div className="w-24 h-24 rounded-3xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-300 shrink-0 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-300 shrink-0 shadow-sm">
                   {companion.profile?.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -90,26 +90,26 @@ export default async function CompanionDetailPage({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="w-10 h-10 text-emerald-600" />
+                    <User className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" />
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-gray-950 break-words">
                       {companion.profile?.full_name}
                     </h1>
                     {companion.verification_status === 'verified' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold shrink-0">
                         <ShieldCheck className="w-4 h-4 text-emerald-700" />
                         Verified
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 font-medium">
+                  <p className="text-xs sm:text-sm text-gray-500 font-medium">
                     ผู้ให้บริการร่วมเดินทาง (Companion)
                   </p>
-                  <div className="flex items-center gap-3 text-xs text-gray-600 pt-1">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-600 pt-1">
                     <span className="flex items-center gap-1 text-amber-500 font-bold text-sm">
                       <Star className="w-4 h-4 fill-amber-400" />
                       {Number(companion.rating_avg).toFixed(1)}

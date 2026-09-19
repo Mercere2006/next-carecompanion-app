@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+
 @keyframes scanline {
   0% {
     top: 5%;

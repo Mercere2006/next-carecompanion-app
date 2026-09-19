@@ -342,18 +342,18 @@ export default function CompanionProfilePage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8">
+      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 w-full min-w-0 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold mb-2">
               <ScanFace className="w-3.5 h-3.5" />
               <span>ระบบยืนยันตัวตนและจัดการโปรไฟล์ผู้ช่วย</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight break-words">
               ตั้งค่าโปรไฟล์และเปิดรับงาน Companion
             </h1>
-            <p className="text-gray-600 text-sm mt-1">
+            <p className="text-gray-600 text-xs sm:text-sm mt-1">
               ผู้ช่วยต้องยืนยันตัวตนด้วยการสแกนใบหน้าก่อน จึงจะสามารถกรอกรายละเอียดและเปิดรับงานได้
             </p>
           </div>
@@ -361,7 +361,7 @@ export default function CompanionProfilePage() {
           {isVerified && (
             <Link
               href="/companion/dashboard"
-              className="px-5 py-2.5 rounded-xl bg-teal-700 text-white font-bold text-xs hover:bg-teal-800 shadow-md shadow-teal-200 transition shrink-0 inline-flex items-center gap-2"
+              className="w-full sm:w-auto justify-center px-5 py-2.5 rounded-xl bg-teal-700 text-white font-bold text-xs hover:bg-teal-800 shadow-md shadow-teal-200 transition shrink-0 inline-flex items-center gap-2"
             >
               <Briefcase className="w-4 h-4" />
               ไปยังแดชบอร์ดงานของฉัน ➔
@@ -371,25 +371,25 @@ export default function CompanionProfilePage() {
 
         {/* Alerts */}
         {successMsg && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2 shadow-xs">
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-center gap-2 shadow-xs">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
         {errorMsg && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2 shadow-xs">
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center gap-2 shadow-xs">
             <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {/* STEP 1: FACE SCAN VERIFICATION (Mandatory Step) */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-teal-100 shadow-lg shadow-teal-50 space-y-6">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 border-2 border-teal-100 shadow-lg shadow-teal-50 space-y-5 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
               <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center font-extrabold text-lg ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 ${
                   isVerified
                     ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-teal-100 text-teal-800'
@@ -397,13 +397,13 @@ export default function CompanionProfilePage() {
               >
                 {isVerified ? <CheckCircle2 className="w-6 h-6" /> : <ScanFace className="w-6 h-6" />}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-extrabold text-gray-900">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-extrabold text-gray-900 break-words">
                     ขั้นตอนที่ 1: ยืนยันตัวตนด้วยการสแกนใบหน้า (Face Scan)
                   </h2>
                   <span
-                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 ${
                       isVerified
                         ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-amber-100 text-amber-800'
@@ -424,7 +424,7 @@ export default function CompanionProfilePage() {
                   setVerificationStatus('pending');
                   setCameraActive(false);
                 }}
-                className="text-xs font-semibold text-gray-500 hover:text-teal-700 flex items-center gap-1 self-start sm:self-center"
+                className="text-xs font-semibold text-gray-500 hover:text-teal-700 flex items-center gap-1 self-start sm:self-center cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 สแกนใบหน้าใหม่
@@ -608,12 +608,12 @@ export default function CompanionProfilePage() {
           {/* Main Details Form */}
           <form
             onSubmit={handleSaveProfile}
-            className={`bg-white rounded-3xl p-6 sm:p-10 border border-gray-200/80 shadow-xs space-y-6 transition-all ${
+            className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-gray-200/80 shadow-xs space-y-5 sm:space-y-6 transition-all ${
               !isVerified ? 'opacity-40 pointer-events-none select-none' : 'opacity-100'
             }`}
           >
             <div className="border-b border-gray-100 pb-3">
-              <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-extrabold text-gray-900 flex items-center gap-2">
                 <span>ขั้นตอนที่ 2: กรอกรายละเอียดการให้บริการ (Companion Details)</span>
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -746,7 +746,7 @@ export default function CompanionProfilePage() {
               <button
                 type="submit"
                 disabled={saving || !isVerified}
-                className="px-8 py-3.5 rounded-2xl bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 transition shadow-md shadow-teal-200 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto justify-center px-8 py-3.5 rounded-2xl bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 transition shadow-md shadow-teal-200 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลโปรไฟล์'}

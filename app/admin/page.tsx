@@ -172,50 +172,50 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 w-full min-w-0 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <span className="text-xs font-bold uppercase tracking-widest text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
               Platform Administration
             </span>
-            <h1 className="text-3xl font-extrabold text-gray-950 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 mt-1 break-words">
               แผงควบคุมผู้ดูแลระบบ (Admin)
             </h1>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs sm:text-sm text-gray-600">
               บริหารจัดการผู้ใช้งาน อนุมัติเอกสาร Companion และติดตามความเรียบร้อยของแพลตฟอร์ม
             </p>
           </div>
         </div>
 
         {/* Top Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">ผู้ใช้ทั้งหมด</span>
-            <span className="text-3xl font-black text-gray-900">{users.length} คน</span>
+            <span className="text-2xl sm:text-3xl font-black text-gray-900">{users.length} คน</span>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">Companion ในระบบ</span>
-            <span className="text-3xl font-black text-teal-700">{companions.length} คน</span>
+            <span className="text-2xl sm:text-3xl font-black text-teal-700">{companions.length} คน</span>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-amber-200 bg-amber-50/40 shadow-xs">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-amber-200 bg-amber-50/40 shadow-xs">
             <span className="text-xs font-bold text-amber-800 block mb-1">รอตรวจเอกสาร (Pending)</span>
-            <span className="text-3xl font-black text-amber-600">{pendingVerificationCount} คน</span>
+            <span className="text-2xl sm:text-3xl font-black text-amber-600">{pendingVerificationCount} คน</span>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">การจองทั้งหมด</span>
-            <span className="text-3xl font-black text-emerald-700">{bookings.length} รายการ</span>
+            <span className="text-2xl sm:text-3xl font-black text-emerald-700">{bookings.length} รายการ</span>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-gray-200">
+        <div className="flex items-center gap-2 border-b border-gray-200 overflow-x-auto pb-px">
           <button
             onClick={() => setActiveTab('verification')}
-            className={`px-5 py-3 font-bold text-sm border-b-2 transition flex items-center gap-2 ${
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 ${
               activeTab === 'verification'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -227,7 +227,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-5 py-3 font-bold text-sm border-b-2 transition flex items-center gap-2 ${
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 ${
               activeTab === 'users'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -239,7 +239,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('bookings')}
-            className={`px-5 py-3 font-bold text-sm border-b-2 transition flex items-center gap-2 ${
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 ${
               activeTab === 'bookings'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'

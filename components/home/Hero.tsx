@@ -56,7 +56,7 @@ export default function Hero() {
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Main Title */}
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-950 max-w-4xl mx-auto leading-normal sm:leading-relaxed">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-gray-950 max-w-4xl mx-auto leading-tight sm:leading-relaxed break-words">
           <span className="block">เพื่อนร่วมทางที่คุณไว้วางใจ</span>
           <span className="block mt-2 sm:mt-3 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent pb-1">
             อุ่นใจทุกก้าวที่ไปทำธุระ
@@ -64,12 +64,12 @@ export default function Hero() {
         </h1>
 
         {/* Description */}
-        <p className="mt-6 text-base sm:text-lg text-gray-700 font-medium max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-4 sm:mt-6 text-sm sm:text-lg text-gray-700 font-medium max-w-2xl mx-auto leading-relaxed">
           บริการผู้ช่วยร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่เดินทางคนเดียวไม่สะดวก ช่วยดูแลอำนวยความสะดวกในการไปพบแพทย์ ทำธุรกรรมธนาคาร ติดต่อราชการ หรือซื้อของนอกบ้าน
         </p>
 
         {/* Main Action Buttons: Stacked vertically with wider bars */}
-        <div className="mt-9 flex flex-col items-center justify-center gap-3.5 max-w-md mx-auto w-full">
+        <div className="mt-7 sm:mt-9 flex flex-col items-center justify-center gap-3 sm:gap-3.5 max-w-md mx-auto w-full">
           <Link
             href="/companions"
             className="w-full py-4 px-8 rounded-2xl bg-emerald-700 text-white text-base sm:text-lg font-bold hover:bg-emerald-800 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-3 active:scale-95 cursor-pointer"

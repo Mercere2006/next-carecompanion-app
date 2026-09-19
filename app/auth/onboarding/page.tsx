@@ -118,17 +118,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-      <div className="max-w-xl w-full bg-white rounded-3xl p-8 sm:p-10 shadow-xl border border-gray-100 space-y-8">
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 to-slate-100 py-6 sm:py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="max-w-xl w-full bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-10 shadow-xl border border-gray-100 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
-            <HeartHandshake className="w-8 h-8" />
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
+            <HeartHandshake className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950">
+          <h1 className="text-xl sm:text-3xl font-extrabold text-gray-950 break-words">
             ยินดีต้อนรับสู่ Care Companion
           </h1>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 text-xs sm:text-sm">
             กรุณาเลือกบทบาทของคุณและกรอกข้อมูลเบื้องต้นเพื่อเริ่มใช้งาน
           </p>
         </div>
@@ -139,13 +139,13 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
           {/* Role Selection */}
           <div className="space-y-3">
             <label className="block text-sm font-bold text-gray-800">
               เลือกบทบาทของคุณในระบบ <span className="text-rose-500">*</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* Option Customer */}
               <button
                 type="button"

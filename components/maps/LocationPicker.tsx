@@ -110,10 +110,10 @@ export default function LocationPicker({
               key={idx}
               type="button"
               onClick={() => handleSelectQuickLocation(loc)}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-emerald-50 hover:text-emerald-800 text-gray-700 transition flex items-center justify-between"
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-emerald-50 hover:text-emerald-800 text-gray-700 transition flex items-center justify-between gap-2 min-w-0"
             >
-              <span>{loc.name}</span>
-              <span className="text-gray-400 text-[10px]">
+              <span className="truncate min-w-0 flex-1">{loc.name}</span>
+              <span className="text-gray-400 text-[10px] shrink-0">
                 {loc.lat}, {loc.lng}
               </span>
             </button>
@@ -121,7 +121,7 @@ export default function LocationPicker({
           <button
             type="button"
             onClick={() => setShowQuickPick(false)}
-            className="w-full text-center py-1 text-gray-500 hover:text-gray-700 font-medium"
+            className="w-full text-center py-1 text-gray-500 hover:text-gray-700 font-medium cursor-pointer"
           >
             ปิดตัวเลือก
           </button>
@@ -130,7 +130,7 @@ export default function LocationPicker({
 
       {/* Lat/Lng indicator */}
       {lat && lng ? (
-        <div className="flex items-center justify-between text-[11px] text-gray-500 px-1">
+        <div className="flex items-center justify-between text-[11px] text-gray-500 px-1 flex-wrap gap-1">
           <span>พิกัด GPS ปักหมุด:</span>
           <span className="font-mono text-emerald-700 font-medium">
             Lat: {lat}, Lng: {lng}

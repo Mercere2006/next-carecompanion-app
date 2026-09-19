@@ -10,14 +10,14 @@ interface CompanionCardProps {
 
 export default function CompanionCard({ companion, onSelect }: CompanionCardProps) {
   return (
-    <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group">
-      <div>
+    <div className="bg-white rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden">
+      <div className="min-w-0">
         {/* Top Header: Avatar & Rate */}
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex items-center gap-3.5">
+        <div className="flex items-start justify-between gap-2 mb-3 sm:mb-4 min-w-0">
+          <div className="flex items-start gap-2.5 sm:gap-3.5 min-w-0 flex-1">
             <Link
               href={`/companions/${companion.id}`}
-              className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-200 shrink-0 hover:scale-105 transition"
+              className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-200 shrink-0 hover:scale-105 transition"
             >
               {companion.profile?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -27,44 +27,44 @@ export default function CompanionCard({ companion, onSelect }: CompanionCardProp
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User className="w-8 h-8 text-emerald-600" />
+                <User className="w-5 h-5 sm:w-8 sm:h-8 text-emerald-600" />
               )}
             </Link>
-            <div>
-              <div className="flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1 min-w-0">
                 <Link
                   href={`/companions/${companion.id}`}
-                  className="font-bold text-gray-950 text-lg group-hover:text-emerald-700 hover:underline transition"
+                  className="font-bold text-gray-950 text-sm sm:text-base md:text-lg group-hover:text-emerald-700 hover:underline transition truncate block"
                 >
                   {companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
                 </Link>
                 {companion.verification_status === 'verified' && (
-                  <span title="ยืนยันตัวตนผ่านบัตรประชาชนแล้ว">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span title="ยืนยันตัวตนผ่านบัตรประชาชนแล้ว" className="shrink-0">
+                    <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                <span className="flex items-center gap-1 text-amber-500 font-bold">
-                  <Star className="w-3.5 h-3.5 fill-amber-400" />
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-gray-500 min-w-0">
+                <span className="flex items-center gap-0.5 text-amber-500 font-bold shrink-0">
+                  <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-amber-400" />
                   {companion.rating_avg.toFixed(1)}
                 </span>
                 <span>•</span>
-                <span>({companion.rating_count} รีวิว)</span>
+                <span className="shrink-0">({companion.rating_count} รีวิว)</span>
                 <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Briefcase className="w-3.5 h-3.5 text-gray-400" />
+                <span className="flex items-center gap-0.5 shrink-0">
+                  <Briefcase className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400" />
                   {companion.experience_years} ปี
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="text-right shrink-0">
-            <span className="text-xl font-black text-emerald-700">
+          <div className="text-right shrink-0 pl-1">
+            <span className="text-base sm:text-xl font-black text-emerald-700 block">
               {formatPrice(companion.hourly_rate)}
             </span>
-            <span className="text-xs text-gray-400 block font-medium">/ ชั่วโมง</span>
+            <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">/ ชั่วโมง</span>
           </div>
         </div>
 
@@ -120,7 +120,7 @@ export default function CompanionCard({ companion, onSelect }: CompanionCardProp
           onClick={() => onSelect(companion)}
           className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-emerald-200 hover:border-emerald-700 shadow-2xs cursor-pointer active:scale-98"
         >
-          เลือก Companion ท่านนี้
+          เลือกผู้ช่วยท่านนี้
           <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
         </button>
       ) : (
@@ -128,7 +128,7 @@ export default function CompanionCard({ companion, onSelect }: CompanionCardProp
           href={`/companions/${companion.id}`}
           className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-emerald-200 hover:border-emerald-700 shadow-2xs"
         >
-          เลือก Companion ท่านนี้
+          เลือกผู้ช่วยท่านนี้
           <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
         </Link>
       )}

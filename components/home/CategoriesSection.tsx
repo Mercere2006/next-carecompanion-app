@@ -46,24 +46,24 @@ const categories = [
 
 export default function CategoriesSection() {
   return (
-    <section id="categories" className="py-20 bg-white">
+    <section id="categories" className="py-12 sm:py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-950 tracking-tight">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16 space-y-2 sm:space-y-3">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-950 tracking-tight break-words">
             ประเภทธุระที่ให้บริการร่วมเดินทาง
           </h2>
-          <p className="text-gray-600 text-lg leading-relaxed">
-            เลือกประเภทธุระที่คุณต้องการความช่วยเหลือ Companion ของเราพร้อมดูแลอำนวยความสะดวกตลอดเส้นทาง
+          <p className="text-gray-600 text-sm sm:text-lg leading-relaxed">
+            เลือกประเภทธุระที่คุณต้องการความช่วยเหลือ ผู้ช่วยของเราพร้อมดูแลอำนวยความสะดวกตลอดเส้นทาง
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
           {categories.map((cat) => {
             const Icon = cat.icon;
             return (
               <div
                 key={cat.id}
-                className="group relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-200 transition-all duration-300 flex flex-col justify-between"
+                className="group relative bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-200 transition-all duration-300 flex flex-col justify-between min-w-0"
               >
                 <div>
                   <div className="flex items-center justify-between mb-6">

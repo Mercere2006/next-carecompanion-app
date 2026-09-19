@@ -29,24 +29,24 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20 bg-slate-50 border-y border-slate-200/60">
+    <section id="how-it-works" className="py-12 sm:py-20 bg-slate-50 border-y border-slate-200/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-950 tracking-tight">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16 space-y-2 sm:space-y-3">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-950 tracking-tight break-words">
             ขั้นตอนการใช้บริการ Care Companion
           </h2>
-          <p className="text-gray-600 text-lg leading-relaxed">
+          <p className="text-gray-600 text-sm sm:text-lg leading-relaxed">
             ออกแบบให้ใช้งานง่าย ทั้งสำหรับผู้สูงอายุและลูกหลานที่ต้องการจองแทน
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
           {steps.map((item, idx) => {
             const Icon = item.icon;
             return (
               <div
                 key={idx}
-                className="bg-white rounded-3xl p-7 border border-gray-200/70 shadow-xs relative flex flex-col justify-between hover:-translate-y-1 transition duration-200"
+                className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-gray-200/70 shadow-xs relative flex flex-col justify-between hover:-translate-y-1 transition duration-200 min-w-0"
               >
                 <div>
                   <div className="flex items-center justify-between mb-5">
