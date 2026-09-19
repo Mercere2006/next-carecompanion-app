@@ -50,7 +50,10 @@ export default function CustomerDashboard() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchBookings();
+    async function init() {
+      await fetchBookings();
+    }
+    init();
   }, [fetchBookings]);
 
   const handleCancelBooking = async (bookingId: string) => {

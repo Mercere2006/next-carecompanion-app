@@ -36,7 +36,7 @@ const categories = [
   },
   {
     id: 5,
-    name: 'ธุระทั่วไปนอกบ้าน',
+    name: 'ธุระทั่วไป',
     desc: 'ไปงานบุญ งานพิธี พบปะเพื่อนฝูง หรือทำธุระส่วนตัวอื่นๆ ที่ต้องการเพื่อนร่วมทางดูแล',
     icon: MapPinned,
     color: 'bg-purple-50 text-purple-600 border-purple-150 group-hover:bg-purple-600 group-hover:text-white',

@@ -22,6 +22,8 @@ export interface Profile {
 }
 
 // 2. Companion Profile Type
+export type VehicleType = 'none' | 'motorcycle' | 'car';
+
 export interface CompanionProfile {
   id: string;
   bio: string | null;
@@ -35,6 +37,10 @@ export interface CompanionProfile {
   rating_avg: number;
   rating_count: number;
   is_available: boolean;
+  phone_verified?: boolean;
+  vehicle_type?: VehicleType;
+  vehicle_model?: string | null; // เช่น "Honda City สีขาว" หรือ "Yamaha Grand Filano สีฟ้า"
+  vehicle_plate?: string | null; // เช่น "1กข 1234 กทม."
   updated_at: string;
 }
 

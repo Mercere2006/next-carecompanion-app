@@ -32,7 +32,7 @@ export default function Footer() {
               <span className="text-xl font-bold text-white tracking-tight">Care Companion</span>
             </div>
             <p className="text-slate-400 text-sm max-w-md leading-relaxed">
-              แพลตฟอร์มกลางเชื่อมโยงระหว่างผู้ที่ต้องการเพื่อนร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่ต้องการความช่วยเหลือ กับผู้ช่วยร่วมเดินทางมืออาชีพที่ผ่านการตรวจสอบตัวตน อุ่นใจทุกก้าวที่ไปทำธุระนอกบ้าน
+              แพลตฟอร์มกลางเชื่อมโยงระหว่างผู้ที่ต้องการเพื่อนร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่ต้องการความช่วยเหลือ กับผู้ช่วยร่วมเดินทางมืออาชีพที่ผ่านการตรวจสอบตัวตน อุ่นใจทุกก้าวที่ไปทำธุระ
             </p>
             <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-400 pt-2 flex-wrap">
               <PhoneCall className="w-4 h-4 text-emerald-400 shrink-0" />

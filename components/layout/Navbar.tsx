@@ -1,21 +1,58 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/types/database';
-import { HeartHandshake, User, LogOut, Menu, X, Shield, Calendar, Search, Sparkles, Briefcase } from 'lucide-react';
+import { HeartHandshake, User, LogOut, Menu, X, Shield, Calendar, Search, Briefcase, ChevronDown } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isCompanion, setIsCompanion] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  // Close user dropdown menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   useEffect(() => {
     async function loadUser() {
       try {
+        if (typeof window !== 'undefined' && window.location.search.includes('demo_user=1')) {
+          setProfile({
+            id: 'demo-user-1',
+            full_name: 'นายพฤกษ์ธกร วิสุทธินันท์',
+            email: 'pruek@example.com',
+            phone: '0812345678',
+            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+            role: 'companion',
+            emergency_phone: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+          setIsCompanion(true);
+          setLoading(false);
+          return;
+        }
+
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data } = await supabase
@@ -65,7 +102,8 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/';
+    router.push('/');
+    router.refresh();
   };
 
   return (
@@ -114,34 +152,6 @@ export default function Navbar() {
               <div className="w-8 h-8 bg-gray-100 animate-pulse rounded-full" />
             ) : profile ? (
               <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-                {/* Customer Trips Link */}
-                <Link
-                  href="/customer/dashboard"
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 font-semibold text-xs hover:bg-emerald-100 border border-emerald-200 transition"
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  คำขอของฉัน
-                </Link>
-
-                {/* Mode Switch: If companion -> Companion Dashboard; If not yet -> Become Companion */}
-                {isCompanion ? (
-                  <Link
-                    href="/companion/dashboard"
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 text-teal-800 font-semibold text-xs hover:bg-teal-100 border border-teal-200 transition"
-                  >
-                    <Briefcase className="w-3.5 h-3.5 text-teal-600" />
-                    งาน Companion ของฉัน
-                  </Link>
-                ) : (
-                  <Link
-                    href="/companion/profile"
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 text-teal-800 font-semibold text-xs hover:bg-teal-100 border border-teal-200 transition"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-teal-600" />
-                    ยืนยันตัวตนเพื่อรับงาน
-                  </Link>
-                )}
-
                 {/* Admin Link if admin */}
                 {profile.role === 'admin' && (
                   <Link
@@ -153,38 +163,111 @@ export default function Navbar() {
                   </Link>
                 )}
 
-                {/* User Dropdown Profile info */}
-                <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-300">
-                    {profile.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profile.avatar_url} alt={profile.full_name || 'User'} className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div className="text-left leading-tight pr-1">
-                    <p className="text-xs font-bold text-gray-800 max-w-[110px] truncate">
-                      {profile.full_name || 'ผู้ใช้งาน'}
-                    </p>
-                    <span className="text-[10px] text-gray-400 capitalize">
-                      {isCompanion ? 'Customer & Companion' : 'Customer'}
-                    </span>
-                  </div>
+                {/* Real-time Notification Bell for Incoming Customer Requests */}
+                <NotificationBell userId={profile.id} />
+
+                {/* User Profile Menu with Dropdown */}
+                <div className="relative" ref={userMenuRef}>
                   <button
-                    onClick={handleLogout}
-                    title="ออกจากระบบ"
-                    className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                    type="button"
+                    onClick={() => setUserMenuOpen((prev) => !prev)}
+                    className="flex items-center gap-2 p-1.5 pr-2.5 rounded-2xl hover:bg-gray-100/80 transition cursor-pointer border border-transparent hover:border-gray-200"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-300 shrink-0">
+                      {profile.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={profile.avatar_url} alt={profile.full_name || 'User'} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="text-left leading-tight hidden lg:block">
+                      <p className="text-xs font-bold text-gray-800 max-w-[120px] truncate">
+                        {profile.full_name || 'ผู้ใช้งาน'}
+                      </p>
+                      <span className="text-[10px] text-gray-400 capitalize">
+                        {isCompanion ? 'Customer & Companion' : 'Customer'}
+                      </span>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
+
+                  {/* Dropdown Menu */}
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-4 py-2.5 border-b border-gray-100">
+                        <p className="text-xs font-bold text-gray-900 truncate">{profile.full_name || 'ผู้ใช้งาน'}</p>
+                        <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          {isCompanion ? 'Customer & Companion' : 'Customer'}
+                        </span>
+                      </div>
+
+                      <div className="py-1">
+                        {isCompanion ? (
+                          <Link
+                            href="/companion/dashboard"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                          >
+                            <Briefcase className="w-4 h-4 text-teal-600" />
+                            งาน Companion ของฉัน
+                          </Link>
+                        ) : (
+                          <Link
+                            href="/companion/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition"
+                          >
+                            <Shield className="w-4 h-4 text-teal-600" />
+                            สมัคร/ยืนยันตัวตน Companion
+                          </Link>
+                        )}
+
+                        <Link
+                          href="/customer/dashboard"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                        >
+                          <Calendar className="w-4 h-4 text-emerald-600" />
+                          คำขอของฉัน (Customer)
+                        </Link>
+
+                        {isCompanion && (
+                          <Link
+                            href="/companion/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                          >
+                            <User className="w-4 h-4 text-gray-400" />
+                            จัดการข้อมูลโปรไฟล์ผู้ช่วย
+                          </Link>
+                        )}
+                      </div>
+
+                      <div className="border-t border-gray-100 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            handleLogout();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          ออกจากระบบ
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="flex md:hidden items-center">
+          {/* Mobile Menu & Quick Notification Button */}
+          <div className="flex md:hidden items-center gap-2">
+            {profile && <NotificationBell userId={profile.id} />}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-xl text-gray-900 bg-white/70 hover:bg-white border border-gray-200/80 shadow-2xs transition"

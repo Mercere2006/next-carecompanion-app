@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, ArrowRight, Calendar } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 import Image from 'next/image';
@@ -65,7 +65,7 @@ export default function Hero() {
 
         {/* Description */}
         <p className="mt-4 sm:mt-6 text-sm sm:text-lg text-gray-700 font-medium max-w-2xl mx-auto leading-relaxed">
-          บริการผู้ช่วยร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่เดินทางคนเดียวไม่สะดวก ช่วยดูแลอำนวยความสะดวกในการไปพบแพทย์ ทำธุรกรรมธนาคาร ติดต่อราชการ หรือซื้อของนอกบ้าน
+          บริการผู้ช่วยร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่เดินทางคนเดียวไม่สะดวก ช่วยดูแลอำนวยความสะดวกในการไปพบแพทย์ ทำธุรกรรมธนาคาร ติดต่อราชการ ซื้อของ หรือทำธุระทั่วไป
         </p>
 
         {/* Main Action Buttons: Stacked vertically with wider bars */}

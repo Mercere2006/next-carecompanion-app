@@ -45,7 +45,10 @@ export default function CompanionDashboard() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchCompanionBookings();
+    async function init() {
+      await fetchCompanionBookings();
+    }
+    init();
   }, [fetchCompanionBookings]);
 
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {

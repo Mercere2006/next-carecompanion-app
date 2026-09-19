@@ -1,14 +1,19 @@
 import Link from 'next/link';
 import { CompanionCardData } from '@/types/database';
-import { ShieldCheck, Star, MapPin, Briefcase, ChevronRight, User, Clock } from 'lucide-react';
+import { ShieldCheck, Star, MapPin, Briefcase, ChevronRight, User, Clock, Lock } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
 interface CompanionCardProps {
   companion: CompanionCardData;
   onSelect?: (companion: CompanionCardData) => void;
+  currentUser?: { id: string } | null;
 }
 
-export default function CompanionCard({ companion, onSelect }: CompanionCardProps) {
+export default function CompanionCard({
+  companion,
+  onSelect,
+  currentUser,
+}: CompanionCardProps) {
   return (
     <div className="bg-white rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden">
       <div className="min-w-0">
@@ -39,7 +44,10 @@ export default function CompanionCard({ companion, onSelect }: CompanionCardProp
                   {companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
                 </Link>
                 {companion.verification_status === 'verified' && (
-                  <span title="ยืนยันตัวตนผ่านบัตรประชาชนแล้ว" className="shrink-0">
+                  <span
+                    title="ยืนยันตัวตนด้วยสแกนใบหน้าและเบอร์โทรศัพท์แล้ว"
+                    className="shrink-0 text-emerald-600"
+                  >
                     <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                   </span>
                 )}
@@ -75,9 +83,59 @@ export default function CompanionCard({ companion, onSelect }: CompanionCardProp
           </p>
         )}
 
+        {/* Vehicle Information with Privacy Auth Gate */}
+        {companion.vehicle_type === 'car' ? (
+          <div className="flex items-center justify-between gap-1.5 text-xs bg-emerald-50/70 px-3 py-2 rounded-xl border border-emerald-100 mb-3 min-w-0">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="text-base shrink-0">🚗</span>
+              <span className="font-bold text-gray-800 truncate">
+                {companion.vehicle_model || 'รถยนต์ส่วนตัว'}
+              </span>
+            </div>
+            <div className="shrink-0 text-[11px]">
+              {currentUser ? (
+                <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                  {companion.vehicle_plate || 'มีทะเบียนรถ'}
+                </span>
+              ) : (
+                <span className="text-gray-500 font-medium flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-md border border-gray-200">
+                  <Lock className="w-3 h-3 text-gray-400" />
+                  <span>เข้าสู่ระบบเพื่อดูทะเบียน</span>
+                </span>
+              )}
+            </div>
+          </div>
+        ) : companion.vehicle_type === 'motorcycle' ? (
+          <div className="flex items-center justify-between gap-1.5 text-xs bg-amber-50/70 px-3 py-2 rounded-xl border border-amber-100 mb-3 min-w-0">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="text-base shrink-0">🛵</span>
+              <span className="font-bold text-gray-800 truncate">
+                {companion.vehicle_model || 'รถมอเตอร์ไซค์'}
+              </span>
+            </div>
+            <div className="shrink-0 text-[11px]">
+              {currentUser ? (
+                <span className="font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200">
+                  {companion.vehicle_plate || 'มีทะเบียนรถ'}
+                </span>
+              ) : (
+                <span className="text-gray-500 font-medium flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-md border border-gray-200">
+                  <Lock className="w-3 h-3 text-gray-400" />
+                  <span>เข้าสู่ระบบเพื่อดูทะเบียน</span>
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80 mb-3 min-w-0">
+            <span className="text-sm shrink-0">🚶</span>
+            <span className="truncate text-gray-600">ร่วมเดินทางด้วยระบบขนส่งสาธารณะ (BTS/MRT/แท็กซี่)</span>
+          </div>
+        )}
+
         {/* Available Schedule */}
         {companion.available_schedule && (
-          <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50/70 px-3 py-1.5 rounded-xl border border-emerald-100 mb-3">
+          <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50/50 px-3 py-1.5 rounded-xl border border-emerald-100/80 mb-3">
             <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="truncate">สะดวก: {companion.available_schedule}</span>
           </div>

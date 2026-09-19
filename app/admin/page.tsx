@@ -6,7 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, CompanionCardData, BookingDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Shield, Users, CheckCircle2, XCircle, FileText, Calendar, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Shield, Users, FileText, Calendar, AlertTriangle, ExternalLink } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
@@ -82,7 +82,10 @@ export default function AdminDashboardPage() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchAdminData();
+    async function init() {
+      await fetchAdminData();
+    }
+    init();
   }, [fetchAdminData]);
 
   const handleVerifyCompanion = async (companionId: string, status: 'verified' | 'rejected') => {
