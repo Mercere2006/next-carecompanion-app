@@ -9,13 +9,20 @@ import { useCompanionFilter } from "./search/useCompanionFilter";
 import SearchFilterBox from "./search/SearchFilterBox";
 import LoginRequiredModal from "./search/LoginRequiredModal";
 
+import {
+  SERVICE_CATEGORIES,
+  CATEGORY_OPTIONS,
+  SPECIAL_NEED_OPTIONS,
+  MOCK_COMPANIONS,
+} from "./search/constants";
+
 // Re-export constants for full backward compatibility
 export {
   SERVICE_CATEGORIES,
   CATEGORY_OPTIONS,
   SPECIAL_NEED_OPTIONS,
   MOCK_COMPANIONS,
-} from "./search/constants";
+};
 
 interface CompanionSearchSectionProps {
   id?: string;
@@ -38,7 +45,7 @@ export default function CompanionSearchSection({
   const [selectedCompanionForBooking, setSelectedCompanionForBooking] =
     useState<CompanionCardData | null>(null);
 
-  // Hook for filtering & search states
+  // Hook for filtering & search states (exclude current user so "companion คนอื่น ๆ" are shown)
   const {
     selectedCategory,
     setSelectedCategory,
@@ -53,7 +60,7 @@ export default function CompanionSearchSection({
     filteredCompanions,
     hasActiveFilters,
     resetFilters,
-  } = useCompanionFilter(companions);
+  } = useCompanionFilter(companions, currentUser?.id);
 
   useEffect(() => {
     async function loadInitial() {
@@ -63,7 +70,7 @@ export default function CompanionSearchSection({
       } = await supabase.auth.getUser();
       setCurrentUser(user ? { id: user.id } : null);
 
-      // 2. Fetch companions
+      // 2. Fetch companions from DB and merge with fallback companions
       try {
         const { data, error } = await supabase
           .from("companion_profiles")
@@ -75,13 +82,18 @@ export default function CompanionSearchSection({
           )
           .eq("is_available", true);
 
-        if (!error && data) {
-          setCompanions(data as unknown as CompanionCardData[]);
+        if (!error && data && data.length > 0) {
+          const realIds = new Set(data.map((c: any) => c.id));
+          const complementaryMocks = MOCK_COMPANIONS.filter((m) => !realIds.has(m.id));
+          setCompanions([
+            ...(data as unknown as CompanionCardData[]),
+            ...complementaryMocks,
+          ]);
         } else {
-          setCompanions([]);
+          setCompanions(MOCK_COMPANIONS);
         }
       } catch {
-        setCompanions([]);
+        setCompanions(MOCK_COMPANIONS);
       } finally {
         setLoading(false);
       }

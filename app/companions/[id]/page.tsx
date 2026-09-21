@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/server';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, formatThaiDate } from '@/lib/utils';
 import { CompanionCardData } from '@/types/database';
 import {
   ShieldCheck,
@@ -23,6 +23,11 @@ import {
 } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { parseVehicleDetails } from '@/lib/vehicleUtils';
+import {
+  MOCK_COMPANIONS,
+  MOCK_REVIEWS,
+  DEFAULT_MOCK_REVIEWS,
+} from '@/components/companions/search/constants';
 
 function maskPhoneNumber(phone?: string | null) {
   if (!phone) return '08x-***-****';
@@ -50,7 +55,7 @@ export default async function CompanionDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Check customer login state for privacy-gated data (phone, full license plate)
+  // Check customer login state for privacy-gated data (phone, full license plate, reviews)
   const {
     data: { user: currentUser },
   } = await supabase.auth.getUser();
@@ -69,11 +74,16 @@ export default async function CompanionDetailPage({
   if (data) {
     companion = data as unknown as CompanionCardData;
   } else {
-    notFound();
+    const mock = MOCK_COMPANIONS.find((c) => c.id === id);
+    if (mock) {
+      companion = mock;
+    } else {
+      notFound();
+    }
   }
 
-  // Fetch reviews for this companion
-  const { data: reviews } = await supabase
+  // Fetch reviews for this companion (with fallback to mock reviews)
+  const { data: dbReviews } = await supabase
     .from('reviews')
     .select(`
       *,
@@ -81,6 +91,11 @@ export default async function CompanionDetailPage({
     `)
     .eq('companion_id', id)
     .order('created_at', { ascending: false });
+
+  const reviews =
+    dbReviews && dbReviews.length > 0
+      ? dbReviews
+      : MOCK_REVIEWS[id] || DEFAULT_MOCK_REVIEWS;
 
   const parsedVehicles = parseVehicleDetails(
     companion.vehicle_type,
@@ -91,6 +106,13 @@ export default async function CompanionDetailPage({
   );
   const vehicleType = parsedVehicles.type;
   const hasVehicle = parsedVehicles.hasCar || parsedVehicles.hasMotorcycle;
+  const isGoogleAvatar = (url?: string | null) =>
+    Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+
+  const companionAvatar =
+    companion.profile?.avatar_url && !isGoogleAvatar(companion.profile.avatar_url)
+      ? companion.profile.avatar_url
+      : companion.id_card_image_url || companion.profile?.avatar_url || '';
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -118,7 +140,7 @@ export default async function CompanionDetailPage({
                   โหมดผู้เยี่ยมชม (Guest View)
                 </h4>
                 <p className="text-xs text-amber-900/80 mt-0.5">
-                  หมายเลขโทรศัพท์และหมายเลขทะเบียนรถฉบับเต็มถูกปิดบังไว้ เพื่อความเป็นส่วนตัวและความปลอดภัยของผู้ให้บริการ
+                  หมายเลขโทรศัพท์ หมายเลขทะเบียนรถ และรีวิวจากลูกค้าฉบับเต็มถูกปิดบังไว้ เพื่อความเป็นส่วนตัวและความปลอดภัย
                 </p>
               </div>
             </div>
@@ -139,11 +161,11 @@ export default async function CompanionDetailPage({
               {/* Header */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-300 shrink-0 shadow-sm">
-                  {companion.profile?.avatar_url ? (
+                  {companionAvatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={companion.profile.avatar_url}
-                      alt={companion.profile.full_name || 'Companion'}
+                      src={companionAvatar}
+                      alt={companion.profile?.full_name || 'Companion'}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -403,32 +425,103 @@ export default async function CompanionDetailPage({
             </div>
 
             {/* Reviews Section */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs space-y-5">
-              <h2 className="text-lg font-bold text-gray-950 flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
-                รีวิวและความคิดเห็นจากผู้ใช้งาน ({companion.rating_count})
-              </h2>
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-gray-200/80 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div className="space-y-0.5">
+                  <h2 className="text-base sm:text-lg font-bold text-gray-950 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
+                    รีวิวและความคิดเห็นจากผู้ใช้งาน ({companion.rating_count})
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    คะแนนเฉลี่ย {Number(companion.rating_avg).toFixed(1)} / 5.0 จากผู้รับบริการจริง
+                  </p>
+                </div>
 
-              {reviews && reviews.length > 0 ? (
+                {!currentUser && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 shrink-0">
+                    <Lock className="w-3 h-3 text-amber-600" />
+                    เข้าสู่ระบบเพื่อดูรีวิว
+                  </span>
+                )}
+              </div>
+
+              {!currentUser ? (
+                /* Locked state for guest view */
+                <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-emerald-50/60 via-slate-50 to-teal-50/30 border border-emerald-100/90 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-xs">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-gray-950 text-sm sm:text-base">
+                      เข้าสู่ระบบเพื่อดูคนมารีวิวและความคิดเห็นทั้งหมด
+                    </h3>
+                    <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                      เพื่อความเป็นส่วนตัวของลูกค้าและผู้ให้บริการ กรุณาเข้าสู่ระบบด้วย Google เพื่อดูรายชื่อผู้รีวิว ประสบการณ์จริง และคะแนนการประเมิน
+                    </p>
+                  </div>
+                  <div className="pt-1">
+                    <Link
+                      href={`/login?redirect=/companions/${id}`}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-200 transition active:scale-95"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      เข้าสู่ระบบเพื่อดูคนมารีวิว
+                    </Link>
+                  </div>
+                </div>
+              ) : reviews && reviews.length > 0 ? (
+                /* Logged in state: Show full reviews and people who reviewed */
                 <div className="space-y-4 divide-y divide-gray-100">
                   {reviews.map((rev) => (
-                    <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-gray-800">
-                          {rev.customer?.full_name || 'ลูกค้าที่ใช้บริการ'}
-                        </span>
-                        <div className="flex items-center gap-1 text-amber-500">
-                          {[...Array(rev.rating)].map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                    <div key={rev.id} className="pt-4 first:pt-0 space-y-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden shrink-0 border border-emerald-200 shadow-xs">
+                            {rev.customer?.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={rev.customer.avatar_url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="w-5 h-5 text-emerald-700" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-gray-900 truncate">
+                                {rev.customer?.full_name || 'ลูกค้า Care Companion'}
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-0.5">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                ผู้ใช้บริการจริง
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-gray-400 block mt-0.5">
+                              {rev.created_at ? formatThaiDate(rev.created_at) : 'เมื่อเร็วๆ นี้'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-amber-500 shrink-0 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
+                          {[...Array(Math.min(5, Math.max(1, rev.rating || 5)))].map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
                           ))}
+                          <span className="text-xs font-bold text-amber-800 ml-1">
+                            {Number(rev.rating || 5).toFixed(1)}
+                          </span>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600">{rev.comment}</p>
+
+                      <p className="text-xs sm:text-sm text-gray-700 leading-relaxed bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
+                        {rev.comment}
+                      </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic">
+                <p className="text-sm text-gray-400 italic py-4 text-center">
                   ยังไม่มีรีวิวสำหรับผู้ช่วยท่านนี้
                 </p>
               )}

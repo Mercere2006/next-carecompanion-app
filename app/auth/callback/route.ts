@@ -13,12 +13,35 @@ export async function GET(request: Request) {
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Check existing profile
+        // Check existing profile and companion profile
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, avatar_url')
           .eq('id', user.id)
           .maybeSingle();
+
+        const { data: compProfile } = await supabase
+          .from('companion_profiles')
+          .select('id_card_image_url')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const isGoogleAvatar = (url?: string | null) =>
+          Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+
+        // Preserve uploaded avatar if available, otherwise use Google OAuth avatar
+        let finalAvatar: string | null = null;
+        if (profile?.avatar_url && !isGoogleAvatar(profile.avatar_url)) {
+          finalAvatar = profile.avatar_url;
+        } else if (compProfile?.id_card_image_url) {
+          finalAvatar = compProfile.id_card_image_url;
+        } else {
+          finalAvatar =
+            profile?.avatar_url ||
+            user.user_metadata?.avatar_url ||
+            user.user_metadata?.picture ||
+            null;
+        }
 
         // Determine user role: prioritize requestedRole, fallback to existing or 'customer'
         const determinedRole =
@@ -34,7 +57,7 @@ export async function GET(request: Request) {
             email: user.email || '',
             full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
             role: determinedRole,
-            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+            avatar_url: finalAvatar,
             updated_at: new Date().toISOString(),
           });
 
@@ -48,19 +71,18 @@ export async function GET(request: Request) {
           }
         }
 
-        if (next && next !== '/') {
+        if (next && next !== '/' && next !== '/customer/dashboard' && next !== '/companion/dashboard') {
           return NextResponse.redirect(`${origin}${next}`);
         }
 
         if (profile?.role === 'admin') {
           return NextResponse.redirect(`${origin}/admin`);
-        } else if (profile?.role === 'companion') {
-          return NextResponse.redirect(`${origin}/companion/dashboard`);
-        } else {
-          return NextResponse.redirect(`${origin}/customer/dashboard`);
         }
+
+        // Default: Redirect to companions directory so the user sees other companions immediately
+        return NextResponse.redirect(`${origin}/companions`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${origin}/companions`);
     }
   }
 

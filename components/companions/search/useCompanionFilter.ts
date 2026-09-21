@@ -3,7 +3,10 @@
 import { useState, useMemo } from "react";
 import { CompanionCardData } from "@/types/database";
 
-export function useCompanionFilter(companions: CompanionCardData[]) {
+export function useCompanionFilter(
+  companions: CompanionCardData[],
+  currentUserId?: string | null
+) {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [searchArea, setSearchArea] = useState<string>("");
   const [maxRate, setMaxRate] = useState<string>("");
@@ -28,6 +31,11 @@ export function useCompanionFilter(companions: CompanionCardData[]) {
 
   const filteredCompanions = useMemo(() => {
     return companions.filter((comp) => {
+      // Exclude logged in user to show "companion คนอื่น ๆ"
+      if (currentUserId && comp.id === currentUserId) {
+        return false;
+      }
+
       const nameMatch = comp.profile?.full_name
         ?.toLowerCase()
         .includes(searchKeyword.toLowerCase());
@@ -162,6 +170,7 @@ export function useCompanionFilter(companions: CompanionCardData[]) {
     });
   }, [
     companions,
+    currentUserId,
     searchKeyword,
     searchArea,
     maxRate,

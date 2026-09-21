@@ -1,5 +1,13 @@
 import { VehicleType } from '@/types/database';
 
+export interface VehicleEntry {
+  id: string;
+  type: 'car' | 'motorcycle';
+  model: string;
+  plate: string;
+  rate: number;
+}
+
 export interface VehicleItem {
   model: string;
   plate: string;
@@ -13,6 +21,7 @@ export interface ParsedVehicleInfo {
   car: VehicleItem;
   motorcycle: VehicleItem;
   baseRate: number;
+  vehiclesList?: VehicleEntry[];
 }
 
 export interface EmbeddedMetadata {
@@ -28,22 +37,40 @@ export interface EmbeddedMetadata {
     motorcyclePlate: string;
     motorcycleRate: number;
   } | null;
+  embeddedVehiclesList: VehicleEntry[] | null;
 }
 
 export function extractCleanBio(bio?: string | null): EmbeddedMetadata {
   if (!bio) {
-    return { cleanBio: '', embeddedSchedule: null, embeddedVehicle: null };
+    return {
+      cleanBio: '',
+      embeddedSchedule: null,
+      embeddedVehicle: null,
+      embeddedVehiclesList: null,
+    };
   }
 
   let clean = bio;
   let embeddedSchedule: string | null = null;
   let embeddedVehicle: EmbeddedMetadata['embeddedVehicle'] = null;
+  let embeddedVehiclesList: VehicleEntry[] | null = null;
 
   // Match [SCHEDULE: ...]
   const schedMatch = clean.match(/\[SCHEDULE:\s*([^\]]+)\]/);
   if (schedMatch) {
     embeddedSchedule = schedMatch[1].trim();
     clean = clean.replace(/\[SCHEDULE:\s*[^\]]+\]/, '').trim();
+  }
+
+  // Match [VEHICLES_JSON: [...]]
+  const listMatch = clean.match(/\[VEHICLES_JSON:\s*(\[[\s\S]*?\])\]/);
+  if (listMatch) {
+    try {
+      embeddedVehiclesList = JSON.parse(listMatch[1]);
+    } catch {
+      // ignore
+    }
+    clean = clean.replace(/\[VEHICLES_JSON:\s*\[[\s\S]*?\]\]/, '').trim();
   }
 
   // Match [VEHICLE: {...}]
@@ -61,6 +88,7 @@ export function extractCleanBio(bio?: string | null): EmbeddedMetadata {
     cleanBio: clean,
     embeddedSchedule,
     embeddedVehicle,
+    embeddedVehiclesList,
   };
 }
 
@@ -78,6 +106,7 @@ export function embedBioMetadata(
       motorcyclePlate: string;
       motorcycleRate: number;
     } | null;
+    vehiclesList?: VehicleEntry[] | null;
   }
 ): string {
   const { cleanBio } = extractCleanBio(bio);
@@ -87,11 +116,130 @@ export function embedBioMetadata(
     parts.push(`[SCHEDULE: ${params.schedule.trim()}]`);
   }
 
-  if (params.vehicle && (params.vehicle.hasCar || params.vehicle.hasMotorcycle)) {
+  if (params.vehiclesList && params.vehiclesList.length > 0) {
+    parts.push(`[VEHICLES_JSON: ${JSON.stringify(params.vehiclesList)}]`);
+  } else if (params.vehicle && (params.vehicle.hasCar || params.vehicle.hasMotorcycle)) {
     parts.push(`[VEHICLE: ${JSON.stringify(params.vehicle)}]`);
   }
 
   return parts.filter(Boolean).join('\n\n').trim();
+}
+
+/**
+ * Parses full list of VehicleEntry from bio or columns
+ */
+export function parseVehiclesList(
+  bio?: string | null,
+  type?: string | null,
+  modelStr?: string | null,
+  plateStr?: string | null,
+  hourlyRate?: number | null
+): VehicleEntry[] {
+  const { embeddedVehiclesList } = extractCleanBio(bio);
+  if (embeddedVehiclesList && embeddedVehiclesList.length > 0) {
+    return embeddedVehiclesList;
+  }
+
+  const parsed = parseVehicleDetails(type as VehicleType, modelStr, plateStr, hourlyRate, bio);
+  const list: VehicleEntry[] = [];
+
+  if (parsed.hasCar && parsed.car.model) {
+    list.push({
+      id: 'car-1',
+      type: 'car',
+      model: parsed.car.model,
+      plate: parsed.car.plate,
+      rate: parsed.car.rate,
+    });
+  }
+
+  if (parsed.hasMotorcycle && parsed.motorcycle.model) {
+    list.push({
+      id: 'moto-1',
+      type: 'motorcycle',
+      model: parsed.motorcycle.model,
+      plate: parsed.motorcycle.plate,
+      rate: parsed.motorcycle.rate,
+    });
+  }
+
+  return list;
+}
+
+/**
+ * Formats a list of VehicleEntry into standard database fields
+ */
+export function formatVehiclesToFields(
+  vehicles: VehicleEntry[],
+  fallbackRate = 250
+): {
+  vehicle_type: VehicleType;
+  vehicle_model: string | null;
+  vehicle_plate: string | null;
+  hourly_rate: number;
+  hasCar: boolean;
+  hasMotorcycle: boolean;
+  carModel: string;
+  carPlate: string;
+  carRate: number;
+  motorcycleModel: string;
+  motorcyclePlate: string;
+  motorcycleRate: number;
+} {
+  if (!vehicles || vehicles.length === 0) {
+    return {
+      vehicle_type: 'none',
+      vehicle_model: null,
+      vehicle_plate: null,
+      hourly_rate: fallbackRate,
+      hasCar: false,
+      hasMotorcycle: false,
+      carModel: '',
+      carPlate: '',
+      carRate: 350,
+      motorcycleModel: '',
+      motorcyclePlate: '',
+      motorcycleRate: 280,
+    };
+  }
+
+  const cars = vehicles.filter((v) => v.type === 'car');
+  const motos = vehicles.filter((v) => v.type === 'motorcycle');
+
+  let vType: VehicleType = 'none';
+  if (cars.length > 0 && motos.length > 0) {
+    vType = 'both';
+  } else if (cars.length > 0) {
+    vType = cars.length > 1 ? 'both' : 'car';
+  } else if (motos.length > 0) {
+    vType = motos.length > 1 ? 'both' : 'motorcycle';
+  }
+
+  const modelFormatted = vehicles
+    .map((v) => `${v.type === 'car' ? '🚗' : '🛵'} ${v.model} [฿${v.rate}]`)
+    .join(' | ');
+
+  const plateFormatted = vehicles
+    .map((v) => `${v.type === 'car' ? '🚗' : '🛵'} ${v.plate}`)
+    .join(' | ');
+
+  const primaryCar = cars[0] || { model: '', plate: '', rate: 350 };
+  const primaryMoto = motos[0] || { model: '', plate: '', rate: 280 };
+
+  return {
+    vehicle_type: vType,
+    vehicle_model: modelFormatted,
+    vehicle_plate: plateFormatted,
+    hourly_rate: vehicles[0]?.rate || fallbackRate,
+    hasCar: cars.length > 0,
+    hasMotorcycle: motos.length > 0,
+    carModel: primaryCar.model,
+    carPlate: primaryCar.plate,
+    carRate: primaryCar.rate,
+    motorcycleModel: primaryMoto.model,
+    motorcyclePlate: primaryMoto.plate,
+    motorcycleRate: primaryMoto.rate,
+  };
 }
 
 /**

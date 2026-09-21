@@ -85,7 +85,7 @@ export default function CompanionDashboard() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight break-words">
-              แดชบอร์ดงาน Companion
+              แดชบอร์ดงานผู้ช่วย
             </h1>
             <p className="text-gray-600 text-xs sm:text-sm mt-1">
               จัดการคำขอรับบริการ อัปเดตสถานะการเดินทาง และบันทึกงานของคุณ
@@ -96,7 +96,7 @@ export default function CompanionDashboard() {
             href="/companion/profile"
             className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl bg-white border border-gray-300 text-gray-700 text-xs sm:text-sm font-bold hover:bg-gray-50 shadow-xs"
           >
-            ⚙️ จัดการโปรไฟล์ / เอกสาร
+            ⚙️ จัดการข้อมูลโปรไฟล์ผู้ช่วย
           </Link>
         </div>
 

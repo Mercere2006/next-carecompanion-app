@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ScanFace,
   Briefcase,
@@ -15,8 +16,9 @@ import Swal from 'sweetalert2';
 import { createClient } from '@/lib/supabase/client';
 import { parseFullName } from '@/components/companion/utils';
 import {
-  parseVehicleDetails,
-  formatVehicleDetails,
+  VehicleEntry,
+  parseVehiclesList,
+  formatVehiclesToFields,
   extractCleanBio,
   embedBioMetadata,
 } from '@/lib/vehicleUtils';
@@ -26,35 +28,47 @@ import VerifiedIdentityBanner from '@/components/companion/VerifiedIdentityBanne
 import CompanionDetailsForm from '@/components/companion/CompanionDetailsForm';
 import LockedDetailsOverlay from '@/components/companion/LockedDetailsOverlay';
 
+interface ProfileSnapshot {
+  titlePrefix: 'นาย' | 'นาง' | 'นางสาว';
+  rawName: string;
+  vehicles: VehicleEntry[];
+  bio: string;
+  experienceYears: number;
+  hourlyRate: number;
+  availableSchedule: string;
+  skillsText: string;
+  serviceAreasText: string;
+}
+
 export default function CompanionProfilePage() {
+  const router = useRouter();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
+  // Snapshot for unsaved changes detection
+  const [initialSnapshot, setInitialSnapshot] = useState<ProfileSnapshot | null>(null);
+  const isSavingRef = useRef(false);
+  const hasUnsavedChangesRef = useRef(false);
+
   // Identity / Step 1 states
   const [titlePrefix, setTitlePrefix] = useState<'นาย' | 'นาง' | 'นางสาว'>('นาย');
   const [rawName, setRawName] = useState('');
   const fullName = rawName.trim() ? `${titlePrefix}${rawName.trim()}` : '';
+  const [initialFullName, setInitialFullName] = useState('');
+  const [nameChangeCount, setNameChangeCount] = useState(0);
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [faceImageUrl, setFaceImageUrl] = useState<string | null>(null);
   const [faceScanned, setFaceScanned] = useState(false);
   const [phone, setPhone] = useState('');
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<string>('pending');
 
-  // Step 2 form states - Vehicles & Pricing
-  const [hasCar, setHasCar] = useState(false);
-  const [carModel, setCarModel] = useState('');
-  const [carPlate, setCarPlate] = useState('');
-  const [carRate, setCarRate] = useState(350);
-
-  const [hasMotorcycle, setHasMotorcycle] = useState(false);
-  const [motorcycleModel, setMotorcycleModel] = useState('');
-  const [motorcyclePlate, setMotorcyclePlate] = useState('');
-  const [motorcycleRate, setMotorcycleRate] = useState(280);
-
+  // Step 2 form states - Multi-Vehicles & Details
+  const [vehicles, setVehicles] = useState<VehicleEntry[]>([]);
   const [bio, setBio] = useState('');
   const [experienceYears, setExperienceYears] = useState(1);
   const [skillsText, setSkillsText] = useState('');
@@ -73,7 +87,45 @@ export default function CompanionProfilePage() {
         setUserId('demo-companion-preview');
         setTitlePrefix('นาย');
         setRawName('สมชาย บริรักษ์');
+        setInitialFullName('นายสมชาย บริรักษ์');
+        setNameChangeCount(1);
         setPhone('0891234567');
+        const demoVehicles: VehicleEntry[] = [
+          {
+            id: 'car-demo-1',
+            type: 'car',
+            model: 'Toyota Yaris ATIV สีบรอนซ์เงิน',
+            plate: '3ขก 4567 กทม.',
+            rate: 350,
+          },
+        ];
+        setVehicles(demoVehicles);
+        const demoBio =
+          'มีประสบการณ์ดูแลและขับรถพาผู้สูงอายุไปพบแพทย์ที่โรงพยาบาลศิริราชและจุฬาลงกรณ์เป็นประจำ ใจเย็น สุภาพ ตรงต่อเวลา';
+        setBio(demoBio);
+        setExperienceYears(3);
+        setHourlyRate(350);
+        const demoSchedule = 'จันทร์ - ศุกร์ (08:30 - 17:30 น.)';
+        setAvailableSchedule(demoSchedule);
+        const demoSkills = 'ช่วยพยุงเดิน, ชำนาญเส้นทาง รพ., เข็นวีลแชร์, ปฐมพยาบาลเบื้องต้น';
+        setSkillsText(demoSkills);
+        const demoAreas = 'พญาไท, บางกอกน้อย, ราชเทวี, จตุจักร';
+        setServiceAreasText(demoAreas);
+        setFaceScanned(true);
+        setPhoneVerified(true);
+        setVerificationStatus('verified');
+        setIsProfileSaved(true);
+        setInitialSnapshot({
+          titlePrefix: 'นาย',
+          rawName: 'สมชาย บริรักษ์',
+          vehicles: demoVehicles,
+          bio: demoBio,
+          experienceYears: 3,
+          hourlyRate: 350,
+          availableSchedule: demoSchedule,
+          skillsText: demoSkills,
+          serviceAreasText: demoAreas,
+        });
         setLoading(false);
         return;
       }
@@ -87,19 +139,53 @@ export default function CompanionProfilePage() {
       }
       setUserId(user.id);
 
-      // Load full_name and phone from profiles
+      // Load full_name, phone, avatar_url from profiles
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, phone')
+        .select('full_name, phone, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
 
-      const initialName = profileData?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '';
+      // Load companion profile data
+      const { data } = await supabase
+        .from('companion_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      // Determine preferred avatar: prefer user's uploaded photo over Google OAuth avatar
+      const isGoogleAvatar = (url?: string | null) =>
+        Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+
+      let chosenAvatar: string | null = null;
+      if (profileData?.avatar_url && !isGoogleAvatar(profileData.avatar_url)) {
+        chosenAvatar = profileData.avatar_url;
+      } else if (data?.id_card_image_url) {
+        chosenAvatar = data.id_card_image_url;
+      } else if (profileData?.avatar_url) {
+        chosenAvatar = profileData.avatar_url;
+      } else {
+        chosenAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+      }
+
+      if (chosenAvatar) {
+        setAvatarUrl(chosenAvatar);
+      }
+
+      const initialName =
+        profileData?.full_name ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        '';
       if (initialName) {
         const parsed = parseFullName(initialName);
         setTitlePrefix(parsed.prefix);
         setRawName(parsed.rawName);
+        setInitialFullName(initialName);
       }
+
+      const metadataChanges = Number(user.user_metadata?.name_change_count) || 0;
+      setNameChangeCount(metadataChanges);
 
       if (profileData?.phone) {
         setPhone(profileData.phone);
@@ -112,17 +198,10 @@ export default function CompanionProfilePage() {
           email: user.email || '',
           full_name: initialName || null,
           role: 'companion',
-          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+          avatar_url: chosenAvatar,
           updated_at: new Date().toISOString(),
         });
       }
-
-      // Load companion profile data
-      const { data } = await supabase
-        .from('companion_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
 
       if (data) {
         const { cleanBio, embeddedSchedule } = extractCleanBio(data.bio);
@@ -145,23 +224,16 @@ export default function CompanionProfilePage() {
         if (data.phone_verified) {
           setPhoneVerified(true);
         }
-        // Parse vehicle details
-        const parsedVehicle = parseVehicleDetails(
+
+        // Parse multi-vehicles list
+        const parsedVehicles = parseVehiclesList(
+          data.bio,
           data.vehicle_type,
           data.vehicle_model,
           data.vehicle_plate,
-          data.hourly_rate,
-          data.bio
+          data.hourly_rate
         );
-        setHasCar(parsedVehicle.hasCar);
-        setCarModel(parsedVehicle.car.model);
-        setCarPlate(parsedVehicle.car.plate);
-        setCarRate(parsedVehicle.car.rate);
-
-        setHasMotorcycle(parsedVehicle.hasMotorcycle);
-        setMotorcycleModel(parsedVehicle.motorcycle.model);
-        setMotorcyclePlate(parsedVehicle.motorcycle.plate);
-        setMotorcycleRate(parsedVehicle.motorcycle.rate);
+        setVehicles(parsedVehicles);
 
         // Check if companion profile is already completed and saved
         if (
@@ -170,6 +242,34 @@ export default function CompanionProfilePage() {
         ) {
           setIsProfileSaved(true);
         }
+
+        const finalPrefix = initialName ? parseFullName(initialName).prefix : 'นาย';
+        const finalRawName = initialName ? parseFullName(initialName).rawName : '';
+        setInitialSnapshot({
+          titlePrefix: finalPrefix,
+          rawName: finalRawName,
+          vehicles: parsedVehicles,
+          bio: cleanBio,
+          experienceYears: data.experience_years || 1,
+          hourlyRate: Number(data.hourly_rate) || 250,
+          availableSchedule: data.available_schedule || embeddedSchedule || '',
+          skillsText: data.skills?.join(', ') || '',
+          serviceAreasText: data.service_areas?.join(', ') || '',
+        });
+      } else {
+        const fallbackPrefix = initialName ? parseFullName(initialName).prefix : 'นาย';
+        const fallbackRawName = initialName ? parseFullName(initialName).rawName : '';
+        setInitialSnapshot({
+          titlePrefix: fallbackPrefix,
+          rawName: fallbackRawName,
+          vehicles: [],
+          bio: '',
+          experienceYears: 1,
+          hourlyRate: 250,
+          availableSchedule: '',
+          skillsText: '',
+          serviceAreasText: '',
+        });
       }
 
       setLoading(false);
@@ -177,6 +277,171 @@ export default function CompanionProfilePage() {
 
     loadCompanionProfile();
   }, [supabase]);
+
+  // Unsaved changes detection
+  const normalizeVehicles = (list: VehicleEntry[]) =>
+    (list || []).map((v) => ({
+      type: v.type,
+      model: (v.model || '').trim(),
+      plate: (v.plate || '').trim(),
+      rate: Number(v.rate) || 0,
+    }));
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (loading || !initialSnapshot) return false;
+
+    if ((titlePrefix || 'นาย') !== (initialSnapshot.titlePrefix || 'นาย')) return true;
+    if ((rawName || '').trim() !== (initialSnapshot.rawName || '').trim()) return true;
+    if ((bio || '').trim() !== (initialSnapshot.bio || '').trim()) return true;
+    if (Number(experienceYears || 0) !== Number(initialSnapshot.experienceYears || 0)) return true;
+    if (Number(hourlyRate || 0) !== Number(initialSnapshot.hourlyRate || 0)) return true;
+    if ((availableSchedule || '').trim() !== (initialSnapshot.availableSchedule || '').trim()) return true;
+    if ((skillsText || '').trim() !== (initialSnapshot.skillsText || '').trim()) return true;
+    if ((serviceAreasText || '').trim() !== (initialSnapshot.serviceAreasText || '').trim()) return true;
+
+    const currentV = JSON.stringify(normalizeVehicles(vehicles));
+    const initialV = JSON.stringify(normalizeVehicles(initialSnapshot.vehicles));
+    if (currentV !== initialV) return true;
+
+    return false;
+  }, [
+    loading,
+    initialSnapshot,
+    titlePrefix,
+    rawName,
+    bio,
+    experienceYears,
+    hourlyRate,
+    availableSchedule,
+    skillsText,
+    serviceAreasText,
+    vehicles,
+  ]);
+
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges;
+  }, [hasUnsavedChanges]);
+
+  // 1. Browser tab close / refresh / window unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChangesRef.current && !isSavingRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // 2. In-app navigation interception (links, navbar, footer, logo)
+  useEffect(() => {
+    const handleClick = async (e: MouseEvent) => {
+      if (!hasUnsavedChangesRef.current || isSavingRef.current) return;
+
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const anchor = target.closest('a');
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      if (
+        !href ||
+        href.startsWith('#') ||
+        href.startsWith('javascript:') ||
+        anchor.target === '_blank'
+      ) {
+        return;
+      }
+
+      try {
+        const currentUrl = new URL(window.location.href);
+        const targetUrl = new URL(anchor.href, window.location.href);
+        if (
+          targetUrl.pathname === currentUrl.pathname &&
+          targetUrl.search === currentUrl.search
+        ) {
+          return;
+        }
+      } catch {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const result = await Swal.fire({
+        title: 'ยังไม่ได้บันทึกข้อมูล!',
+        text: 'คุณมีการแก้ไขข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากออกจากหน้านี้ ข้อมูลที่แก้ไขจะสูญหาย',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#059669',
+        confirmButtonText: 'ออกจากหน้านี้ (ไม่บันทึก)',
+        cancelButtonText: 'อยู่หน้านี้ต่อ (บันทึกข้อมูล)',
+        reverseButtons: true,
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+          cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+        },
+      });
+
+      if (result.isConfirmed) {
+        isSavingRef.current = true;
+        router.push(href);
+      }
+    };
+
+    document.addEventListener('click', handleClick, true);
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [router]);
+
+  // 3. Browser history back/forward button (popstate)
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    window.history.pushState({ unsavedGuard: true }, '', window.location.href);
+
+    const handlePopState = async () => {
+      if (!hasUnsavedChangesRef.current || isSavingRef.current) return;
+
+      window.history.pushState({ unsavedGuard: true }, '', window.location.href);
+
+      const result = await Swal.fire({
+        title: 'ยังไม่ได้บันทึกข้อมูล!',
+        text: 'คุณมีการแก้ไขข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากออกจากหน้านี้ ข้อมูลที่แก้ไขจะสูญหาย',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#059669',
+        confirmButtonText: 'ออกจากหน้านี้ (ไม่บันทึก)',
+        cancelButtonText: 'อยู่หน้านี้ต่อ (บันทึกข้อมูล)',
+        reverseButtons: true,
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+          cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+        },
+      });
+
+      if (result.isConfirmed) {
+        isSavingRef.current = true;
+        window.history.go(-2);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [hasUnsavedChanges]);
 
   // Google Login for unauthenticated users
   const handleGoogleLogin = async () => {
@@ -195,7 +460,47 @@ export default function CompanionProfilePage() {
   const handleScanSuccess = (faceDataUrl: string) => {
     setFaceImageUrl(faceDataUrl);
     setFaceScanned(true);
+    setAvatarUrl(faceDataUrl);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user_avatar_override', faceDataUrl);
+      localStorage.setItem('profile_updated', Date.now().toString());
+      window.dispatchEvent(new Event('profileUpdated'));
+    }
     setSuccessMsg('สแกนใบหน้าสำเร็จ! กรุณากรอกเบอร์โทรศัพท์และยืนยันรหัส OTP ในขั้นตอนถัดไป');
+  };
+
+  // Avatar change handler (from camera or gallery)
+  const handleAvatarChange = async (newAvatarUrl: string) => {
+    setAvatarUrl(newAvatarUrl);
+    setFaceImageUrl(newAvatarUrl);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user_avatar_override', newAvatarUrl);
+      localStorage.setItem('profile_updated', Date.now().toString());
+      window.dispatchEvent(new Event('profileUpdated'));
+    }
+
+    if (userId && userId !== 'demo-companion-preview') {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            avatar_url: newAvatarUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+
+        await supabase
+          .from('companion_profiles')
+          .update({
+            id_card_image_url: newAvatarUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+      } catch (e) {
+        console.warn('Auto-save avatar notice:', e);
+      }
+    }
   };
 
   // Step 1.2: OTP verification success callback
@@ -215,17 +520,14 @@ export default function CompanionProfilePage() {
           full_name: fullName.trim() || null,
           phone: phone.trim(),
           role: 'companion',
-          avatar_url:
-            currentUser?.user_metadata?.avatar_url ||
-            currentUser?.user_metadata?.picture ||
-            null,
+          avatar_url: avatarUrl || faceImageUrl || null,
           updated_at: new Date().toISOString(),
         });
 
         const compPayload: Record<string, unknown> = {
           id: userId,
           verification_status: 'verified',
-          id_card_image_url: faceImageUrl,
+          id_card_image_url: avatarUrl || faceImageUrl,
           updated_at: new Date().toISOString(),
         };
 
@@ -270,13 +572,12 @@ export default function CompanionProfilePage() {
       return;
     }
 
-    if (hasCar && (!carModel.trim() || !carPlate.trim())) {
-      setErrorMsg('กรุณากรอกยี่ห้อ/รุ่น และหมายเลขทะเบียนรถยนต์ให้ครบถ้วน');
-      return;
-    }
-
-    if (hasMotorcycle && (!motorcycleModel.trim() || !motorcyclePlate.trim())) {
-      setErrorMsg('กรุณากรอกยี่ห้อ/รุ่น และหมายเลขทะเบียนรถมอเตอร์ไซค์ให้ครบถ้วน');
+    // Name change quota check
+    const nameChanged = Boolean(
+      initialFullName.trim() && fullName.trim() !== initialFullName.trim()
+    );
+    if (nameChanged && nameChangeCount >= 3) {
+      setErrorMsg('คุณใช้สิทธิ์เปลี่ยนชื่อครบ 3 ครั้งแล้ว ไม่สามารถเปลี่ยนชื่อได้อีก');
       return;
     }
 
@@ -294,23 +595,53 @@ export default function CompanionProfilePage() {
       .map((a) => a.trim())
       .filter(Boolean);
 
-    const formattedVehicles = formatVehicleDetails({
-      hasCar,
-      hasMotorcycle,
-      carModel,
-      carPlate,
-      carRate: Number(carRate) || 350,
-      motorcycleModel,
-      motorcyclePlate,
-      motorcycleRate: Number(motorcycleRate) || 280,
-      fallbackRate: Number(hourlyRate) || 250,
-    });
+    const formattedVehicles = formatVehiclesToFields(vehicles, Number(hourlyRate) || 250);
 
     try {
       if (userId === 'demo-companion-preview') {
+        if (nameChanged) {
+          setNameChangeCount((prev) => prev + 1);
+          setInitialFullName(fullName.trim());
+        }
         setIsProfileSaved(true);
         setSuccessMsg('🎉 บันทึกข้อมูลโปรไฟล์และเปิดรับงานเรียบร้อยแล้ว! (โหมดทดลองใช้งาน)');
+        setInitialSnapshot({
+          titlePrefix,
+          rawName,
+          vehicles,
+          bio,
+          experienceYears,
+          hourlyRate,
+          availableSchedule,
+          skillsText,
+          serviceAreasText,
+        });
+        isSavingRef.current = true;
+        await Swal.fire({
+          title: 'บันทึกสำเร็จ!',
+          text: 'บันทึกข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว (โหมดทดลองใช้งาน)',
+          icon: 'success',
+          confirmButtonColor: '#059669',
+          confirmButtonText: 'ไปยังแดชบอร์ดทันที',
+          timer: 1800,
+          timerProgressBar: true,
+          customClass: {
+            popup: 'rounded-3xl shadow-2xl font-sans',
+            confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+          },
+        });
+        router.push('/companion/dashboard');
         return;
+      }
+
+      // If name changed, increment quota count and update auth user metadata
+      if (nameChanged) {
+        const nextCount = nameChangeCount + 1;
+        await supabase.auth.updateUser({
+          data: { name_change_count: nextCount },
+        });
+        setNameChangeCount(nextCount);
+        setInitialFullName(fullName.trim());
       }
 
       // 1. Ensure user has an existing row in profiles table (UPSERT)
@@ -321,10 +652,16 @@ export default function CompanionProfilePage() {
       const profilePayload = {
         id: userId,
         email: authUser?.email || '',
-        full_name: fullName.trim() || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || null,
+        full_name:
+          fullName.trim() ||
+          authUser?.user_metadata?.full_name ||
+          authUser?.user_metadata?.name ||
+          null,
         phone: phone.trim() || null,
         role: 'companion' as const,
         avatar_url:
+          avatarUrl ||
+          faceImageUrl ||
           authUser?.user_metadata?.avatar_url ||
           authUser?.user_metadata?.picture ||
           null,
@@ -348,50 +685,44 @@ export default function CompanionProfilePage() {
 
       const currentStatus = existingComp?.verification_status || verificationStatus || 'pending';
 
-      // 3. Prepare payload for dedicated columns (if migration has been run)
+      // 3. Fallback bio with embedded metadata (vehicles list & schedule)
+      const enrichedBio = embedBioMetadata(bio, {
+        schedule: availableSchedule,
+        vehiclesList: vehicles,
+      });
+
+      // 4. Prepare payload for dedicated columns (if migration has run)
       const fullUpdateData: Record<string, unknown> = {
-        bio,
+        bio: enrichedBio,
         experience_years: Math.max(0, Number(experienceYears) || 0),
         skills: skillsArray,
         service_areas: areasArray,
         available_schedule: availableSchedule,
-        hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.primaryHourlyRate),
+        hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailable,
-        vehicle_type: formattedVehicles.vehicleType,
-        vehicle_model: formattedVehicles.vehicleModel,
-        vehicle_plate: formattedVehicles.vehiclePlate,
+        vehicle_type: formattedVehicles.vehicle_type,
+        vehicle_model: formattedVehicles.vehicle_model,
+        vehicle_plate: formattedVehicles.vehicle_plate,
+        id_card_image_url: avatarUrl || faceImageUrl,
         updated_at: new Date().toISOString(),
       };
 
-      // 4. Fallback payload (for when vehicle & schedule columns don't exist yet in Supabase)
-      const fallbackBio = embedBioMetadata(bio, {
-        schedule: availableSchedule,
-        vehicle: {
-          hasCar,
-          hasMotorcycle,
-          carModel,
-          carPlate,
-          carRate: Number(carRate) || 350,
-          motorcycleModel,
-          motorcyclePlate,
-          motorcycleRate: Number(motorcycleRate) || 280,
-        },
-      });
-
+      // 5. Safe payload (if vehicle columns don't exist in Supabase schema cache)
       const safeUpdateData: Record<string, unknown> = {
-        bio: fallbackBio,
+        bio: enrichedBio,
         experience_years: Math.max(0, Number(experienceYears) || 0),
         skills: skillsArray,
         service_areas: areasArray,
-        hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.primaryHourlyRate),
+        hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailable,
+        id_card_image_url: avatarUrl || faceImageUrl,
         updated_at: new Date().toISOString(),
       };
 
       let saveError: { message?: string; details?: string; hint?: string; code?: string } | null = null;
 
       if (existingComp) {
-        // Record exists -> use UPDATE to satisfy Supabase UPDATE RLS policy
+        // Record exists -> UPDATE
         const { error: updErr } = await supabase
           .from('companion_profiles')
           .update(fullUpdateData)
@@ -404,7 +735,6 @@ export default function CompanionProfilePage() {
             updErr.message?.includes('schema cache');
 
           if (isMissingCol) {
-            // Columns not in schema: fallback to safe update with embedded bio
             const { error: safeUpdErr } = await supabase
               .from('companion_profiles')
               .update(safeUpdateData)
@@ -445,7 +775,6 @@ export default function CompanionProfilePage() {
               .insert(safeInsertData);
 
             if (safeInsErr) {
-              // Try safe update as secondary fallback if insert conflicted
               const { error: secondaryUpdErr } = await supabase
                 .from('companion_profiles')
                 .update(safeUpdateData)
@@ -464,20 +793,36 @@ export default function CompanionProfilePage() {
       }
 
       setIsProfileSaved(true);
-      setSuccessMsg('🎉 บันทึกข้อมูลโปรไฟล์และเปิดรับงานเรียบร้อยแล้ว!');
+      setSuccessMsg('🎉 บันทึกข้อมูลโปรไฟล์และเปิดรับงานเรียบร้อยแล้ว! กำลังนำคุณไปยังแดชบอร์ด...');
+      setInitialSnapshot({
+        titlePrefix,
+        rawName,
+        vehicles,
+        bio,
+        experienceYears,
+        hourlyRate,
+        availableSchedule,
+        skillsText,
+        serviceAreasText,
+      });
+      isSavingRef.current = true;
       await Swal.fire({
         title: 'บันทึกสำเร็จ!',
-        text: 'บันทึกข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว',
+        text: 'บันทึกข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว กำลังนำคุณไปยังแดชบอร์ดงาน',
         icon: 'success',
         confirmButtonColor: '#059669',
-        confirmButtonText: 'ตกลง',
-        timer: 2000,
+        confirmButtonText: 'ไปยังแดชบอร์ดทันที',
+        timer: 1800,
+        timerProgressBar: true,
         customClass: {
           popup: 'rounded-3xl shadow-2xl font-sans',
           confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
         },
       });
+
+      router.push('/companion/dashboard');
     } catch (err: unknown) {
+      isSavingRef.current = false;
       const postgrestErr = err as { message?: string; details?: string; hint?: string; code?: string };
       const displayMsg =
         postgrestErr?.message ||
@@ -497,6 +842,89 @@ export default function CompanionProfilePage() {
           popup: 'rounded-3xl shadow-2xl font-sans',
           confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
         },
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete / Deactivate Companion Profile
+  const handleDeleteProfile = async () => {
+    if (!userId) return;
+
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบโปรไฟล์ผู้ช่วย?',
+      text: 'โปรไฟล์ของคุณจะไม่แสดงบนระบบค้นหา และจะไม่สามารถรับงานเป็น Companion ได้อีกต่อไปจนกว่าจะลงทะเบียนใหม่',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบโปรไฟล์',
+      cancelButtonText: 'ยกเลิก',
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl font-sans',
+        confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        cancelButton: 'rounded-xl px-6 py-2.5 font-bold',
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    isSavingRef.current = true;
+    setSaving(true);
+    try {
+      if (userId === 'demo-companion-preview') {
+        await Swal.fire({
+          title: 'ลบโปรไฟล์เรียบร้อย',
+          text: 'ระบบได้ปิดการใช้งานโปรไฟล์ผู้ช่วยของคุณแล้ว (โหมดทดลองใช้งาน)',
+          icon: 'success',
+          confirmButtonColor: '#059669',
+          confirmButtonText: 'ตกลง',
+          timer: 1800,
+          timerProgressBar: true,
+        });
+        router.push('/');
+        return;
+      }
+
+      // 1. Deactivate companion profile
+      await supabase
+        .from('companion_profiles')
+        .update({
+          is_available: false,
+          verification_status: 'rejected',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      // 2. Change role in profiles table to customer
+      await supabase
+        .from('profiles')
+        .update({
+          role: 'customer',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      await Swal.fire({
+        title: 'ลบโปรไฟล์เรียบร้อย',
+        text: 'ระบบได้ปิดการใช้งานโปรไฟล์ผู้ช่วยของคุณแล้ว กำลังนำคุณกลับสู่หน้าหลัก',
+        icon: 'success',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+        timer: 1800,
+        timerProgressBar: true,
+      });
+
+      router.push('/');
+    } catch (err) {
+      isSavingRef.current = false;
+      console.error('Failed to delete profile:', err);
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: 'ไม่สามารถลบโปรไฟล์ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+        icon: 'error',
+        confirmButtonColor: '#059669',
       });
     } finally {
       setSaving(false);
@@ -539,7 +967,29 @@ export default function CompanionProfilePage() {
                 setUserId('demo-companion-preview');
                 setTitlePrefix('นาย');
                 setRawName('สมชาย บริรักษ์');
+                setInitialFullName('นายสมชาย บริรักษ์');
+                setNameChangeCount(1);
                 setPhone('0891234567');
+                setAvatarUrl('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=faces');
+                setVehicles([
+                  {
+                    id: 'car-demo-1',
+                    type: 'car',
+                    model: 'Toyota Yaris ATIV สีบรอนซ์เงิน',
+                    plate: '3ขก 4567 กทม.',
+                    rate: 350,
+                  },
+                ]);
+                setBio('มีประสบการณ์ดูแลและขับรถพาผู้สูงอายุไปพบแพทย์ที่โรงพยาบาลศิริราชและจุฬาลงกรณ์เป็นประจำ ใจเย็น สุภาพ ตรงต่อเวลา');
+                setExperienceYears(3);
+                setHourlyRate(350);
+                setAvailableSchedule('จันทร์ - ศุกร์ (08:30 - 17:30 น.)');
+                setSkillsText('ช่วยพยุงเดิน, ชำนาญเส้นทาง รพ., เข็นวีลแชร์, ปฐมพยาบาลเบื้องต้น');
+                setServiceAreasText('พญาไท, บางกอกน้อย, ราชเทวี, จตุจักร');
+                setFaceScanned(true);
+                setPhoneVerified(true);
+                setVerificationStatus('verified');
+                setIsProfileSaved(true);
               }}
               className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer"
             >
@@ -566,13 +1016,15 @@ export default function CompanionProfilePage() {
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold mb-2">
               <ScanFace className="w-3.5 h-3.5" />
-              <span>ระบบยืนยันตัวตนและจัดการโปรไฟล์ผู้ช่วย</span>
+              <span>{isVerified ? 'จัดการโปรไฟล์ผู้ช่วย' : 'ระบบยืนยันตัวตนและจัดการโปรไฟล์ผู้ช่วย'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight break-words">
-              ตั้งค่าโปรไฟล์และเปิดรับงาน Companion
+              {isVerified ? 'จัดการข้อมูลโปรไฟล์ผู้ช่วย (Companion)' : 'ตั้งค่าโปรไฟล์และเปิดรับงาน Companion'}
             </h1>
             <p className="text-gray-600 text-xs sm:text-sm mt-1">
-              สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน
+              {isVerified
+                ? 'แก้ไขข้อมูลส่วนตัว ยานพาหนะ และรายละเอียดการให้บริการของคุณ'
+                : 'สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน'}
             </p>
           </div>
 
@@ -613,51 +1065,30 @@ export default function CompanionProfilePage() {
           </div>
         )}
 
-        {/* STEP 1: IDENTITY VERIFICATION (Face Scan + Phone OTP) */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 border-2 border-teal-100 shadow-lg shadow-teal-50 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
-            <div className="flex items-start sm:items-center gap-3 min-w-0">
-              <div
-                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 ${
-                  isVerified
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-teal-100 text-teal-800'
-                }`}
-              >
-                {isVerified ? <CheckCircle2 className="w-6 h-6" /> : <ScanFace className="w-6 h-6" />}
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base sm:text-lg font-extrabold text-gray-900 break-words">
-                    ขั้นตอนที่ 1: ยืนยันตัวตน (สแกนใบหน้า + เบอร์โทรศัพท์ OTP)
-                  </h2>
-                  <span
-                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 ${
-                      isVerified
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {isVerified ? '✓ ยืนยันตัวตนแล้ว' : 'จำเป็นต้องทำก่อน'}
-                  </span>
+        {/* STEP 1: IDENTITY VERIFICATION (Only shown when not yet verified) */}
+        {!isVerified && (
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 border-2 border-teal-100 shadow-lg shadow-teal-50 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 bg-teal-100 text-teal-800">
+                  <ScanFace className="w-6 h-6" />
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  เพื่อความปลอดภัยและความอุ่นใจของผู้สูงอายุ ผู้ช่วยต้องสแกนใบหน้าและยืนยันเบอร์มือถือจริง
-                </p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-extrabold text-gray-900 break-words">
+                      ขั้นตอนที่ 1: ยืนยันตัวตน (สแกนใบหน้า + เบอร์โทรศัพท์ OTP)
+                    </h2>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 bg-amber-100 text-amber-800">
+                      จำเป็นต้องทำก่อน
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    เพื่อความปลอดภัยและความอุ่นใจของผู้สูงอายุ ผู้ช่วยต้องสแกนใบหน้าและยืนยันเบอร์มือถือจริง
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* IF ALREADY FULLY VERIFIED */}
-          {isVerified ? (
-            <VerifiedIdentityBanner
-              fullName={fullName}
-              phone={phone}
-              faceImageUrl={faceImageUrl}
-              onResetVerification={handleResetVerification}
-            />
-          ) : (
-            /* IF NOT YET FULLY VERIFIED: Step 1.1 Face Scan & Step 1.2 Phone OTP */
             <div className="space-y-6">
               <FaceScanStep
                 faceScanned={faceScanned}
@@ -678,10 +1109,10 @@ export default function CompanionProfilePage() {
                 onVerifySuccess={handleVerifyOtpSuccess}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* STEP 2: COMPANION DETAILS FORM (GATED) */}
+        {/* COMPANION DETAILS FORM */}
         <div className="relative">
           {!isVerified && (
             <LockedDetailsOverlay faceScanned={faceScanned} />
@@ -691,26 +1122,17 @@ export default function CompanionProfilePage() {
             isVerified={isVerified}
             isProfileSaved={isProfileSaved}
             saving={saving}
+            hasUnsavedChanges={hasUnsavedChanges}
+            avatarUrl={avatarUrl}
+            setAvatarUrl={handleAvatarChange}
             titlePrefix={titlePrefix}
             setTitlePrefix={setTitlePrefix}
             rawName={rawName}
             setRawName={setRawName}
-            hasCar={hasCar}
-            setHasCar={setHasCar}
-            carModel={carModel}
-            setCarModel={setCarModel}
-            carPlate={carPlate}
-            setCarPlate={setCarPlate}
-            carRate={carRate}
-            setCarRate={setCarRate}
-            hasMotorcycle={hasMotorcycle}
-            setHasMotorcycle={setHasMotorcycle}
-            motorcycleModel={motorcycleModel}
-            setMotorcycleModel={setMotorcycleModel}
-            motorcyclePlate={motorcyclePlate}
-            setMotorcyclePlate={setMotorcyclePlate}
-            motorcycleRate={motorcycleRate}
-            setMotorcycleRate={setMotorcycleRate}
+            nameChangeCount={nameChangeCount}
+            phone={phone}
+            vehicles={vehicles}
+            setVehicles={setVehicles}
             bio={bio}
             setBio={setBio}
             experienceYears={experienceYears}
@@ -724,6 +1146,7 @@ export default function CompanionProfilePage() {
             serviceAreasText={serviceAreasText}
             setServiceAreasText={setServiceAreasText}
             onSubmit={handleSaveProfile}
+            onDeleteProfile={handleDeleteProfile}
           />
         </div>
       </main>

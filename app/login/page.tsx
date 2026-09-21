@@ -9,7 +9,7 @@ import { HeartHandshake, ArrowLeft } from 'lucide-react';
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get('redirect') || '/';
+  const redirectUrl = searchParams.get('redirect') || '/companions';
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
 

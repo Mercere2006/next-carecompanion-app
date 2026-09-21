@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 import Swal from "sweetalert2";
 import { SERVICE_CATEGORIES } from "./constants";
 import { parseVehicleDetails, ParsedVehicleInfo } from "@/lib/vehicleUtils";
+import { MOCK_COMPANIONS } from "@/components/companions/search/constants";
+import { CompanionProfile } from "@/types/database";
 
 export interface CompanionVehicleInfo {
   type: string;
@@ -18,7 +20,6 @@ export function useBookingForm(companionId: string) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<{ id: string } | null>(null);
-  const [companionRate, setCompanionRate] = useState(250);
   const [activeHourlyRate, setActiveHourlyRate] = useState(250);
   const [companionName, setCompanionName] = useState("ผู้ช่วยร่วมเดินทาง");
   const [isPrefilled, setIsPrefilled] = useState(false);
@@ -50,8 +51,7 @@ export function useBookingForm(companionId: string) {
   const [companionVehicle, setCompanionVehicle] =
     useState<CompanionVehicleInfo | null>(null);
 
-  // Calculate total price based on activeHourlyRate
-  const totalPrice = durationHours * activeHourlyRate;
+  const totalPrice = activeHourlyRate * durationHours;
 
   const handleSelectVehicle = (v: "car" | "motorcycle" | "none") => {
     setSelectedVehicle(v);
@@ -63,7 +63,6 @@ export function useBookingForm(companionId: string) {
         newRate = vehicleDetails.motorcycle.rate;
       }
       setActiveHourlyRate(newRate);
-      setCompanionRate(newRate);
     }
   };
 
@@ -87,13 +86,25 @@ export function useBookingForm(companionId: string) {
         .eq("id", companionId)
         .single();
 
-      if (comp) {
+      type BookingCompanionData = Partial<CompanionProfile> & {
+        profile?: { full_name?: string | null } | null;
+      };
+
+      let compData: BookingCompanionData | null = comp as BookingCompanionData | null;
+      if (!compData) {
+        const mock = MOCK_COMPANIONS.find((c) => c.id === companionId);
+        if (mock) {
+          compData = mock;
+        }
+      }
+
+      if (compData) {
         const parsed = parseVehicleDetails(
-          comp.vehicle_type,
-          comp.vehicle_model,
-          comp.vehicle_plate,
-          comp.hourly_rate,
-          comp.bio
+          compData.vehicle_type,
+          compData.vehicle_model,
+          compData.vehicle_plate,
+          compData.hourly_rate,
+          compData.bio
         );
         setVehicleDetails(parsed);
 
@@ -110,7 +121,6 @@ export function useBookingForm(companionId: string) {
 
         setSelectedVehicle(initialVehicle);
         setActiveHourlyRate(initialRate);
-        setCompanionRate(initialRate);
 
         setCompanionVehicle({
           type: parsed.type,
@@ -123,7 +133,7 @@ export function useBookingForm(companionId: string) {
                   ? `${parsed.car.model || 'รถยนต์'} / ${parsed.motorcycle.model || 'มอเตอร์ไซค์'}`
                   : null,
         });
-        const profileData = comp.profile as { full_name?: string } | null;
+        const profileData = compData.profile as { full_name?: string } | null;
         if (profileData?.full_name) {
           setCompanionName(profileData.full_name);
         }

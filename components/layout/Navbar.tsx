@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/types/database';
-import { HeartHandshake, User, LogOut, Menu, X, Shield, Calendar, Search, Briefcase, ChevronDown } from 'lucide-react';
+import { HeartHandshake, User, LogOut, Menu, X, Shield, Search, ChevronDown } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
@@ -59,7 +59,36 @@ export default function Navbar() {
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
+
+          // Check if user has companion profile and fetch uploaded avatar / id_card_image_url
+          const { data: comp } = await supabase
+            .from('companion_profiles')
+            .select('id, id_card_image_url')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          const isGoogleAvatar = (url?: string | null) =>
+            Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+
+          let localAvatarOverride: string | null = null;
+          if (typeof window !== 'undefined') {
+            localAvatarOverride = localStorage.getItem('user_avatar_override');
+          }
+
+          // Prioritize user's uploaded photo over Google OAuth photo
+          let resolvedAvatar: string | null = null;
+          if (data?.avatar_url && !isGoogleAvatar(data.avatar_url)) {
+            resolvedAvatar = data.avatar_url;
+          } else if (comp?.id_card_image_url) {
+            resolvedAvatar = comp.id_card_image_url;
+          } else if (localAvatarOverride) {
+            resolvedAvatar = localAvatarOverride;
+          } else if (data?.avatar_url) {
+            resolvedAvatar = data.avatar_url;
+          } else {
+            resolvedAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+          }
 
           if (!data) {
             // Profile row was deleted from public.profiles table, but auth session exists!
@@ -72,13 +101,10 @@ export default function Navbar() {
                 user.user_metadata?.name ||
                 user.email?.split('@')[0] ||
                 'ผู้ใช้งาน',
-              avatar_url:
-                user.user_metadata?.avatar_url ||
-                user.user_metadata?.picture ||
-                null,
+              avatar_url: resolvedAvatar,
               phone: user.user_metadata?.phone || null,
               emergency_phone: null,
-              role: 'customer',
+              role: comp ? 'companion' : 'customer',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
@@ -90,16 +116,24 @@ export default function Navbar() {
               .single();
 
             data = upsertedData || fallbackProfile;
+          } else {
+            data = {
+              ...data,
+              avatar_url: resolvedAvatar,
+            };
+
+            // If companion has uploaded photo but profiles table still holds Google avatar,
+            // sync profiles.avatar_url in background
+            if (comp?.id_card_image_url && (!data.avatar_url || isGoogleAvatar(data.avatar_url))) {
+              supabase
+                .from('profiles')
+                .update({ avatar_url: comp.id_card_image_url, updated_at: new Date().toISOString() })
+                .eq('id', user.id)
+                .then(() => {});
+            }
           }
 
           setProfile(data);
-
-          // Check if user has companion profile
-          const { data: comp } = await supabase
-            .from('companion_profiles')
-            .select('id')
-            .eq('id', user.id)
-            .single();
           setIsCompanion(!!comp || data?.role === 'companion');
         } else {
           setProfile(null);
@@ -118,8 +152,24 @@ export default function Navbar() {
       loadUser();
     });
 
+    const handleProfileUpdate = () => {
+      loadUser();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('profileUpdated', handleProfileUpdate);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'user_avatar_override' || e.key === 'profile_updated') {
+          loadUser();
+        }
+      });
+    }
+
     return () => {
       subscription.unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('profileUpdated', handleProfileUpdate);
+      }
     };
   }, [supabase]);
 
@@ -166,18 +216,37 @@ export default function Navbar() {
 
           {/* Right Navigation & Action Controls */}
           <div className="hidden md:flex items-center gap-6">
-            <Link
-              href="/#categories"
-              className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
-            >
-              ประเภทธุระ
-            </Link>
-            <Link
-              href="/#how-it-works"
-              className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
-            >
-              ขั้นตอนการใช้งาน
-            </Link>
+            {profile ? (
+              <>
+                <Link
+                  href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
+                  className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
+                >
+                  งานผู้ช่วยของฉัน
+                </Link>
+                <Link
+                  href="/customer/dashboard"
+                  className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
+                >
+                  คำขอของฉัน
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/#categories"
+                  className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
+                >
+                  ประเภทธุระ
+                </Link>
+                <Link
+                  href="/#how-it-works"
+                  className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
+                >
+                  ขั้นตอนการใช้งาน
+                </Link>
+              </>
+            )}
             <Link
               href="/companions"
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800 shadow-md shadow-emerald-200 transition active:scale-95 cursor-pointer"
@@ -244,12 +313,12 @@ export default function Navbar() {
                       <div className="py-1">
                         {isCompanion ? (
                           <Link
-                            href="/companion/dashboard"
+                            href="/companion/profile"
                             onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
                           >
-                            <Briefcase className="w-4 h-4 text-teal-600" />
-                            งาน Companion ของฉัน
+                            <User className="w-4 h-4 text-gray-400" />
+                            จัดการข้อมูลโปรไฟล์ผู้ช่วย
                           </Link>
                         ) : (
                           <Link
@@ -259,26 +328,6 @@ export default function Navbar() {
                           >
                             <Shield className="w-4 h-4 text-teal-600" />
                             สมัคร/ยืนยันตัวตน Companion
-                          </Link>
-                        )}
-
-                        <Link
-                          href="/customer/dashboard"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
-                        >
-                          <Calendar className="w-4 h-4 text-emerald-600" />
-                          คำขอของฉัน (Customer)
-                        </Link>
-
-                        {isCompanion && (
-                          <Link
-                            href="/companion/profile"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
-                          >
-                            <User className="w-4 h-4 text-gray-400" />
-                            จัดการข้อมูลโปรไฟล์ผู้ช่วย
                           </Link>
                         )}
                       </div>
@@ -345,20 +394,41 @@ export default function Navbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden relative z-10 border-t border-gray-100 bg-white/95 backdrop-blur-md px-4 py-5 space-y-3">
-          <Link
-            href="/#categories"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-base font-semibold text-gray-800 py-2"
-          >
-            ประเภทธุระ
-          </Link>
-          <Link
-            href="/#how-it-works"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-base font-semibold text-gray-800 py-2"
-          >
-            ขั้นตอนการใช้งาน
-          </Link>
+          {profile ? (
+            <>
+              <Link
+                href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-base font-semibold text-gray-800 py-2 hover:text-emerald-700 transition"
+              >
+                งานผู้ช่วยของฉัน
+              </Link>
+              <Link
+                href="/customer/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-base font-semibold text-gray-800 py-2 hover:text-emerald-700 transition"
+              >
+                คำขอของฉัน
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/#categories"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-base font-semibold text-gray-800 py-2"
+              >
+                ประเภทธุระ
+              </Link>
+              <Link
+                href="/#how-it-works"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-base font-semibold text-gray-800 py-2"
+              >
+                ขั้นตอนการใช้งาน
+              </Link>
+            </>
+          )}
           <Link
             href="/companions"
             onClick={() => setMobileMenuOpen(false)}
@@ -374,29 +444,12 @@ export default function Navbar() {
                   เข้าสู่ระบบในชื่อ: <strong className="text-emerald-800">{profile.full_name}</strong>
                 </p>
                 <Link
-                  href="/customer/dashboard"
+                  href="/companion/profile"
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-center py-2.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-sm"
                 >
-                  คำขอของฉัน (Customer)
+                  {isCompanion ? 'จัดการข้อมูลโปรไฟล์ผู้ช่วย' : 'ยืนยันตัวตนเพื่อรับงาน (สแกนใบหน้า)'}
                 </Link>
-                {isCompanion ? (
-                  <Link
-                    href="/companion/dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block w-full text-center py-2.5 rounded-xl bg-teal-50 text-teal-800 font-bold text-sm"
-                  >
-                    งาน Companion ของฉัน
-                  </Link>
-                ) : (
-                  <Link
-                    href="/companion/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block w-full text-center py-2.5 rounded-xl bg-teal-600 text-white font-bold text-sm"
-                  >
-                    ยืนยันตัวตนเพื่อรับงาน (สแกนใบหน้า)
-                  </Link>
-                )}
                 <button
                   onClick={handleLogout}
                   className="w-full py-2.5 text-center text-rose-600 font-bold border border-rose-200 rounded-xl text-sm"

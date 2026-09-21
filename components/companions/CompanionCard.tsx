@@ -24,6 +24,14 @@ export default function CompanionCard({
     companion.bio
   );
   const activeSchedule = companion.available_schedule || embeddedSchedule;
+  const isGoogleAvatar = (url?: string | null) =>
+    Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+
+  const resolvedAvatar =
+    companion.profile?.avatar_url && !isGoogleAvatar(companion.profile.avatar_url)
+      ? companion.profile.avatar_url
+      : companion.id_card_image_url || companion.profile?.avatar_url || '';
+
   return (
     <div className="bg-white rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden">
       <div className="min-w-0">
@@ -34,11 +42,11 @@ export default function CompanionCard({
               href={`/companions/${companion.id}`}
               className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-200 shrink-0 hover:scale-105 transition"
             >
-              {companion.profile?.avatar_url ? (
+              {resolvedAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={companion.profile.avatar_url}
-                  alt={companion.profile.full_name || 'Companion'}
+                  src={resolvedAvatar}
+                  alt={companion.profile?.full_name || 'Companion'}
                   className="w-full h-full object-cover"
                 />
               ) : (
