@@ -14,6 +14,7 @@ import LocationSection from '@/components/booking/LocationSection';
 import SchedulePicker from '@/components/booking/SchedulePicker';
 import SpecialNeedsFields from '@/components/booking/SpecialNeedsFields';
 import BookingSubmitBar from '@/components/booking/BookingSubmitBar';
+import VehicleBookingSelector from '@/components/booking/VehicleBookingSelector';
 
 function BookingForm({ companionId }: { companionId: string }) {
   const form = useBookingForm(companionId);
@@ -86,6 +87,13 @@ function BookingForm({ companionId }: { companionId: string }) {
                 form.setDestinationLat(lat);
                 form.setDestinationLng(lng);
               }}
+            />
+
+            {/* Vehicle Selection for Booking */}
+            <VehicleBookingSelector
+              vehicleDetails={form.vehicleDetails}
+              selectedVehicle={form.selectedVehicle}
+              onSelectVehicle={form.handleSelectVehicle}
             />
 
             <SchedulePicker

@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Swal from "sweetalert2";
 import { SERVICE_CATEGORIES } from "./constants";
+import { parseVehicleDetails, ParsedVehicleInfo } from "@/lib/vehicleUtils";
 
 export interface CompanionVehicleInfo {
   type: string;
@@ -18,8 +19,16 @@ export function useBookingForm(companionId: string) {
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [companionRate, setCompanionRate] = useState(250);
+  const [activeHourlyRate, setActiveHourlyRate] = useState(250);
   const [companionName, setCompanionName] = useState("ผู้ช่วยร่วมเดินทาง");
   const [isPrefilled, setIsPrefilled] = useState(false);
+
+  // Vehicle states
+  const [vehicleDetails, setVehicleDetails] =
+    useState<ParsedVehicleInfo | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<
+    "car" | "motorcycle" | "none"
+  >("none");
 
   // Form states
   const [categoryId, setCategoryId] = useState(1);
@@ -41,8 +50,22 @@ export function useBookingForm(companionId: string) {
   const [companionVehicle, setCompanionVehicle] =
     useState<CompanionVehicleInfo | null>(null);
 
-  // Calculate total price
-  const totalPrice = durationHours * companionRate;
+  // Calculate total price based on activeHourlyRate
+  const totalPrice = durationHours * activeHourlyRate;
+
+  const handleSelectVehicle = (v: "car" | "motorcycle" | "none") => {
+    setSelectedVehicle(v);
+    if (vehicleDetails) {
+      let newRate = vehicleDetails.baseRate;
+      if (v === "car" && vehicleDetails.hasCar) {
+        newRate = vehicleDetails.car.rate;
+      } else if (v === "motorcycle" && vehicleDetails.hasMotorcycle) {
+        newRate = vehicleDetails.motorcycle.rate;
+      }
+      setActiveHourlyRate(newRate);
+      setCompanionRate(newRate);
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -57,9 +80,7 @@ export function useBookingForm(companionId: string) {
         .from("companion_profiles")
         .select(
           `
-          hourly_rate,
-          vehicle_type,
-          vehicle_model,
+          *,
           profile:profiles(full_name)
         `,
         )
@@ -67,13 +88,41 @@ export function useBookingForm(companionId: string) {
         .single();
 
       if (comp) {
-        setCompanionRate(Number(comp.hourly_rate) || 250);
-        if (comp.vehicle_type) {
-          setCompanionVehicle({
-            type: comp.vehicle_type,
-            model: comp.vehicle_model,
-          });
+        const parsed = parseVehicleDetails(
+          comp.vehicle_type,
+          comp.vehicle_model,
+          comp.vehicle_plate,
+          comp.hourly_rate,
+          comp.bio
+        );
+        setVehicleDetails(parsed);
+
+        let initialVehicle: "car" | "motorcycle" | "none" = "none";
+        let initialRate = parsed.baseRate;
+
+        if (parsed.hasCar) {
+          initialVehicle = "car";
+          initialRate = parsed.car.rate;
+        } else if (parsed.hasMotorcycle) {
+          initialVehicle = "motorcycle";
+          initialRate = parsed.motorcycle.rate;
         }
+
+        setSelectedVehicle(initialVehicle);
+        setActiveHourlyRate(initialRate);
+        setCompanionRate(initialRate);
+
+        setCompanionVehicle({
+          type: parsed.type,
+          model:
+            parsed.type === "car"
+              ? parsed.car.model
+              : parsed.type === "motorcycle"
+                ? parsed.motorcycle.model
+                : parsed.type === "both"
+                  ? `${parsed.car.model || 'รถยนต์'} / ${parsed.motorcycle.model || 'มอเตอร์ไซค์'}`
+                  : null,
+        });
         const profileData = comp.profile as { full_name?: string } | null;
         if (profileData?.full_name) {
           setCompanionName(profileData.full_name);
@@ -182,6 +231,9 @@ export function useBookingForm(companionId: string) {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
           window.location.pathname + window.location.search,
         )}`,
+        queryParams: {
+          prompt: "select_account",
+        },
       },
     });
   };
@@ -265,15 +317,34 @@ export function useBookingForm(companionId: string) {
     setErrorMsg("");
 
     try {
+      let vehicleNote = "";
+      if (selectedVehicle === "car" && vehicleDetails?.hasCar) {
+        vehicleNote = `[ยานพาหนะที่เลือก: 🚗 รถยนต์ส่วนตัว (${vehicleDetails.car.model || "มีรถยนต์ส่วนตัว"}) - ฿${activeHourlyRate}/ชม.]`;
+      } else if (
+        selectedVehicle === "motorcycle" &&
+        vehicleDetails?.hasMotorcycle
+      ) {
+        vehicleNote = `[ยานพาหนะที่เลือก: 🛵 รถมอเตอร์ไซค์ (${vehicleDetails.motorcycle.model || "มีมอเตอร์ไซค์"}) - ฿${activeHourlyRate}/ชม.]`;
+      } else {
+        vehicleNote = `[ยานพาหนะที่เลือก: 🚶 ขนส่งสาธารณะ / นัดพบตามสถานที่ - ฿${activeHourlyRate}/ชม.]`;
+      }
+
+      const combinedDetails = [
+        customCategory ? `[ประเภทธุระระบุเอง: ${customCategory}]` : "",
+        vehicleNote,
+        errandDetails,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+
       // Create Booking in Supabase
       const { error } = await supabase.from("bookings").insert({
         customer_id: user.id,
         companion_id: companionId,
         category_id: categoryId === 99 ? 5 : categoryId,
         errand_title: errandTitle,
-        errand_details: customCategory
-          ? `[ประเภทธุระระบุเอง: ${customCategory}] ${errandDetails}`.trim()
-          : errandDetails,
+        errand_details: combinedDetails,
         origin_address: originAddress,
         origin_lat: originLat,
         origin_lng: originLng,
@@ -321,8 +392,12 @@ export function useBookingForm(companionId: string) {
     submitting,
     user,
     companionName,
-    companionRate,
+    companionRate: activeHourlyRate,
+    activeHourlyRate,
     companionVehicle,
+    vehicleDetails,
+    selectedVehicle,
+    handleSelectVehicle,
     isPrefilled,
     totalPrice,
     categoryId,

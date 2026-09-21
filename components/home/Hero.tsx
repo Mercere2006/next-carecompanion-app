@@ -6,7 +6,6 @@ import { Search, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 import Image from 'next/image';
-import companionImg from '@/assets/images/companion.jpg';
 
 export default function Hero() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -33,25 +32,28 @@ export default function Hero() {
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: 'select_account',
+        },
       },
     });
   };
 
   return (
     <section className="relative overflow-hidden flex flex-col justify-center min-h-[calc(100vh-5rem)] min-h-[calc(100dvh-5rem)] py-12 sm:py-16 lg:py-20">
-      {/* Background Image from assets/images/companion.jpg */}
-      <div className="absolute inset-0">
+      {/* Background Image from public/images/companion.jpg */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
         <Image
-          src={companionImg}
+          src="/images/companion.jpg"
           alt="Care Companion"
           fill
           priority
           sizes="100vw"
-          className="object-cover object-top"
+          className="object-cover object-center sm:object-[center_25%]"
         />
-        {/* Overlays for smooth seamless blend from white navbar and readable text */}
-        <div className="absolute inset-0 bg-white/40" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white" />
+        {/* Soft readable overlay: photo is clearly visible while keeping Thai typography crisp and readable */}
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-white/90" />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

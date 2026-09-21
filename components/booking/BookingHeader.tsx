@@ -38,10 +38,18 @@ export default function BookingHeader({
                   ? "bg-emerald-100 text-emerald-800"
                   : companionVehicle.type === "motorcycle"
                     ? "bg-teal-100 text-teal-800"
-                    : "bg-gray-100 text-gray-700"
+                    : companionVehicle.type === "both"
+                      ? "bg-indigo-100 text-indigo-800"
+                      : "bg-gray-100 text-gray-700"
               }`}
             >
-              {companionVehicle.type === "car" ? (
+              {companionVehicle.type === "both" ? (
+                <>
+                  <Car className="w-3.5 h-3.5 text-indigo-700" />
+                  <Bike className="w-3.5 h-3.5 text-indigo-700" />
+                  <span>มียานพาหนะ (รถยนต์และมอเตอร์ไซค์)</span>
+                </>
+              ) : companionVehicle.type === "car" ? (
                 <>
                   <Car className="w-3.5 h-3.5 text-emerald-700" />
                   <span>

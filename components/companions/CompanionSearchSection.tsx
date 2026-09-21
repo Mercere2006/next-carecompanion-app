@@ -151,6 +151,9 @@ export default function CompanionSearchSection({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetUrl)}`,
+        queryParams: {
+          prompt: "select_account",
+        },
       },
     });
   };

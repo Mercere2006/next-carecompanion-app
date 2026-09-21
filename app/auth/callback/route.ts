@@ -18,20 +18,34 @@ export async function GET(request: Request) {
           .from('profiles')
           .select('role')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        // If user specified a role during login and doesn't have one set yet
-        if (requestedRole && (!profile || profile.role === 'customer') && requestedRole === 'companion') {
-          await supabase
-            .from('profiles')
-            .update({ role: 'companion' })
-            .eq('id', user.id);
-          
+        // Determine user role: prioritize requestedRole, fallback to existing or 'customer'
+        const determinedRole =
+          requestedRole === 'companion'
+            ? 'companion'
+            : profile?.role || 'customer';
+
+        // Always ensure profiles row exists in Supabase for this user
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+            role: determinedRole,
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (determinedRole === 'companion') {
           await supabase
             .from('companion_profiles')
             .upsert({ id: user.id, verification_status: 'pending' });
 
-          return NextResponse.redirect(`${origin}/companion/profile`);
+          if (requestedRole === 'companion' && (!next || next === '/')) {
+            return NextResponse.redirect(`${origin}/companion/profile`);
+          }
         }
 
         if (next && next !== '/') {

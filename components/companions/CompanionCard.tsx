@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { CompanionCardData } from '@/types/database';
 import { ShieldCheck, Star, MapPin, Briefcase, ChevronRight, User, Clock, Lock } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
+import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
 
 interface CompanionCardProps {
   companion: CompanionCardData;
@@ -14,6 +15,15 @@ export default function CompanionCard({
   onSelect,
   currentUser,
 }: CompanionCardProps) {
+  const { embeddedSchedule } = extractCleanBio(companion.bio);
+  const parsedVehicles = parseVehicleDetails(
+    companion.vehicle_type,
+    companion.vehicle_model,
+    companion.vehicle_plate,
+    companion.hourly_rate,
+    companion.bio
+  );
+  const activeSchedule = companion.available_schedule || embeddedSchedule;
   return (
     <div className="bg-white rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden">
       <div className="min-w-0">
@@ -69,10 +79,23 @@ export default function CompanionCard({
           </div>
 
           <div className="text-right shrink-0 pl-1">
-            <span className="text-base sm:text-xl font-black text-emerald-700 block">
-              {formatPrice(companion.hourly_rate)}
-            </span>
-            <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">/ ชั่วโมง</span>
+            {parsedVehicles.type === 'both' ? (
+              <>
+                <span className="text-sm sm:text-base md:text-lg font-black text-emerald-700 block whitespace-nowrap">
+                  ฿{parsedVehicles.motorcycle.rate} - ฿{parsedVehicles.car.rate}
+                </span>
+                <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">
+                  / ชม. (ตามพาหนะ)
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-base sm:text-xl font-black text-emerald-700 block">
+                  {formatPrice(companion.hourly_rate)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">/ ชั่วโมง</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -84,18 +107,69 @@ export default function CompanionCard({
         )}
 
         {/* Vehicle Information with Privacy Auth Gate */}
-        {companion.vehicle_type === 'car' ? (
+        {parsedVehicles.type === 'both' ? (
+          <div className="space-y-1.5 mb-3">
+            {/* Car row */}
+            <div className="flex items-center justify-between gap-1.5 text-xs bg-emerald-50/70 px-3 py-1.5 rounded-xl border border-emerald-100 min-w-0">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-sm shrink-0">🚗</span>
+                <span className="font-bold text-gray-800 truncate">
+                  {parsedVehicles.car.model || 'รถยนต์ส่วนตัว'}
+                </span>
+                <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100/80 px-1.5 py-0.5 rounded shrink-0">
+                  ฿{parsedVehicles.car.rate}/ชม.
+                </span>
+              </div>
+              <div className="shrink-0 text-[11px]">
+                {currentUser ? (
+                  <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                    {parsedVehicles.car.plate || 'มีทะเบียนรถ'}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 font-medium flex items-center gap-0.5 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-200 text-[10px]">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>ทะเบียน</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Motorcycle row */}
+            <div className="flex items-center justify-between gap-1.5 text-xs bg-teal-50/70 px-3 py-1.5 rounded-xl border border-teal-100 min-w-0">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-sm shrink-0">🛵</span>
+                <span className="font-bold text-gray-800 truncate">
+                  {parsedVehicles.motorcycle.model || 'รถมอเตอร์ไซค์'}
+                </span>
+                <span className="text-[10px] text-teal-800 font-bold bg-teal-100/80 px-1.5 py-0.5 rounded shrink-0">
+                  ฿{parsedVehicles.motorcycle.rate}/ชม.
+                </span>
+              </div>
+              <div className="shrink-0 text-[11px]">
+                {currentUser ? (
+                  <span className="font-mono font-bold text-teal-900 bg-white px-2 py-0.5 rounded-md border border-teal-200">
+                    {parsedVehicles.motorcycle.plate || 'มีทะเบียนรถ'}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 font-medium flex items-center gap-0.5 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-200 text-[10px]">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>ทะเบียน</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : parsedVehicles.type === 'car' ? (
           <div className="flex items-center justify-between gap-1.5 text-xs bg-emerald-50/70 px-3 py-2 rounded-xl border border-emerald-100 mb-3 min-w-0">
             <div className="flex items-center gap-1.5 truncate">
               <span className="text-base shrink-0">🚗</span>
               <span className="font-bold text-gray-800 truncate">
-                {companion.vehicle_model || 'รถยนต์ส่วนตัว'}
+                {parsedVehicles.car.model || 'รถยนต์ส่วนตัว'}
               </span>
             </div>
             <div className="shrink-0 text-[11px]">
               {currentUser ? (
                 <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-                  {companion.vehicle_plate || 'มีทะเบียนรถ'}
+                  {parsedVehicles.car.plate || 'มีทะเบียนรถ'}
                 </span>
               ) : (
                 <span className="text-gray-500 font-medium flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-md border border-gray-200">
@@ -105,18 +179,18 @@ export default function CompanionCard({
               )}
             </div>
           </div>
-        ) : companion.vehicle_type === 'motorcycle' ? (
-          <div className="flex items-center justify-between gap-1.5 text-xs bg-amber-50/70 px-3 py-2 rounded-xl border border-amber-100 mb-3 min-w-0">
+        ) : parsedVehicles.type === 'motorcycle' ? (
+          <div className="flex items-center justify-between gap-1.5 text-xs bg-teal-50/70 px-3 py-2 rounded-xl border border-teal-100 mb-3 min-w-0">
             <div className="flex items-center gap-1.5 truncate">
               <span className="text-base shrink-0">🛵</span>
               <span className="font-bold text-gray-800 truncate">
-                {companion.vehicle_model || 'รถมอเตอร์ไซค์'}
+                {parsedVehicles.motorcycle.model || 'รถมอเตอร์ไซค์'}
               </span>
             </div>
             <div className="shrink-0 text-[11px]">
               {currentUser ? (
-                <span className="font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200">
-                  {companion.vehicle_plate || 'มีทะเบียนรถ'}
+                <span className="font-mono font-bold text-teal-900 bg-white px-2 py-0.5 rounded-md border border-teal-200">
+                  {parsedVehicles.motorcycle.plate || 'มีทะเบียนรถ'}
                 </span>
               ) : (
                 <span className="text-gray-500 font-medium flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-md border border-gray-200">
@@ -134,10 +208,10 @@ export default function CompanionCard({
         )}
 
         {/* Available Schedule */}
-        {companion.available_schedule && (
+        {activeSchedule && (
           <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50/50 px-3 py-1.5 rounded-xl border border-emerald-100/80 mb-3">
             <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="truncate">สะดวก: {companion.available_schedule}</span>
+            <span className="truncate">สะดวก: {activeSchedule}</span>
           </div>
         )}
 

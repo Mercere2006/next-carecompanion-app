@@ -22,6 +22,7 @@ import {
   LogIn,
 } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { parseVehicleDetails } from '@/lib/vehicleUtils';
 
 function maskPhoneNumber(phone?: string | null) {
   if (!phone) return '08x-***-****';
@@ -81,8 +82,15 @@ export default async function CompanionDetailPage({
     .eq('companion_id', id)
     .order('created_at', { ascending: false });
 
-  const vehicleType = companion.vehicle_type || 'none';
-  const hasVehicle = vehicleType === 'car' || vehicleType === 'motorcycle';
+  const parsedVehicles = parseVehicleDetails(
+    companion.vehicle_type,
+    companion.vehicle_model,
+    companion.vehicle_plate,
+    companion.hourly_rate,
+    companion.bio
+  );
+  const vehicleType = parsedVehicles.type;
+  const hasVehicle = parsedVehicles.hasCar || parsedVehicles.hasMotorcycle;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -186,7 +194,9 @@ export default async function CompanionDetailPage({
               <div className="border-t border-gray-100 pt-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                    {vehicleType === 'car' ? (
+                    {vehicleType === 'both' ? (
+                      <Car className="w-5 h-5 text-emerald-700" />
+                    ) : vehicleType === 'car' ? (
                       <Car className="w-5 h-5 text-emerald-700" />
                     ) : vehicleType === 'motorcycle' ? (
                       <Bike className="w-5 h-5 text-teal-600" />
@@ -197,14 +207,18 @@ export default async function CompanionDetailPage({
                   </h2>
                   <span
                     className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                      vehicleType === 'car'
+                      vehicleType === 'both'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : vehicleType === 'car'
                         ? 'bg-emerald-100 text-emerald-800'
                         : vehicleType === 'motorcycle'
                         ? 'bg-teal-100 text-teal-800'
                         : 'bg-gray-100 text-gray-700'
                     }`}
                   >
-                    {vehicleType === 'car'
+                    {vehicleType === 'both'
+                      ? '🚗+🛵 มีทั้งรถยนต์และมอเตอร์ไซค์'
+                      : vehicleType === 'car'
                       ? '🚗 รถยนต์ส่วนตัว'
                       : vehicleType === 'motorcycle'
                       ? '🛵 รถมอเตอร์ไซค์'
@@ -219,13 +233,90 @@ export default async function CompanionDetailPage({
                       : 'bg-gray-50 border-gray-200'
                   }`}
                 >
-                  {hasVehicle ? (
+                  {vehicleType === 'both' ? (
+                    <div className="space-y-4">
+                      {/* Car block */}
+                      <div className="p-3.5 rounded-xl bg-white border border-emerald-200 space-y-2">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                            <Car className="w-4 h-4 text-emerald-700" />
+                            <span>1. รถยนต์ส่วนตัว (Car / SUV)</span>
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                            ฿{parsedVehicles.car.rate}/ชม.
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">ยี่ห้อ / รุ่น / สี: </span>
+                            <span className="font-bold text-gray-900">
+                              {parsedVehicles.car.model || 'ไม่ระบุรุ่น'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">ทะเบียน: </span>
+                            {currentUser ? (
+                              <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                {parsedVehicles.car.plate || 'ระบุแล้ว'}
+                              </span>
+                            ) : (
+                              <span className="font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                {maskPlate(parsedVehicles.car.plate)} (เข้าสู่ระบบเพื่อดู)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Motorcycle block */}
+                      <div className="p-3.5 rounded-xl bg-white border border-teal-200 space-y-2">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                            <Bike className="w-4 h-4 text-teal-700" />
+                            <span>2. รถจักรยานยนต์ (Motorcycle)</span>
+                          </span>
+                          <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md">
+                            ฿{parsedVehicles.motorcycle.rate}/ชม.
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">ยี่ห้อ / รุ่น / สี: </span>
+                            <span className="font-bold text-gray-900">
+                              {parsedVehicles.motorcycle.model || 'ไม่ระบุรุ่น'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">ทะเบียน: </span>
+                            {currentUser ? (
+                              <span className="font-mono font-bold text-teal-900 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                                {parsedVehicles.motorcycle.plate || 'ระบุแล้ว'}
+                              </span>
+                            ) : (
+                              <span className="font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                {maskPlate(parsedVehicles.motorcycle.plate)} (เข้าสู่ระบบเพื่อดู)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-gray-600 pt-1 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>
+                          ลูกค้าสามารถเลือกระหว่าง <strong>&ldquo;รถยนต์&rdquo;</strong> หรือ <strong>&ldquo;มอเตอร์ไซค์&rdquo;</strong> ในขั้นตอนการจองได้ โดยคิดค่าบริการตามคันที่เลือกจริง
+                        </span>
+                      </div>
+                    </div>
+                  ) : hasVehicle ? (
                     <div className="space-y-3">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                           <p className="text-xs text-gray-500 font-medium">ยี่ห้อ / รุ่น / สี</p>
                           <p className="text-sm font-bold text-gray-900 mt-0.5">
-                            {companion.vehicle_model || 'ไม่ระบุรุ่น'}
+                            {vehicleType === 'car'
+                              ? parsedVehicles.car.model || 'ไม่ระบุรุ่น'
+                              : parsedVehicles.motorcycle.model || 'ไม่ระบุรุ่น'}
                           </p>
                         </div>
                         <div className="sm:text-right">
@@ -233,7 +324,9 @@ export default async function CompanionDetailPage({
                           {currentUser ? (
                             <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                               <span className="font-mono font-black text-sm text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
-                                {companion.vehicle_plate || 'ระบุแล้วในระบบ'}
+                                {vehicleType === 'car'
+                                  ? parsedVehicles.car.plate || 'ระบุแล้วในระบบ'
+                                  : parsedVehicles.motorcycle.plate || 'ระบุแล้วในระบบ'}
                               </span>
                               <span className="text-[11px] text-emerald-700 flex items-center gap-0.5">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -243,7 +336,11 @@ export default async function CompanionDetailPage({
                           ) : (
                             <div className="flex items-center gap-2 sm:justify-end mt-0.5">
                               <span className="font-mono text-sm text-gray-600 bg-white px-2.5 py-1 rounded-lg border border-gray-300">
-                                {maskPlate(companion.vehicle_plate)}
+                                {maskPlate(
+                                  vehicleType === 'car'
+                                    ? parsedVehicles.car.plate
+                                    : parsedVehicles.motorcycle.plate
+                                )}
                               </span>
                               <Link
                                 href={`/login?redirect=/companions/${id}`}
@@ -343,12 +440,21 @@ export default async function CompanionDetailPage({
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-emerald-200 shadow-xl shadow-emerald-100/50 sticky top-28 space-y-6">
               <div className="flex items-baseline justify-between pb-4 border-b border-gray-100">
                 <span className="text-sm font-semibold text-gray-500">อัตราค่าบริการ</span>
-                <div>
-                  <span className="text-3xl font-black text-emerald-700">
-                    {formatPrice(companion.hourly_rate)}
-                  </span>
-                  <span className="text-xs text-gray-400 font-medium ml-1">/ ชั่วโมง</span>
-                </div>
+                {vehicleType === 'both' ? (
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-emerald-700">
+                      ฿{parsedVehicles.motorcycle.rate} - ฿{parsedVehicles.car.rate}
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-medium block">/ ชม. (ตามพาหนะที่เลือก)</span>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-3xl font-black text-emerald-700">
+                      {formatPrice(companion.hourly_rate)}
+                    </span>
+                    <span className="text-xs text-gray-400 font-medium ml-1">/ ชั่วโมง</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 text-xs text-gray-600">
@@ -358,7 +464,12 @@ export default async function CompanionDetailPage({
                 </div>
 
                 <div className="flex items-center gap-2 text-gray-700">
-                  {vehicleType === 'car' ? (
+                  {vehicleType === 'both' ? (
+                    <>
+                      <Car className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>มีทั้งรถยนต์และมอเตอร์ไซค์ (เลือกได้ตอนจอง)</span>
+                    </>
+                  ) : vehicleType === 'car' ? (
                     <>
                       <Car className="w-4 h-4 text-emerald-700 shrink-0" />
                       <span>มีรถยนต์ส่วนตัว (บริการรับ-ส่งถึงที่)</span>

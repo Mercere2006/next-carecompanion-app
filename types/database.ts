@@ -22,7 +22,7 @@ export interface Profile {
 }
 
 // 2. Companion Profile Type
-export type VehicleType = 'none' | 'motorcycle' | 'car';
+export type VehicleType = 'none' | 'motorcycle' | 'car' | 'both';
 
 export interface CompanionProfile {
   id: string;
