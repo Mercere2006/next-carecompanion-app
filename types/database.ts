@@ -90,7 +90,9 @@ export interface Review {
 
 // Composite / Joined Types
 export interface CompanionCardData extends CompanionProfile {
-  profile: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'>;
+  profile: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'> & {
+    role?: UserRole;
+  };
 }
 
 export interface BookingDetailData extends Booking {

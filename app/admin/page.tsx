@@ -6,7 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, CompanionCardData, BookingDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Users, Calendar, AlertTriangle, Eye, ScanFace } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
@@ -16,6 +16,8 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<'verification' | 'users' | 'bookings'>('verification');
 
   const [companions, setCompanions] = useState<CompanionCardData[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
+  const [showMockData, setShowMockData] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -49,11 +51,17 @@ export default function AdminDashboardPage() {
         .from('companion_profiles')
         .select(`
           *,
-          profile:profiles(full_name, email, phone, avatar_url)
+          profile:profiles(full_name, email, phone, avatar_url, role)
         `)
         .order('updated_at', { ascending: false });
 
-      if (compData) setCompanions(compData as unknown as CompanionCardData[]);
+      if (compData) {
+        // Exclude accounts with role 'admin' (Admins are not companion candidates)
+        const validCompanions = (compData as unknown as CompanionCardData[]).filter(
+          (c) => c.profile?.role !== 'admin'
+        );
+        setCompanions(validCompanions);
+      }
 
       // 2. Fetch all users
       const { data: userData } = await supabase
@@ -187,7 +195,18 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const pendingVerificationCount = companions.filter((c) => c.verification_status === 'pending').length;
+  const isMock = (comp: CompanionCardData) =>
+    Boolean(comp.profile?.email?.endsWith('@example.com'));
+
+  const pendingRealCount = companions.filter((c) => c.verification_status === 'pending' && !isMock(c)).length;
+  const verifiedRealCount = companions.filter((c) => c.verification_status === 'verified' && (showMockData || !isMock(c))).length;
+  const rejectedRealCount = companions.filter((c) => c.verification_status === 'rejected').length;
+
+  const filteredCompanions = companions.filter((comp) => {
+    if (!showMockData && isMock(comp)) return false;
+    if (statusFilter === 'all') return true;
+    return comp.verification_status === statusFilter;
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -217,13 +236,21 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
-            <span className="text-xs font-bold text-gray-400 block mb-1">Companion ในระบบ</span>
-            <span className="text-2xl sm:text-3xl font-black text-teal-700">{companions.length} คน</span>
+            <span className="text-xs font-bold text-gray-400 block mb-1">Companion จริงในระบบ</span>
+            <span className="text-2xl sm:text-3xl font-black text-teal-700">
+              {companions.filter((c) => !isMock(c)).length} คน
+            </span>
+            <span className="text-[10px] text-gray-400 block mt-0.5">
+              (+ Mock {companions.filter(isMock).length} คน)
+            </span>
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-amber-200 bg-amber-50/40 shadow-xs">
             <span className="text-xs font-bold text-amber-800 block mb-1">รอตรวจสอบ (Pending)</span>
-            <span className="text-2xl sm:text-3xl font-black text-amber-600">{pendingVerificationCount} คน</span>
+            <span className="text-2xl sm:text-3xl font-black text-amber-600">{pendingRealCount} คน</span>
+            <span className="text-[10px] text-amber-700 block mt-0.5">
+              {pendingRealCount > 0 ? 'ต้องการการตรวจสอบจากแอดมิน' : 'ไม่มีรายการค้าง'}
+            </span>
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
@@ -243,7 +270,7 @@ export default function AdminDashboardPage() {
             }`}
           >
             <ScanFace className="w-4 h-4" />
-            ตรวจการยืนยันตัวตน Companion ({pendingVerificationCount})
+            ตรวจการยืนยันตัวตน Companion ({pendingRealCount})
           </button>
 
           <button
@@ -274,13 +301,79 @@ export default function AdminDashboardPage() {
         {/* Tab 1: Verification */}
         {activeTab === 'verification' && (
           <div className="bg-white rounded-3xl border border-gray-200/80 overflow-hidden shadow-xs">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">
-                รายการ Companion ที่รอการตรวจสอบการยืนยันตัวตน (สแกนใบหน้า)
-              </h2>
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-gray-900">
+                  รายการตรวจสอบการยืนยันตัวตน Companion
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  ตรวจสอบรูปถ่ายสแกนใบหน้าจริงและพิจารณาอนุมัติเปิดรับงาน
+                </p>
+              </div>
+
+              {/* Sub-Filters & Mock Toggle */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center bg-gray-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('pending')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      statusFilter === 'pending'
+                        ? 'bg-white text-emerald-800 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    รอตรวจสอบ ({pendingRealCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('verified')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      statusFilter === 'verified'
+                        ? 'bg-white text-emerald-800 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    อนุมัติแล้ว ({verifiedRealCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('rejected')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      statusFilter === 'rejected'
+                        ? 'bg-white text-emerald-800 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    ปฏิเสธ ({rejectedRealCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      statusFilter === 'all'
+                        ? 'bg-white text-emerald-800 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    ทั้งหมด
+                  </button>
+                </div>
+
+                {/* Mock Data Toggle */}
+                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-100 transition">
+                  <input
+                    type="checkbox"
+                    checked={showMockData}
+                    onChange={(e) => setShowMockData(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span>รวม Mock ({companions.filter(isMock).length})</span>
+                </label>
+              </div>
             </div>
 
-            {companions.length > 0 ? (
+            {filteredCompanions.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-gray-600">
                   <thead className="bg-gray-50 text-xs uppercase font-bold text-gray-500 border-b border-gray-200">
@@ -293,15 +386,23 @@ export default function AdminDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {companions.map((comp) => {
+                    {filteredCompanions.map((comp) => {
                       const isProcessing = processingId === comp.id;
+                      const isMockRow = isMock(comp);
 
                       return (
                         <tr key={comp.id} className="hover:bg-slate-50/60 transition">
                           <td className="px-6 py-4">
-                            <strong className="text-gray-900 block font-semibold">
-                              {comp.profile?.full_name || 'ไม่ระบุชื่อ'}
-                            </strong>
+                            <div className="flex items-center gap-2">
+                              <strong className="text-gray-900 block font-semibold">
+                                {comp.profile?.full_name || 'ไม่ระบุชื่อ'}
+                              </strong>
+                              {isMockRow && (
+                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">
+                                  Mock Data
+                                </span>
+                              )}
+                            </div>
                             <span className="text-xs text-gray-400">{comp.profile?.email}</span>
                           </td>
                           <td className="px-6 py-4">{comp.profile?.phone || '-'}</td>
@@ -348,20 +449,60 @@ export default function AdminDashboardPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right space-x-2">
-                            <button
-                              disabled={isProcessing}
-                              onClick={() => handleVerifyCompanion(comp.id, 'verified')}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800 disabled:opacity-50"
-                            >
-                              อนุมัติ (Verify)
-                            </button>
-                            <button
-                              disabled={isProcessing}
-                              onClick={() => handleVerifyCompanion(comp.id, 'rejected')}
-                              className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-bold text-xs hover:bg-rose-100 border border-rose-200 disabled:opacity-50"
-                            >
-                              ปฏิเสธ
-                            </button>
+                            {/* Pending Status: Show Approve and Reject */}
+                            {comp.verification_status === 'pending' && (
+                              <>
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => handleVerifyCompanion(comp.id, 'verified')}
+                                  className="px-3.5 py-1.5 rounded-xl bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800 disabled:opacity-50 transition cursor-pointer shadow-xs active:scale-95"
+                                >
+                                  อนุมัติ (Verify)
+                                </button>
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => handleVerifyCompanion(comp.id, 'rejected')}
+                                  className="px-3.5 py-1.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs border border-rose-200 disabled:opacity-50 transition cursor-pointer active:scale-95"
+                                >
+                                  ปฏิเสธ
+                                </button>
+                              </>
+                            )}
+
+                            {/* Verified Status: Already verified, show badge and optional Revoke */}
+                            {comp.verification_status === 'verified' && (
+                              <div className="inline-flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  อนุมัติแล้ว
+                                </span>
+                                {!isMockRow && (
+                                  <button
+                                    disabled={isProcessing}
+                                    onClick={() => handleVerifyCompanion(comp.id, 'rejected')}
+                                    className="px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 font-semibold text-xs border border-rose-200 transition cursor-pointer"
+                                  >
+                                    เพิกถอน
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Rejected Status: Already rejected, show badge and optional Re-approve */}
+                            {comp.verification_status === 'rejected' && (
+                              <div className="inline-flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                  ✕ ปฏิเสธแล้ว
+                                </span>
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => handleVerifyCompanion(comp.id, 'verified')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition cursor-pointer"
+                                >
+                                  อนุมัติใหม่
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -370,7 +511,18 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             ) : (
-              <p className="p-8 text-center text-gray-400 text-sm">ยังไม่มี Companion ในระบบ</p>
+              <div className="p-12 text-center space-y-2">
+                <p className="text-gray-500 font-semibold text-sm">
+                  {statusFilter === 'pending'
+                    ? 'ไม่มีรายการ Companion ที่รอการตรวจสอบในขณะนี้ ✨'
+                    : 'ไม่มีข้อมูล Companion ในหมวดหมู่นี้'}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {statusFilter === 'pending'
+                    ? 'เมื่อมีผู้สมัครรายใหม่ที่สแกนใบหน้าและยืนยันเบอร์แล้ว รายการจะแสดงขึ้นที่นี่'
+                    : 'คุณสามารถเลือกฟิลเตอร์อื่นหรือเปิดแสดง Mock Data ด้านบนได้'}
+                </p>
+              </div>
             )}
           </div>
         )}
