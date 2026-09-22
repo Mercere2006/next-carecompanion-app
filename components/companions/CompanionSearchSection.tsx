@@ -80,26 +80,40 @@ export default function CompanionSearchSection({
             profile:profiles(full_name, avatar_url, phone, email)
           `,
           )
-          .eq("is_available", true)
-          .gt("hourly_rate", 0);
+          .eq("is_available", true);
 
         if (error) {
           console.warn("Companion profiles query notice:", error.message);
         }
 
         if (!error && data && data.length > 0) {
-          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio)
-          const completeProfiles = (data as unknown as CompanionCardData[]).filter(
-            (c) => {
-              const hasName = Boolean(
-                c.profile?.full_name && c.profile.full_name.trim().length > 0,
-              );
-              const hasRate = Number(c.hourly_rate) > 0;
-              const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
-              const isAvail = c.is_available === true;
-              return isAvail && hasRate && hasBio && hasName;
-            },
-          );
+          // Enrich hourly_rate from vehicle or bio if DB column has 0
+          const enriched = (data as unknown as CompanionCardData[]).map((c) => {
+            let rate = Number(c.hourly_rate) || 0;
+            if (rate <= 0 && c.vehicle_model) {
+              const match = c.vehicle_model.match(/\[฿(\d+)\]/);
+              if (match && match[1]) rate = parseInt(match[1], 10);
+            }
+            if (rate <= 0 && c.bio) {
+              const match = c.bio.match(/\[฿(\d+)\]/);
+              if (match && match[1]) rate = parseInt(match[1], 10);
+            }
+            return {
+              ...c,
+              hourly_rate: rate > 0 ? rate : c.hourly_rate,
+            };
+          });
+
+          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, และเปิดรับงาน)
+          const completeProfiles = enriched.filter((c) => {
+            const hasName = Boolean(
+              c.profile?.full_name && c.profile.full_name.trim().length > 0,
+            );
+            const hasRate = Number(c.hourly_rate) > 0;
+            const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
+            const isAvail = c.is_available === true;
+            return isAvail && hasRate && hasBio && hasName;
+          });
 
           const realIds = new Set(completeProfiles.map((c) => c.id));
           const complementaryMocks = MOCK_COMPANIONS.filter(

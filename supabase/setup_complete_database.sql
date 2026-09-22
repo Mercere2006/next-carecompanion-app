@@ -212,6 +212,20 @@ CREATE TABLE IF NOT EXISTS public.reviews (
 
 -- 8. กำหนด Row Level Security (RLS) ทั้งระบบ (เพื่อให้ทุกคนเข้าถึงข้อมูลสาธารณะและใช้งานได้ 100%)
 
+-- ฟังก์ชันตรวจสอบสิทธิ์ Admin แบบปลอดภัย (SECURITY DEFINER ป้องกัน infinite recursion ใน RLS)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
 -- 8.1 ตาราง profiles
 ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -228,10 +242,12 @@ TO authenticated
 WITH CHECK (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-CREATE POLICY "Users can update their own profile"
+DROP POLICY IF EXISTS "Users and admins can update profile" ON public.profiles;
+CREATE POLICY "Users and admins can update profile"
 ON public.profiles FOR UPDATE
 TO authenticated
-USING (auth.uid() = id);
+USING (auth.uid() = id OR public.is_admin())
+WITH CHECK (auth.uid() = id OR public.is_admin());
 
 -- 8.2 ตาราง companion_profiles
 ALTER TABLE IF EXISTS public.companion_profiles ENABLE ROW LEVEL SECURITY;
@@ -249,10 +265,12 @@ TO authenticated
 WITH CHECK (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users can update their own companion profile" ON public.companion_profiles;
-CREATE POLICY "Users can update their own companion profile"
+DROP POLICY IF EXISTS "Users and admins can update companion profile" ON public.companion_profiles;
+CREATE POLICY "Users and admins can update companion profile"
 ON public.companion_profiles FOR UPDATE
 TO authenticated
-USING (auth.uid() = id);
+USING (auth.uid() = id OR public.is_admin())
+WITH CHECK (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can delete their own companion profile" ON public.companion_profiles;
 CREATE POLICY "Users can delete their own companion profile"

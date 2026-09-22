@@ -100,16 +100,54 @@ export default function AdminDashboardPage() {
   const handleVerifyCompanion = async (companionId: string, status: 'verified' | 'rejected') => {
     setProcessingId(companionId);
     try {
-      const { error } = await supabase
+      const targetComp = companions.find((c) => c.id === companionId);
+      let calculatedRate = Number(targetComp?.hourly_rate) || 0;
+
+      // Extract rate from vehicle or bio if current rate is 0
+      if (calculatedRate <= 0 && targetComp?.vehicle_model) {
+        const rateMatch = targetComp.vehicle_model.match(/\[฿(\d+)\]/);
+        if (rateMatch && rateMatch[1]) {
+          calculatedRate = parseInt(rateMatch[1], 10);
+        }
+      }
+      if (calculatedRate <= 0 && targetComp?.bio) {
+        const rateMatch = targetComp.bio.match(/\[฿(\d+)\]/);
+        if (rateMatch && rateMatch[1]) {
+          calculatedRate = parseInt(rateMatch[1], 10);
+        }
+      }
+      if (calculatedRate <= 0) {
+        calculatedRate = 350;
+      }
+
+      const updateData: Record<string, unknown> = {
+        verification_status: status,
+        is_available: status === 'verified',
+        updated_at: new Date().toISOString(),
+      };
+
+      if (status === 'verified') {
+        if (!targetComp?.hourly_rate || Number(targetComp.hourly_rate) <= 0) {
+          updateData.hourly_rate = calculatedRate;
+        }
+      }
+
+      const { data, error } = await supabase
         .from('companion_profiles')
-        .update({
-          verification_status: status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', companionId);
+        .update(updateData)
+        .eq('id', companionId)
+        .select();
 
       if (error) throw error;
-      alert(`อัปเดตสถานะเป็น ${status === 'verified' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'} เรียบร้อย`);
+
+      if (!data || data.length === 0) {
+        alert(
+          'คำเตือน: บันทึกข้อมูลไม่สำเร็จเนื่องจากสิทธิ์ความปลอดภัย (RLS) ของ Supabase จำกัดไว้เฉพาะเจ้าของบัญชี\nกรุณารัน SQL ปลดล็อคสิทธิ์ Admin ใน Supabase SQL Editor เพื่อเปิดสิทธิ์การอนุมัติ'
+        );
+        return;
+      }
+
+      alert(`อัปเดตสถานะเป็น ${status === 'verified' ? 'อนุมัติและเปิดรับงานแล้ว' : 'ปฏิเสธ'} เรียบร้อย`);
       fetchAdminData();
     } catch (err) {
       alert('เกิดข้อผิดพลาด: ' + (err as Error).message);
