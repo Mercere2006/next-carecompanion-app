@@ -22,15 +22,18 @@ export default function VerifiedIdentityBanner({
   faceImageUrl,
   onResetVerification,
 }: VerifiedIdentityBannerProps) {
-  const formattedDisplayName = fullName
-    ? fullName.startsWith('คุณ') ||
-      fullName.startsWith('นาย') ||
-      fullName.startsWith('นาง') ||
-      fullName.startsWith('น.ส.') ||
-      fullName.startsWith('นางสาว')
-      ? fullName
-      : `คุณ${fullName}`
-    : 'ผู้ให้บริการร่วมเดินทาง';
+  const formattedDisplayName =
+    fullName === 'Admin'
+      ? 'Admin'
+      : fullName
+      ? fullName.startsWith('คุณ') ||
+        fullName.startsWith('นาย') ||
+        fullName.startsWith('นาง') ||
+        fullName.startsWith('น.ส.') ||
+        fullName.startsWith('นางสาว')
+        ? fullName
+        : `คุณ${fullName}`
+      : 'ผู้ให้บริการร่วมเดินทาง';
 
   return (
     <div className="space-y-4">

@@ -43,18 +43,25 @@ export async function GET(request: Request) {
             null;
         }
 
-        // Preserve customized full_name if available, otherwise use Google OAuth name
-        const finalFullName =
-          profile?.full_name ||
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          null;
-
-        // Determine user role: prioritize requestedRole, fallback to existing or 'customer'
+        // Determine user role: prioritize existing admin, requestedRole, fallback to existing or 'customer'
         const determinedRole =
-          requestedRole === 'companion'
+          profile?.role === 'admin'
+            ? 'admin'
+            : requestedRole === 'companion'
             ? 'companion'
             : profile?.role || 'customer';
+
+        // Preserve customized full_name if available; Admin account name is strictly 'Admin'
+        let finalFullName: string | null = null;
+        if (determinedRole === 'admin') {
+          finalFullName = 'Admin';
+        } else {
+          finalFullName =
+            profile?.full_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            null;
+        }
 
         // Always ensure profiles row exists in Supabase for this user
         await supabase

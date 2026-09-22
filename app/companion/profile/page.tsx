@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Camera,
   Briefcase,
   CheckCircle2,
   AlertCircle,
@@ -1035,7 +1034,7 @@ export default function CompanionProfilePage() {
             เข้าสู่ระบบเพื่อยืนยันตัวตนและรับงาน
           </h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            ผู้ช่วยร่วมเดินทาง (Companion) ต้องเข้าสู่ระบบด้วย Google และทำการอัปโหลดรูปถ่ายใบหน้า + ยืนยันเบอร์โทรศัพท์ก่อนเริ่มรับงาน
+            ผู้ช่วยร่วมเดินทาง (Companion) ต้องเข้าสู่ระบบด้วย Google และทำการสแกนใบหน้า + ยืนยันเบอร์โทรศัพท์ก่อนเริ่มรับงาน
           </p>
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
@@ -1107,7 +1106,7 @@ export default function CompanionProfilePage() {
             <p className="text-gray-600 text-xs sm:text-sm mt-1">
               {isVerified
                 ? 'แก้ไขข้อมูลส่วนตัว ยานพาหนะ และรายละเอียดการให้บริการของคุณ'
-                : 'อัปโหลดรูปถ่ายใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน'}
+                : 'สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน'}
             </p>
           </div>
 
@@ -1154,19 +1153,19 @@ export default function CompanionProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
               <div className="flex items-start sm:items-center gap-3 min-w-0">
                 <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 bg-teal-100 text-teal-800">
-                  <Camera className="w-6 h-6" />
+                  <ScanFace className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-base sm:text-lg font-extrabold text-gray-900 break-words">
-                      ขั้นตอนที่ 1: ยืนยันตัวตน (รูปถ่ายใบหน้า + เบอร์โทรศัพท์ OTP)
+                      ขั้นตอนที่ 1: ยืนยันตัวตน (สแกนใบหน้าจริง + เบอร์โทรศัพท์ OTP)
                     </h2>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 bg-amber-100 text-amber-800">
                       จำเป็นต้องทำก่อน
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    เพื่อความปลอดภัยและความอุ่นใจของผู้สูงอายุ ผู้ช่วยต้องอัปโหลดรูปถ่ายใบหน้าจริงและยืนยันเบอร์มือถือ
+                    เพื่อความปลอดภัยและความอุ่นใจของผู้สูงอายุ ผู้ช่วยต้องสแกนใบหน้าจริงและยืนยันเบอร์มือถือ
                   </p>
                 </div>
               </div>

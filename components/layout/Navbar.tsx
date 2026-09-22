@@ -294,11 +294,13 @@ export default function Navbar() {
                     </div>
                     <div className="text-left leading-tight hidden lg:block">
                       <p className="text-xs font-bold text-gray-800 max-w-[120px] truncate">
-                        {profile.full_name || 'ผู้ใช้งาน'}
+                        {profile.role === 'admin' ? 'Admin' : (profile.full_name || 'ผู้ใช้งาน')}
                       </p>
-                      <span className="text-[10px] text-gray-400 capitalize">
-                        {isCompanion ? 'Customer & Companion' : 'Customer'}
-                      </span>
+                      {profile.role === 'admin' && (
+                        <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded-md inline-block mt-0.5 border border-amber-300">
+                          Admin
+                        </span>
+                      )}
                     </div>
                     <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -307,11 +309,15 @@ export default function Navbar() {
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2.5 border-b border-gray-100">
-                        <p className="text-xs font-bold text-gray-900 truncate">{profile.full_name || 'ผู้ใช้งาน'}</p>
+                        <p className="text-xs font-bold text-gray-900 truncate">
+                          {profile.role === 'admin' ? 'Admin' : (profile.full_name || 'ผู้ใช้งาน')}
+                        </p>
                         <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          {isCompanion ? 'Customer & Companion' : 'Customer'}
-                        </span>
+                        {profile.role === 'admin' && (
+                          <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            Admin
+                          </span>
+                        )}
                       </div>
 
                       <div className="py-1">
@@ -445,7 +451,12 @@ export default function Navbar() {
             {profile ? (
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-gray-500">
-                  เข้าสู่ระบบในชื่อ: <strong className="text-emerald-800">{profile.full_name}</strong>
+                  เข้าสู่ระบบในชื่อ: <strong className="text-emerald-800">{profile.role === 'admin' ? 'Admin' : profile.full_name}</strong>
+                  {profile.role === 'admin' && (
+                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      Admin
+                    </span>
+                  )}
                 </p>
                 <Link
                   href="/companion/profile"

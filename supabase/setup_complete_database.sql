@@ -305,3 +305,8 @@ ON public.bookings FOR UPDATE
 TO authenticated
 USING (auth.uid() = customer_id OR auth.uid() = companion_id);
 
+-- 9. กำหนดชื่อบัญชีผู้ดูแลระบบ (Admin) ให้เป็น 'Admin' เสมอ (ไม่มีชื่อบุคคล)
+UPDATE public.profiles
+SET full_name = 'Admin'
+WHERE role = 'admin';
+

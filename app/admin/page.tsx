@@ -128,9 +128,17 @@ export default function AdminDashboardPage() {
     if (!confirm(`ต้องการเปลี่ยนสิทธิ์ผู้ใช้นี้เป็น ${newRole} ใช่หรือไม่?`)) return;
 
     try {
+      const updatePayload: { role: string; full_name?: string; updated_at: string } = {
+        role: newRole,
+        updated_at: new Date().toISOString(),
+      };
+      if (newRole === 'admin') {
+        updatePayload.full_name = 'Admin';
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', userId);
 
       if (error) throw error;
@@ -363,7 +371,7 @@ export default function AdminDashboardPage() {
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-50/60 transition">
                       <td className="px-6 py-4 font-semibold text-gray-900">
-                        {u.full_name || 'ผู้ใช้งาน'}
+                        {u.role === 'admin' ? 'Admin' : (u.full_name || 'ผู้ใช้งาน')}
                       </td>
                       <td className="px-6 py-4">{u.email}</td>
                       <td className="px-6 py-4">{u.phone || '-'}</td>
