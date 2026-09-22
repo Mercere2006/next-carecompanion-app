@@ -6,7 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, CompanionCardData, BookingDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Shield, Users, FileText, Calendar, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, Eye, ScanFace } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
@@ -19,6 +19,7 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [previewImageModal, setPreviewImageModal] = useState<{ url: string; name: string } | null>(null);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -109,18 +110,27 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleViewDocument = async (filePath: string) => {
+  const handleViewDocument = async (filePath: string, companionName = 'Companion') => {
+    if (!filePath) return;
+
+    // 1. Direct Base64 data URL or HTTP(S) URL
+    if (filePath.startsWith('data:image') || filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      setPreviewImageModal({ url: filePath, name: companionName });
+      return;
+    }
+
+    // 2. Fallback to Supabase Storage signed URL if path is a storage object
     try {
       const { data, error } = await supabase.storage
         .from('verification_docs')
-        .createSignedUrl(filePath, 120); // 2 minutes valid
+        .createSignedUrl(filePath, 120);
 
       if (error) throw error;
       if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
+        setPreviewImageModal({ url: data.signedUrl, name: companionName });
       }
     } catch (err) {
-      alert('ไม่สามารถเปิดไฟล์เอกสารได้: ' + (err as Error).message);
+      alert('ไม่สามารถเปิดรูปภาพได้: ' + (err as Error).message);
     }
   };
 
@@ -212,7 +222,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-amber-200 bg-amber-50/40 shadow-xs">
-            <span className="text-xs font-bold text-amber-800 block mb-1">รอตรวจเอกสาร (Pending)</span>
+            <span className="text-xs font-bold text-amber-800 block mb-1">รอตรวจสอบ (Pending)</span>
             <span className="text-2xl sm:text-3xl font-black text-amber-600">{pendingVerificationCount} คน</span>
           </div>
 
@@ -232,8 +242,8 @@ export default function AdminDashboardPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-800'
             }`}
           >
-            <Shield className="w-4 h-4" />
-            ตรวจเอกสาร Companion ({pendingVerificationCount})
+            <ScanFace className="w-4 h-4" />
+            ตรวจการยืนยันตัวตน Companion ({pendingVerificationCount})
           </button>
 
           <button
@@ -266,7 +276,7 @@ export default function AdminDashboardPage() {
           <div className="bg-white rounded-3xl border border-gray-200/80 overflow-hidden shadow-xs">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                รายการ Companion ที่รอการตรวจสอบเอกสารยืนยันตัวตน
+                รายการ Companion ที่รอการตรวจสอบการยืนยันตัวตน (สแกนใบหน้า)
               </h2>
             </div>
 
@@ -277,7 +287,7 @@ export default function AdminDashboardPage() {
                     <tr>
                       <th className="px-6 py-4">Companion</th>
                       <th className="px-6 py-4">เบอร์ติดต่อ</th>
-                      <th className="px-6 py-4">เอกสารบัตรประชาชน</th>
+                      <th className="px-6 py-4">รูปถ่ายสแกนใบหน้า</th>
                       <th className="px-6 py-4">สถานะปัจจุบัน</th>
                       <th className="px-6 py-4 text-right">ดำเนินการ</th>
                     </tr>
@@ -297,16 +307,31 @@ export default function AdminDashboardPage() {
                           <td className="px-6 py-4">{comp.profile?.phone || '-'}</td>
                           <td className="px-6 py-4">
                             {comp.id_card_image_url ? (
-                              <button
-                                onClick={() => handleViewDocument(comp.id_card_image_url!)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium text-xs border border-blue-200"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                เปิดดูเอกสาร (Secure Link)
-                                <ExternalLink className="w-3 h-3" />
-                              </button>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewDocument(comp.id_card_image_url!, comp.profile?.full_name || 'Companion')}
+                                  className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden border-2 border-teal-400 hover:border-teal-500 hover:scale-105 transition cursor-pointer shrink-0 shadow-xs group"
+                                  title="คลิกเพื่อดูรูปขนาดเต็ม"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={comp.id_card_image_url}
+                                    alt={comp.profile?.full_name || 'Face Scan'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewDocument(comp.id_card_image_url!, comp.profile?.full_name || 'Companion')}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 font-semibold text-xs border border-teal-200 transition cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  ดูรูปสแกนใบหน้า
+                                </button>
+                              </div>
                             ) : (
-                              <span className="text-xs text-gray-400 italic">ยังไม่อัปโหลด</span>
+                              <span className="text-xs text-gray-400 italic">ยังไม่สแกนใบหน้า</span>
                             )}
                           </td>
                           <td className="px-6 py-4">
@@ -463,6 +488,54 @@ export default function AdminDashboardPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Preview Full Face Scan Image */}
+        {previewImageModal && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setPreviewImageModal(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 truncate">
+                    รูปถ่ายยืนยันตัวตน (สแกนใบหน้า)
+                  </h3>
+                  <p className="text-xs text-gray-500 truncate">{previewImageModal.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageModal(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm transition cursor-pointer shrink-0 ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="rounded-2xl overflow-hidden bg-slate-950 aspect-square flex items-center justify-center border border-gray-200 shadow-inner">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewImageModal.url}
+                  alt={previewImageModal.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageModal(null)}
+                  className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-bold text-xs hover:bg-gray-800 transition cursor-pointer"
+                >
+                  ปิดหน้าต่าง
+                </button>
+              </div>
             </div>
           </div>
         )}
