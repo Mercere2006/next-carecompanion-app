@@ -389,10 +389,20 @@ export function useBookingForm(companionId: string) {
 
       router.push("/customer/dashboard");
     } catch (err: unknown) {
-      console.error(err);
-      setErrorMsg(
-        err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการสร้างคำขอ",
-      );
+      console.error('Booking submission error:', err);
+      const postgrestErr = err as { message?: string; details?: string; hint?: string };
+      const rawMsg = postgrestErr?.message || (err instanceof Error ? err.message : '');
+      let displayError = rawMsg || "เกิดข้อผิดพลาดในการสร้างคำขอ";
+
+      if (rawMsg.includes("bookings_companion_id_fkey") || rawMsg.includes("Key (companion_id)")) {
+        displayError = "ไม่พบข้อมูลผู้ช่วยในฐานข้อมูล (หากเป็นผู้ช่วยตัวอย่าง กรุณารันคำสั่ง SQL Seed ใน Supabase SQL Editor)";
+      } else if (rawMsg.includes("bookings_category_id_fkey") || rawMsg.includes("Key (category_id)")) {
+        displayError = "ไม่พบหมวดหมู่บริการในฐานข้อมูล (กรุณาเพิ่มข้อมูลในตาราง service_categories ใน Supabase)";
+      } else if (rawMsg.includes("row-level security") || rawMsg.includes("policy")) {
+        displayError = "ไม่มีสิทธิ์บันทึกคำขอจอง (กรุณาเปิด RLS Policy สำหรับ INSERT ของตาราง bookings ใน Supabase)";
+      }
+
+      setErrorMsg(displayError);
       setSubmitting(false);
     }
   };
