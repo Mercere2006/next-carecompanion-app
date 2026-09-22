@@ -58,8 +58,12 @@ export default function PhoneOtpStep({
       return;
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 9 || cleanPhone.length > 10) {
-      setOtpError('กรุณากรอกเบอร์โทรศัพท์มือถือที่ถูกต้อง (10 หลัก)');
+    if (!cleanPhone.startsWith('0')) {
+      setOtpError('เบอร์โทรศัพท์ต้องขึ้นต้นด้วยเลข 0 เท่านั้น (เช่น 0812345678)');
+      return;
+    }
+    if (cleanPhone.length !== 10) {
+      setOtpError('กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก (ขึ้นต้นด้วย 0)');
       return;
     }
 
@@ -171,7 +175,11 @@ export default function PhoneOtpStep({
               type="tel"
               disabled={otpSent && otpCountdown > 0}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                let val = e.target.value.replace(/\D/g, '');
+                if (val.length > 10) val = val.slice(0, 10);
+                setPhone(val);
+              }}
               placeholder="เช่น 0812345678"
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium font-mono"
             />
@@ -186,7 +194,7 @@ export default function PhoneOtpStep({
             </button>
           </div>
           <p className="text-[11px] text-gray-500">
-            *เพื่อความเป็นส่วนตัว เบอร์โทรจะแสดงให้เฉพาะลูกค้าที่เข้าสู่ระบบแล้วเท่านั้น
+            *เบอร์โทรศัพท์ต้องขึ้นต้นด้วยเลข 0 เท่านั้น (10 หลัก) เพื่อความเป็นส่วนตัว เบอร์โทรจะแสดงให้เฉพาะลูกค้าที่เข้าสู่ระบบแล้วเท่านั้น
           </p>
         </div>
 

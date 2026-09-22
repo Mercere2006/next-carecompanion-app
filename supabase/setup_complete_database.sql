@@ -254,6 +254,12 @@ ON public.companion_profiles FOR UPDATE
 TO authenticated
 USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can delete their own companion profile" ON public.companion_profiles;
+CREATE POLICY "Users can delete their own companion profile"
+ON public.companion_profiles FOR DELETE
+TO authenticated
+USING (auth.uid() = id);
+
 -- 8.3 ตาราง service_categories
 ALTER TABLE IF EXISTS public.service_categories ENABLE ROW LEVEL SECURITY;
 

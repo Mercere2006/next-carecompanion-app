@@ -31,8 +31,11 @@ export default function VehicleManagerModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
 
     if (!model.trim()) {
       setErrorMsg('กรุณากรอกยี่ห้อ รุ่น และสีของยานพาหนะ');
@@ -92,7 +95,7 @@ export default function VehicleManagerModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-5">
           {/* Vehicle Type Switcher */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-gray-700 block">
@@ -210,14 +213,15 @@ export default function VehicleManagerModal({
               ยกเลิก
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md shadow-emerald-200 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               {editingVehicle ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               {editingVehicle ? 'บันทึกการแก้ไข' : 'เพิ่มยานพาหนะ'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

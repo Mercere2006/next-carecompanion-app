@@ -109,6 +109,7 @@ export default function CompanionDetailsForm({
       }
       return [...prev, vehicle];
     });
+    setEditVehicles(true);
     setEditingVehicle(null);
   };
 
@@ -142,12 +143,13 @@ export default function CompanionDetailsForm({
   };
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className={`transition-all ${
-        !isVerified ? 'opacity-40 pointer-events-none select-none' : 'opacity-100'
-      }`}
-    >
+    <>
+      <form
+        onSubmit={onSubmit}
+        className={`transition-all ${
+          !isVerified ? 'opacity-40 pointer-events-none select-none' : 'opacity-100'
+        }`}
+      >
       {/* SINGLE UNIFIED CONTINUOUS FORM CONTAINER (ข้อมูลยาวลงมา ไม่เป็นบล็อกแยก) */}
       <div className="bg-white rounded-3xl p-5 sm:p-9 border border-gray-200/90 shadow-sm space-y-7">
         
@@ -870,30 +872,30 @@ export default function CompanionDetailsForm({
             </span>
           </button>
         </div>
-
       </div>
-
-      {/* Avatar Picker Modal */}
-      <AvatarPickerModal
-        isOpen={isAvatarModalOpen}
-        currentAvatarUrl={avatarUrl}
-        onClose={() => setIsAvatarModalOpen(false)}
-        onSelectAvatar={(newUrl) => setAvatarUrl(newUrl)}
-      />
-
-      {/* Vehicle Manager Modal */}
-      {isVehicleModalOpen && (
-        <VehicleManagerModal
-          key={editingVehicle ? `${editingVehicle.type}-${editingVehicle.plate}` : 'new-vehicle'}
-          isOpen={isVehicleModalOpen}
-          editingVehicle={editingVehicle}
-          onClose={() => {
-            setIsVehicleModalOpen(false);
-            setEditingVehicle(null);
-          }}
-          onSave={handleSaveVehicle}
-        />
-      )}
     </form>
-  );
+
+    {/* Avatar Picker Modal */}
+    <AvatarPickerModal
+      isOpen={isAvatarModalOpen}
+      currentAvatarUrl={avatarUrl}
+      onClose={() => setIsAvatarModalOpen(false)}
+      onSelectAvatar={(newUrl) => setAvatarUrl(newUrl)}
+    />
+
+    {/* Vehicle Manager Modal */}
+    {isVehicleModalOpen && (
+      <VehicleManagerModal
+        key={editingVehicle ? `${editingVehicle.type}-${editingVehicle.plate}` : 'new-vehicle'}
+        isOpen={isVehicleModalOpen}
+        editingVehicle={editingVehicle}
+        onClose={() => {
+          setIsVehicleModalOpen(false);
+          setEditingVehicle(null);
+        }}
+        onSave={handleSaveVehicle}
+      />
+    )}
+  </>
+);
 }

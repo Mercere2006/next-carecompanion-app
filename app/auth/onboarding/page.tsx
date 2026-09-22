@@ -61,8 +61,19 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (!phone.trim()) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone) {
       setErrorMsg('กรุณากรอกเบอร์โทรศัพท์สำหรับติดต่อ');
+      return;
+    }
+
+    if (!cleanPhone.startsWith('0')) {
+      setErrorMsg('เบอร์โทรศัพท์ต้องขึ้นต้นด้วยเลข 0 เท่านั้น (เช่น 0812345678)');
+      return;
+    }
+
+    if (cleanPhone.length !== 10) {
+      setErrorMsg('กรุณากรอกเบอร์โทรศัพท์ให้ครบ 10 หลัก (ขึ้นต้นด้วย 0)');
       return;
     }
 
@@ -218,10 +229,17 @@ export default function OnboardingPage() {
               type="tel"
               required
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                let v = e.target.value.replace(/\D/g, '');
+                if (v.length > 10) v = v.slice(0, 10);
+                setPhone(v);
+              }}
               placeholder="เช่น 0812345678"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-base"
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-base font-mono"
             />
+            <p className="text-xs text-gray-500">
+              *เบอร์โทรศัพท์ต้องขึ้นต้นด้วยเลข 0 เท่านั้น (10 หลัก)
+            </p>
           </div>
 
           <button

@@ -4,11 +4,12 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ScanFace,
+  Camera,
   Briefcase,
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  ScanFace,
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -471,7 +472,7 @@ export default function CompanionProfilePage() {
       localStorage.setItem('profile_updated', Date.now().toString());
       window.dispatchEvent(new Event('profileUpdated'));
     }
-    setSuccessMsg('สแกนใบหน้าสำเร็จ! กรุณากรอกเบอร์โทรศัพท์และยืนยันรหัส OTP ในขั้นตอนถัดไป');
+    setSuccessMsg('อัปโหลดรูปถ่ายใบหน้าสำเร็จ! กรุณากรอกเบอร์โทรศัพท์และยืนยันรหัส OTP ในขั้นตอนถัดไป');
   };
 
   // Avatar change handler (from camera or gallery)
@@ -912,15 +913,35 @@ export default function CompanionProfilePage() {
         return;
       }
 
-      // 1. Deactivate companion profile
-      await supabase
+      // 1. Delete companion profile completely from companion_profiles table
+      const { error: delErr } = await supabase
         .from('companion_profiles')
-        .update({
-          is_available: false,
-          verification_status: 'rejected',
-          updated_at: new Date().toISOString(),
-        })
+        .delete()
         .eq('id', userId);
+
+      // If delete had any error (e.g. policy constraint), wipe all fields completely
+      if (delErr) {
+        console.warn('Companion delete notice, clearing fields:', delErr.message);
+        await supabase
+          .from('companion_profiles')
+          .update({
+            bio: null,
+            experience_years: 0,
+            skills: [],
+            service_areas: [],
+            available_schedule: null,
+            hourly_rate: 0,
+            is_available: false,
+            verification_status: 'pending',
+            phone_verified: false,
+            id_card_image_url: null,
+            vehicle_type: 'none',
+            vehicle_model: null,
+            vehicle_plate: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+      }
 
       // 2. Change role in profiles table to customer
       await supabase
@@ -931,13 +952,50 @@ export default function CompanionProfilePage() {
         })
         .eq('id', userId);
 
+      // 3. Reset name change quota in auth metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            name_change_count: 0,
+          },
+        });
+      } catch (authErr) {
+        console.warn('Reset quota notice:', authErr);
+      }
+
+      // 4. Clear all local storage overrides
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user_fullname_override');
+        localStorage.removeItem('user_avatar_override');
+        localStorage.removeItem('profile_updated');
+        localStorage.removeItem('pending_booking_requirements');
+        window.dispatchEvent(new Event('profileUpdated'));
+      }
+
+      // 5. Reset local component state
+      setBio('');
+      setSkillsText('');
+      setServiceAreasText('');
+      setVehicles([]);
+      setAvailableSchedule('');
+      setHourlyRate(250);
+      setAvatarUrl(null);
+      setFaceImageUrl(null);
+      setFaceScanned(false);
+      setPhoneVerified(false);
+      setVerificationStatus('pending');
+      setIsProfileSaved(false);
+      setIsAvailable(false);
+      setNameChangeCount(0);
+      setInitialSnapshot(null);
+
       await Swal.fire({
-        title: 'ลบโปรไฟล์เรียบร้อย',
-        text: 'ระบบได้ปิดการใช้งานโปรไฟล์ผู้ช่วยของคุณแล้ว กำลังนำคุณกลับสู่หน้าหลัก',
+        title: 'ลบโปรไฟล์ผู้ช่วยสำเร็จ',
+        text: 'ระบบได้ลบข้อมูลโปรไฟล์ผู้ช่วยของคุณทั้งหมดแล้ว หากต้องการเป็นผู้ช่วยอีกครั้งสามารถลงทะเบียนใหม่ได้ตลอดเวลา',
         icon: 'success',
         confirmButtonColor: '#059669',
         confirmButtonText: 'ตกลง',
-        timer: 1800,
+        timer: 2200,
         timerProgressBar: true,
       });
 
@@ -977,7 +1035,7 @@ export default function CompanionProfilePage() {
             เข้าสู่ระบบเพื่อยืนยันตัวตนและรับงาน
           </h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            ผู้ช่วยร่วมเดินทาง (Companion) ต้องเข้าสู่ระบบด้วย Google และทำการสแกนใบหน้า + ยืนยันเบอร์โทรศัพท์ก่อนเริ่มรับงาน
+            ผู้ช่วยร่วมเดินทาง (Companion) ต้องเข้าสู่ระบบด้วย Google และทำการอัปโหลดรูปถ่ายใบหน้า + ยืนยันเบอร์โทรศัพท์ก่อนเริ่มรับงาน
           </p>
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
@@ -1049,7 +1107,7 @@ export default function CompanionProfilePage() {
             <p className="text-gray-600 text-xs sm:text-sm mt-1">
               {isVerified
                 ? 'แก้ไขข้อมูลส่วนตัว ยานพาหนะ และรายละเอียดการให้บริการของคุณ'
-                : 'สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน'}
+                : 'อัปโหลดรูปถ่ายใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน'}
             </p>
           </div>
 
@@ -1096,19 +1154,19 @@ export default function CompanionProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
               <div className="flex items-start sm:items-center gap-3 min-w-0">
                 <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-extrabold text-lg shrink-0 bg-teal-100 text-teal-800">
-                  <ScanFace className="w-6 h-6" />
+                  <Camera className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-base sm:text-lg font-extrabold text-gray-900 break-words">
-                      ขั้นตอนที่ 1: ยืนยันตัวตน (สแกนใบหน้า + เบอร์โทรศัพท์ OTP)
+                      ขั้นตอนที่ 1: ยืนยันตัวตน (รูปถ่ายใบหน้า + เบอร์โทรศัพท์ OTP)
                     </h2>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 bg-amber-100 text-amber-800">
                       จำเป็นต้องทำก่อน
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    เพื่อความปลอดภัยและความอุ่นใจของผู้สูงอายุ ผู้ช่วยต้องสแกนใบหน้าและยืนยันเบอร์มือถือจริง
+                    เพื่อความปลอดภัยและความอุ่นใจของผู้สูงอายุ ผู้ช่วยต้องอัปโหลดรูปถ่ายใบหน้าจริงและยืนยันเบอร์มือถือ
                   </p>
                 </div>
               </div>
