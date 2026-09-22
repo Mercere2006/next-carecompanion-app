@@ -4,8 +4,8 @@ import { cookies } from 'next/headers';
 export async function createClient() {
   const cookieStore = await cookies();
 
-  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+  const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
   const supabaseUrl = rawUrl
     .trim()
