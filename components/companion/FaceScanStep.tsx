@@ -5,7 +5,6 @@ import {
   ScanFace,
   Camera,
   Upload,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   RotateCcw,
@@ -150,32 +149,7 @@ export default function FaceScanStep({
     }, 800);
   };
 
-  // Simulation Mode (Requested feature: จำลองสแกนใบหน้า)
-  const handleSimulation = () => {
-    handleStopCamera();
-    setScanning(true);
-    setScanProgress(25);
-    setScanStepText('กำลังเริ่มระบบจำลองตรวจจับอัตลักษณ์ใบหน้า...');
-
-    setTimeout(() => {
-      setScanProgress(55);
-      setScanStepText('กำลังจำลองตรวจจับโครงสร้างใบหน้า & Liveness Detection (99.8%)...');
-
-      setTimeout(() => {
-        setScanProgress(90);
-        setScanStepText('ตรวจสอบความถูกต้องเรียบร้อย บันทึกข้อมูลอัตลักษณ์สำเร็จ...');
-
-        setTimeout(() => {
-          setScanning(false);
-          setScanStepText('');
-          setScanProgress(0);
-          onScanSuccess('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=faces');
-        }, 600);
-      }, 800);
-    }, 700);
-  };
-
-  // Fallback: Choose/upload face photo from file/gallery
+  // Choose/upload face photo from file/gallery
   const handleUploadFaceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -321,10 +295,10 @@ export default function FaceScanStep({
                     พร้อมเริ่มสแกนใบหน้า
                   </strong>
                   <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-                    เปิดกล้องเพื่อตรวจจับใบหน้าจริง หรือกดปุ่มจำลองเพื่อทดสอบขั้นตอนสแกน
+                    เปิดกล้องเพื่อตรวจจับใบหน้าจริง หรือเลือกรูปถ่ายใบหน้าตรงจากคลังภาพ
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
                   <button
                     type="button"
                     onClick={handleStartCamera}
@@ -335,11 +309,11 @@ export default function FaceScanStep({
                   </button>
                   <button
                     type="button"
-                    onClick={handleSimulation}
-                    className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/30 shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-teal-300 font-bold text-xs border border-teal-500/40 shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    จำลองสแกนใบหน้า (Simulation)
+                    <Upload className="w-4 h-4" />
+                    เลือกรูปจากแกลเลอรี
                   </button>
                 </div>
               </div>
@@ -390,26 +364,14 @@ export default function FaceScanStep({
             </div>
           )}
 
-          {/* Fallback File/Gallery Picker */}
-          {!cameraActive && (
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="cursor-pointer text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline inline-flex items-center gap-1.5"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>หรือเลือกรูปถ่ายใบหน้าจากคลังภาพ (Gallery) / ไฟล์ในเครื่อง</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleUploadFaceFile}
-                className="hidden"
-              />
-            </div>
-          )}
+          {/* Hidden File Input for Gallery Picker */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleUploadFaceFile}
+            className="hidden"
+          />
         </div>
       )}
     </div>
