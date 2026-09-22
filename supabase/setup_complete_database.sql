@@ -1,9 +1,12 @@
 -- ==========================================================
--- CareCompanion Complete Setup & Seed SQL
+-- CareCompanion Complete Setup & Seed SQL (Fixed)
 -- คัดลอกโค้ดทั้งหมดนี้ไปวางใน Supabase Dashboard -> SQL Editor แล้วกด "Run" ได้ทันที
 -- ==========================================================
 
--- 1. ตรวจสอบคอลัมน์ยานพาหนะในตาราง companion_profiles
+-- 1. ปลดล็อค Foreign Key profiles_id_fkey เพื่อให้สามารถบันทึกผู้ช่วยตัวอย่าง (Mock Companions) ลงในระบบได้
+ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+
+-- 2. ตรวจสอบคอลัมน์ยานพาหนะในตาราง companion_profiles
 ALTER TABLE IF EXISTS public.companion_profiles 
 ADD COLUMN IF NOT EXISTS available_schedule TEXT,
 ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT false,
@@ -14,7 +17,7 @@ ADD COLUMN IF NOT EXISTS vehicle_plate TEXT;
 CREATE INDEX IF NOT EXISTS idx_companion_profiles_vehicle_type ON public.companion_profiles(vehicle_type);
 CREATE INDEX IF NOT EXISTS idx_companion_profiles_is_available ON public.companion_profiles(is_available);
 
--- 2. เติมข้อมูล Service Categories (หมวดหมู่บริการ 1 - 5)
+-- 3. เติมข้อมูล Service Categories (หมวดหมู่บริการ 1 - 5)
 CREATE TABLE IF NOT EXISTS public.service_categories (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -35,7 +38,7 @@ ON CONFLICT (id) DO UPDATE SET
   description = EXCLUDED.description,
   is_active = EXCLUDED.is_active;
 
--- 3. เพิ่มข้อมูล Profiles ของผู้ช่วยตัวอย่าง (Mock Companions)
+-- 4. เพิ่มข้อมูล Profiles ของผู้ช่วยตัวอย่าง (คุณสมชาย, คุณวิภาดา, คุณกิตติศักดิ์, คุณธนพร)
 INSERT INTO public.profiles (id, email, full_name, phone, avatar_url, role, updated_at)
 VALUES
   (
@@ -82,7 +85,7 @@ ON CONFLICT (id) DO UPDATE SET
   role = EXCLUDED.role,
   updated_at = NOW();
 
--- 4. เพิ่มข้อมูล Companion Profiles ของผู้ช่วยตัวอย่าง
+-- 5. เพิ่มข้อมูล Companion Profiles พร้อมยานพาหนะ
 INSERT INTO public.companion_profiles (
   id,
   bio,
@@ -176,22 +179,13 @@ VALUES
   )
 ON CONFLICT (id) DO UPDATE SET
   bio = EXCLUDED.bio,
-  experience_years = EXCLUDED.experience_years,
-  skills = EXCLUDED.skills,
-  service_areas = EXCLUDED.service_areas,
-  available_schedule = EXCLUDED.available_schedule,
   hourly_rate = EXCLUDED.hourly_rate,
-  verification_status = EXCLUDED.verification_status,
-  rating_avg = EXCLUDED.rating_avg,
-  rating_count = EXCLUDED.rating_count,
-  is_available = EXCLUDED.is_available,
-  phone_verified = EXCLUDED.phone_verified,
   vehicle_type = EXCLUDED.vehicle_type,
   vehicle_model = EXCLUDED.vehicle_model,
   vehicle_plate = EXCLUDED.vehicle_plate,
   updated_at = NOW();
 
--- 5. กำหนด Row Level Security (RLS) สำหรับตาราง bookings
+-- 6. กำหนด Row Level Security (RLS) เพื่อให้ผู้ใช้สามารถสร้างคำขอจองได้
 ALTER TABLE IF EXISTS public.bookings ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
@@ -200,9 +194,7 @@ BEGIN
     SELECT 1 FROM pg_policies WHERE tablename = 'bookings' AND policyname = 'Customers can insert their own bookings'
   ) THEN
     CREATE POLICY "Customers can insert their own bookings"
-    ON public.bookings
-    FOR INSERT
-    TO authenticated
+    ON public.bookings FOR INSERT TO authenticated
     WITH CHECK (auth.uid() = customer_id);
   END IF;
 
@@ -210,9 +202,7 @@ BEGIN
     SELECT 1 FROM pg_policies WHERE tablename = 'bookings' AND policyname = 'Users can view their related bookings'
   ) THEN
     CREATE POLICY "Users can view their related bookings"
-    ON public.bookings
-    FOR SELECT
-    TO authenticated
+    ON public.bookings FOR SELECT TO authenticated
     USING (auth.uid() = customer_id OR auth.uid() = companion_id);
   END IF;
 
@@ -220,9 +210,7 @@ BEGIN
     SELECT 1 FROM pg_policies WHERE tablename = 'bookings' AND policyname = 'Users can update their bookings'
   ) THEN
     CREATE POLICY "Users can update their bookings"
-    ON public.bookings
-    FOR UPDATE
-    TO authenticated
+    ON public.bookings FOR UPDATE TO authenticated
     USING (auth.uid() = customer_id OR auth.uid() = companion_id);
   END IF;
 END $$;
