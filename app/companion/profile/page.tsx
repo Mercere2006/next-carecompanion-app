@@ -533,6 +533,7 @@ export default function CompanionProfilePage() {
           id: userId,
           verification_status: 'verified',
           id_card_image_url: avatarUrl || faceImageUrl,
+          is_available: true,
           updated_at: new Date().toISOString(),
         };
 

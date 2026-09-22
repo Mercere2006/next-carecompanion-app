@@ -60,7 +60,7 @@ export default function CompanionSearchSection({
     filteredCompanions,
     hasActiveFilters,
     resetFilters,
-  } = useCompanionFilter(companions, currentUser?.id);
+  } = useCompanionFilter(companions);
 
   useEffect(() => {
     async function loadInitial() {
@@ -80,7 +80,11 @@ export default function CompanionSearchSection({
             profile:profiles(full_name, avatar_url, phone, email)
           `,
           )
-          .eq("is_available", true);
+          .or("is_available.eq.true,is_available.is.null");
+
+        if (error) {
+          console.warn("Companion profiles query notice:", error.message);
+        }
 
         if (!error && data && data.length > 0) {
           const realIds = new Set(data.map((c: { id: string }) => c.id));
@@ -92,7 +96,8 @@ export default function CompanionSearchSection({
         } else {
           setCompanions(MOCK_COMPANIONS);
         }
-      } catch {
+      } catch (err) {
+        console.warn("Fetch companions caught error:", err);
         setCompanions(MOCK_COMPANIONS);
       } finally {
         setLoading(false);
@@ -124,6 +129,12 @@ export default function CompanionSearchSection({
 
   // Handle Companion Selection
   const handleSelectCompanion = async (companion: CompanionCardData) => {
+    // If the companion selected is the user themselves, route to profile edit
+    if (currentUser && companion.id === currentUser.id) {
+      router.push("/companion/profile");
+      return;
+    }
+
     // Save pending requirements to sessionStorage for extra reliability
     if (typeof window !== "undefined") {
       sessionStorage.setItem(

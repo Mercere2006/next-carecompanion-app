@@ -185,32 +185,111 @@ ON CONFLICT (id) DO UPDATE SET
   vehicle_plate = EXCLUDED.vehicle_plate,
   updated_at = NOW();
 
--- 6. กำหนด Row Level Security (RLS) เพื่อให้ผู้ใช้สามารถสร้างคำขอจองได้
+-- 6. ตรวจสอบและกำหนดค่าเริ่มต้น is_available ให้เป็น true
+ALTER TABLE IF EXISTS public.companion_profiles 
+ALTER COLUMN is_available SET DEFAULT true;
+
+UPDATE public.companion_profiles 
+SET is_available = true 
+WHERE is_available IS NULL;
+
+-- 7. กำหนดตาราง reviews (ถ้ายังไม่มี)
+CREATE TABLE IF NOT EXISTS public.reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id UUID,
+  customer_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  companion_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. กำหนด Row Level Security (RLS) ทั้งระบบ (เพื่อให้ทุกคนเข้าถึงข้อมูลสาธารณะและใช้งานได้ 100%)
+
+-- 8.1 ตาราง profiles
+ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+CREATE POLICY "Public profiles are viewable by everyone"
+ON public.profiles FOR SELECT
+TO anon, authenticated
+USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+CREATE POLICY "Users can insert their own profile"
+ON public.profiles FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+CREATE POLICY "Users can update their own profile"
+ON public.profiles FOR UPDATE
+TO authenticated
+USING (auth.uid() = id);
+
+-- 8.2 ตาราง companion_profiles
+ALTER TABLE IF EXISTS public.companion_profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public companion profiles are viewable by everyone" ON public.companion_profiles;
+CREATE POLICY "Public companion profiles are viewable by everyone"
+ON public.companion_profiles FOR SELECT
+TO anon, authenticated
+USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own companion profile" ON public.companion_profiles;
+CREATE POLICY "Users can insert their own companion profile"
+ON public.companion_profiles FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own companion profile" ON public.companion_profiles;
+CREATE POLICY "Users can update their own companion profile"
+ON public.companion_profiles FOR UPDATE
+TO authenticated
+USING (auth.uid() = id);
+
+-- 8.3 ตาราง service_categories
+ALTER TABLE IF EXISTS public.service_categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Service categories are viewable by everyone" ON public.service_categories;
+CREATE POLICY "Service categories are viewable by everyone"
+ON public.service_categories FOR SELECT
+TO anon, authenticated
+USING (true);
+
+-- 8.4 ตาราง reviews
+ALTER TABLE IF EXISTS public.reviews ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
+CREATE POLICY "Reviews are viewable by everyone"
+ON public.reviews FOR SELECT
+TO anon, authenticated
+USING (true);
+
+DROP POLICY IF EXISTS "Customers can insert reviews" ON public.reviews;
+CREATE POLICY "Customers can insert reviews"
+ON public.reviews FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = customer_id);
+
+-- 8.5 ตาราง bookings
 ALTER TABLE IF EXISTS public.bookings ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'bookings' AND policyname = 'Customers can insert their own bookings'
-  ) THEN
-    CREATE POLICY "Customers can insert their own bookings"
-    ON public.bookings FOR INSERT TO authenticated
-    WITH CHECK (auth.uid() = customer_id);
-  END IF;
+DROP POLICY IF EXISTS "Customers can insert their own bookings" ON public.bookings;
+CREATE POLICY "Customers can insert their own bookings"
+ON public.bookings FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = customer_id);
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'bookings' AND policyname = 'Users can view their related bookings'
-  ) THEN
-    CREATE POLICY "Users can view their related bookings"
-    ON public.bookings FOR SELECT TO authenticated
-    USING (auth.uid() = customer_id OR auth.uid() = companion_id);
-  END IF;
+DROP POLICY IF EXISTS "Users can view their related bookings" ON public.bookings;
+CREATE POLICY "Users can view their related bookings"
+ON public.bookings FOR SELECT
+TO authenticated
+USING (auth.uid() = customer_id OR auth.uid() = companion_id);
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'bookings' AND policyname = 'Users can update their bookings'
-  ) THEN
-    CREATE POLICY "Users can update their bookings"
-    ON public.bookings FOR UPDATE TO authenticated
-    USING (auth.uid() = customer_id OR auth.uid() = companion_id);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "Users can update their bookings" ON public.bookings;
+CREATE POLICY "Users can update their bookings"
+ON public.bookings FOR UPDATE
+TO authenticated
+USING (auth.uid() = customer_id OR auth.uid() = companion_id);
+

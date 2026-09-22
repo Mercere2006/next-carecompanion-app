@@ -27,19 +27,20 @@ export default function CompanionCard({
   const isGoogleAvatar = (url?: string | null) =>
     Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
 
+  const isSelf = Boolean(currentUser?.id && currentUser.id === companion.id);
   const resolvedAvatar =
     companion.profile?.avatar_url && !isGoogleAvatar(companion.profile.avatar_url)
       ? companion.profile.avatar_url
       : companion.id_card_image_url || companion.profile?.avatar_url || '';
 
   return (
-    <div className="bg-white rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden">
+    <div className={`bg-white rounded-3xl p-4 sm:p-6 border transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden ${isSelf ? 'border-amber-300 ring-2 ring-amber-100 shadow-md' : 'border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300'}`}>
       <div className="min-w-0">
         {/* Top Header: Avatar & Rate */}
         <div className="flex items-start justify-between gap-2 mb-3 sm:mb-4 min-w-0">
           <div className="flex items-start gap-2.5 sm:gap-3.5 min-w-0 flex-1">
             <Link
-              href={`/companions/${companion.id}`}
+              href={isSelf ? '/companion/profile' : `/companions/${companion.id}`}
               className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border-2 border-emerald-200 shrink-0 hover:scale-105 transition"
             >
               {resolvedAvatar ? (
@@ -54,13 +55,18 @@ export default function CompanionCard({
               )}
             </Link>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                 <Link
-                  href={`/companions/${companion.id}`}
+                  href={isSelf ? '/companion/profile' : `/companions/${companion.id}`}
                   className="font-bold text-gray-950 text-sm sm:text-base md:text-lg group-hover:text-emerald-700 hover:underline transition truncate block"
                 >
                   {companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
                 </Link>
+                {isSelf && (
+                  <span className="shrink-0 text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg">
+                    โปรไฟล์ของคุณ
+                  </span>
+                )}
                 {companion.verification_status === 'verified' && (
                   <span
                     title="ยืนยันตัวตนด้วยสแกนใบหน้าและเบอร์โทรศัพท์แล้ว"
@@ -254,7 +260,15 @@ export default function CompanionCard({
       </div>
 
       {/* Action CTA */}
-      {onSelect ? (
+      {isSelf ? (
+        <Link
+          href="/companion/profile"
+          className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn shadow-xs cursor-pointer active:scale-98"
+        >
+          จัดการโปรไฟล์ของคุณ
+          <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
+        </Link>
+      ) : onSelect ? (
         <button
           type="button"
           onClick={() => onSelect(companion)}
