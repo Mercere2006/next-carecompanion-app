@@ -81,7 +81,6 @@ export default function CompanionSearchSection({
           `,
           )
           .eq("is_available", true)
-          .eq("verification_status", "verified")
           .gt("hourly_rate", 0);
 
         if (error) {
@@ -89,7 +88,7 @@ export default function CompanionSearchSection({
         }
 
         if (!error && data && data.length > 0) {
-          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, ยืนยันตัวตนแล้ว)
+          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio)
           const completeProfiles = (data as unknown as CompanionCardData[]).filter(
             (c) => {
               const hasName = Boolean(
@@ -97,9 +96,8 @@ export default function CompanionSearchSection({
               );
               const hasRate = Number(c.hourly_rate) > 0;
               const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
-              const isVerified = c.verification_status === "verified";
               const isAvail = c.is_available === true;
-              return isAvail && isVerified && hasRate && hasBio && hasName;
+              return isAvail && hasRate && hasBio && hasName;
             },
           );
 

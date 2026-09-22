@@ -75,7 +75,6 @@ export default async function CompanionDetailPage({
     const isOwner = currentUser?.id === data.id;
     const isComplete =
       data.is_available === true &&
-      data.verification_status === 'verified' &&
       Number(data.hourly_rate) > 0 &&
       Boolean(data.bio && data.bio.trim().length > 0);
 

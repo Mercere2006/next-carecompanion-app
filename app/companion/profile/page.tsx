@@ -718,6 +718,8 @@ export default function CompanionProfilePage() {
         available_schedule: availableSchedule,
         hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailable,
+        verification_status: 'verified',
+        phone_verified: true,
         vehicle_type: formattedVehicles.vehicle_type,
         vehicle_model: formattedVehicles.vehicle_model,
         vehicle_plate: formattedVehicles.vehicle_plate,
@@ -733,6 +735,8 @@ export default function CompanionProfilePage() {
         service_areas: areasArray,
         hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailable,
+        verification_status: 'verified',
+        phone_verified: true,
         id_card_image_url: avatarUrl || faceImageUrl,
         updated_at: new Date().toISOString(),
       };
