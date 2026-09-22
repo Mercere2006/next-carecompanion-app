@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Car, Bike, Footprints, Check } from 'lucide-react';
+import { Car, Footprints, Check } from 'lucide-react';
 import { ParsedVehicleInfo } from '@/lib/vehicleUtils';
 
 interface VehicleBookingSelectorProps {

@@ -24,7 +24,6 @@ import {
 } from '@/lib/vehicleUtils';
 import FaceScanStep from '@/components/companion/FaceScanStep';
 import PhoneOtpStep from '@/components/companion/PhoneOtpStep';
-import VerifiedIdentityBanner from '@/components/companion/VerifiedIdentityBanner';
 import CompanionDetailsForm from '@/components/companion/CompanionDetailsForm';
 import LockedDetailsOverlay from '@/components/companion/LockedDetailsOverlay';
 
@@ -547,14 +546,6 @@ export default function CompanionProfilePage() {
     } catch (e) {
       console.error('Failed to save verified state', e);
     }
-  };
-
-  // Reset verification
-  const handleResetVerification = () => {
-    setPhoneVerified(false);
-    setFaceScanned(false);
-    setVerificationStatus('pending');
-    setIsProfileSaved(false);
   };
 
   // Step 2: Save Companion Profile Details

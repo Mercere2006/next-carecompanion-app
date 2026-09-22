@@ -2,7 +2,6 @@
 
 import {
   ShieldCheck,
-  CheckCircle2,
   ScanFace,
   Phone,
   Unlock,

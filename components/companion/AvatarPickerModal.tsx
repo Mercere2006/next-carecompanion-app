@@ -35,17 +35,23 @@ export default function AvatarPickerModal({
     setStreaming(false);
   };
 
+  // Close and reset modal state
+  const handleClose = () => {
+    stopCamera();
+    setMode('menu');
+    setCapturedImage(null);
+    setCameraError(null);
+    onClose();
+  };
+
   useEffect(() => {
-    if (!isOpen) {
-      stopCamera();
-      setMode('menu');
-      setCapturedImage(null);
-      setCameraError(null);
-    }
     return () => {
-      stopCamera();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
     };
-  }, [isOpen]);
+  }, []);
 
   // Start Camera
   const startCamera = async () => {
@@ -154,7 +160,7 @@ export default function AvatarPickerModal({
   const handleConfirm = () => {
     if (capturedImage) {
       onSelectAvatar(capturedImage);
-      onClose();
+      handleClose();
     }
   };
 
@@ -166,7 +172,7 @@ export default function AvatarPickerModal({
         {/* Close Button */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition cursor-pointer"
         >
           <X className="w-5 h-5" />

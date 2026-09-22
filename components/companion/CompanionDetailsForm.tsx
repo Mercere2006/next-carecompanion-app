@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Lock,
   Sparkles,
-  AlertCircle,
   Check,
 } from 'lucide-react';
 import { VehicleEntry } from '@/lib/vehicleUtils';
@@ -834,7 +833,7 @@ export default function CompanionDetailsForm({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
               </span>
-              <span>คุณมีการแก้ไขข้อมูลที่ยังไม่ได้บันทึก กรุณากดปุ่ม <strong>"บันทึกการแก้ไขโปรไฟล์"</strong> ด้านล่าง</span>
+              <span>คุณมีการแก้ไขข้อมูลที่ยังไม่ได้บันทึก กรุณากดปุ่ม <strong>&quot;บันทึกการแก้ไขโปรไฟล์&quot;</strong> ด้านล่าง</span>
             </div>
           </div>
         )}
@@ -883,15 +882,18 @@ export default function CompanionDetailsForm({
       />
 
       {/* Vehicle Manager Modal */}
-      <VehicleManagerModal
-        isOpen={isVehicleModalOpen}
-        editingVehicle={editingVehicle}
-        onClose={() => {
-          setIsVehicleModalOpen(false);
-          setEditingVehicle(null);
-        }}
-        onSave={handleSaveVehicle}
-      />
+      {isVehicleModalOpen && (
+        <VehicleManagerModal
+          key={editingVehicle ? `${editingVehicle.type}-${editingVehicle.plate}` : 'new-vehicle'}
+          isOpen={isVehicleModalOpen}
+          editingVehicle={editingVehicle}
+          onClose={() => {
+            setIsVehicleModalOpen(false);
+            setEditingVehicle(null);
+          }}
+          onSave={handleSaveVehicle}
+        />
+      )}
     </form>
   );
 }

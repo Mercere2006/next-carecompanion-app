@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Car, Bike, X, Check, Plus, AlertCircle } from 'lucide-react';
 import { VehicleEntry } from '@/lib/vehicleUtils';
 
@@ -17,26 +17,11 @@ export default function VehicleManagerModal({
   onSave,
   editingVehicle,
 }: VehicleManagerModalProps) {
-  const [type, setType] = useState<'car' | 'motorcycle'>('car');
-  const [model, setModel] = useState('');
-  const [plate, setPlate] = useState('');
-  const [rate, setRate] = useState(350);
+  const [type, setType] = useState<'car' | 'motorcycle'>(editingVehicle?.type || 'car');
+  const [model, setModel] = useState(editingVehicle?.model || '');
+  const [plate, setPlate] = useState(editingVehicle?.plate || '');
+  const [rate, setRate] = useState(editingVehicle?.rate || (editingVehicle?.type === 'car' ? 350 : 280));
   const [errorMsg, setErrorMsg] = useState('');
-
-  useEffect(() => {
-    if (editingVehicle) {
-      setType(editingVehicle.type);
-      setModel(editingVehicle.model);
-      setPlate(editingVehicle.plate);
-      setRate(editingVehicle.rate || (editingVehicle.type === 'car' ? 350 : 280));
-    } else {
-      setType('car');
-      setModel('');
-      setPlate('');
-      setRate(350);
-    }
-    setErrorMsg('');
-  }, [editingVehicle, isOpen]);
 
   // When switching type, update default rate recommendation
   const handleTypeChange = (newType: 'car' | 'motorcycle') => {

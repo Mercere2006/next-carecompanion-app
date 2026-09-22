@@ -83,7 +83,7 @@ export default function CompanionSearchSection({
           .eq("is_available", true);
 
         if (!error && data && data.length > 0) {
-          const realIds = new Set(data.map((c: any) => c.id));
+          const realIds = new Set(data.map((c: { id: string }) => c.id));
           const complementaryMocks = MOCK_COMPANIONS.filter((m) => !realIds.has(m.id));
           setCompanions([
             ...(data as unknown as CompanionCardData[]),
