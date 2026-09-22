@@ -80,17 +80,35 @@ export default function CompanionSearchSection({
             profile:profiles(full_name, avatar_url, phone, email)
           `,
           )
-          .or("is_available.eq.true,is_available.is.null");
+          .eq("is_available", true)
+          .eq("verification_status", "verified")
+          .gt("hourly_rate", 0);
 
         if (error) {
           console.warn("Companion profiles query notice:", error.message);
         }
 
         if (!error && data && data.length > 0) {
-          const realIds = new Set(data.map((c: { id: string }) => c.id));
-          const complementaryMocks = MOCK_COMPANIONS.filter((m) => !realIds.has(m.id));
+          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, ยืนยันตัวตนแล้ว)
+          const completeProfiles = (data as unknown as CompanionCardData[]).filter(
+            (c) => {
+              const hasName = Boolean(
+                c.profile?.full_name && c.profile.full_name.trim().length > 0,
+              );
+              const hasRate = Number(c.hourly_rate) > 0;
+              const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
+              const isVerified = c.verification_status === "verified";
+              const isAvail = c.is_available === true;
+              return isAvail && isVerified && hasRate && hasBio && hasName;
+            },
+          );
+
+          const realIds = new Set(completeProfiles.map((c) => c.id));
+          const complementaryMocks = MOCK_COMPANIONS.filter(
+            (m) => !realIds.has(m.id),
+          );
           setCompanions([
-            ...(data as unknown as CompanionCardData[]),
+            ...completeProfiles,
             ...complementaryMocks,
           ]);
         } else {

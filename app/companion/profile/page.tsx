@@ -533,7 +533,7 @@ export default function CompanionProfilePage() {
           id: userId,
           verification_status: 'verified',
           id_card_image_url: avatarUrl || faceImageUrl,
-          is_available: true,
+          is_available: false,
           updated_at: new Date().toISOString(),
         };
 
@@ -567,6 +567,16 @@ export default function CompanionProfilePage() {
 
     if (!fullName.trim()) {
       setErrorMsg('กรุณาระบุชื่อ-นามสกุลจริงของคุณ');
+      return;
+    }
+
+    if (!bio.trim()) {
+      setErrorMsg('กรุณากรอกข้อมูลแนะนำตัวและประสบการณ์ของคุณ');
+      return;
+    }
+
+    if (!hourlyRate || Number(hourlyRate) < 50) {
+      setErrorMsg('กรุณาระบุอัตราค่าบริการเริ่มต้นอย่างน้อย 50 บาท/ชั่วโมง');
       return;
     }
 

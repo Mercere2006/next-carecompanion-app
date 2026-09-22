@@ -72,6 +72,17 @@ export default async function CompanionDetailPage({
     .single();
 
   if (data) {
+    const isOwner = currentUser?.id === data.id;
+    const isComplete =
+      data.is_available === true &&
+      data.verification_status === 'verified' &&
+      Number(data.hourly_rate) > 0 &&
+      Boolean(data.bio && data.bio.trim().length > 0);
+
+    // If profile is incomplete, only the profile owner can view it
+    if (!isComplete && !isOwner) {
+      notFound();
+    }
     companion = data as unknown as CompanionCardData;
   } else {
     const mock = MOCK_COMPANIONS.find((c) => c.id === id);

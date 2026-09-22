@@ -84,13 +84,15 @@ export default function OnboardingPage() {
 
       if (profileError) throw profileError;
 
-      // 2. If role is companion, ensure a companion_profiles row exists
+      // 2. If role is companion, ensure a companion_profiles row exists (not available until verified and profile completed)
       if (role === 'companion') {
         const { error: compError } = await supabase
           .from('companion_profiles')
           .upsert({
             id: userId,
             verification_status: 'pending',
+            is_available: false,
+            hourly_rate: 0,
             updated_at: new Date().toISOString(),
           });
 

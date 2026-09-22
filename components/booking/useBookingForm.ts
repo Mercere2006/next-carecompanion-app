@@ -99,6 +99,16 @@ export function useBookingForm(companionId: string) {
       }
 
       if (compData) {
+        if (
+          compData.verification_status !== 'verified' ||
+          !compData.hourly_rate ||
+          Number(compData.hourly_rate) <= 0
+        ) {
+          setErrorMsg(
+            'ผู้ช่วยท่านนี้ยังอยู่ระหว่างการตรวจสอบหรือยังกรอกข้อมูลไม่ครบถ้วน จึงยังไม่สามารถเปิดรับการจองได้'
+          );
+        }
+
         const parsed = parseVehicleDetails(
           compData.vehicle_type,
           compData.vehicle_model,

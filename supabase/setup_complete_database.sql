@@ -185,13 +185,19 @@ ON CONFLICT (id) DO UPDATE SET
   vehicle_plate = EXCLUDED.vehicle_plate,
   updated_at = NOW();
 
--- 6. ตรวจสอบและกำหนดค่าเริ่มต้น is_available ให้เป็น true
+-- 6. กำหนดค่าเริ่มต้น is_available ให้เป็น false (ยังไม่แสดงจนกว่าจะยืนยันตัวตนและกรอกข้อมูลครบถ้วน)
 ALTER TABLE IF EXISTS public.companion_profiles 
-ALTER COLUMN is_available SET DEFAULT true;
+ALTER COLUMN is_available SET DEFAULT false;
 
+-- ซ่อนโปรไฟล์ companion ที่ยังกรอกข้อมูลไม่ครบถ้วน หรือยังไม่ได้ยืนยันตัวตน (เช่น ยังไม่ผ่านการสแกนใบหน้า/OTP หรือยังไม่มีเรทราคา/คำแนะนำตัว)
 UPDATE public.companion_profiles 
-SET is_available = true 
-WHERE is_available IS NULL;
+SET is_available = false 
+WHERE 
+  verification_status != 'verified'
+  OR hourly_rate IS NULL 
+  OR hourly_rate <= 0 
+  OR bio IS NULL 
+  OR TRIM(bio) = '';
 
 -- 7. กำหนดตาราง reviews (ถ้ายังไม่มี)
 CREATE TABLE IF NOT EXISTS public.reviews (

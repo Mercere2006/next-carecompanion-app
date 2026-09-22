@@ -71,7 +71,12 @@ export async function GET(request: Request) {
         if (determinedRole === 'companion') {
           await supabase
             .from('companion_profiles')
-            .upsert({ id: user.id, verification_status: 'pending' });
+            .upsert({
+              id: user.id,
+              verification_status: 'pending',
+              is_available: false,
+              hourly_rate: 0,
+            });
 
           if (requestedRole === 'companion' && (!next || next === '/')) {
             return NextResponse.redirect(`${origin}/companion/profile`);
