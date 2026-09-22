@@ -72,8 +72,10 @@ export default function Navbar() {
             Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
 
           let localAvatarOverride: string | null = null;
+          let localNameOverride: string | null = null;
           if (typeof window !== 'undefined') {
             localAvatarOverride = localStorage.getItem('user_avatar_override');
+            localNameOverride = localStorage.getItem('user_fullname_override');
           }
 
           // Prioritize user's uploaded photo over Google OAuth photo
@@ -97,6 +99,7 @@ export default function Navbar() {
               id: user.id,
               email: user.email || '',
               full_name:
+                localNameOverride ||
                 user.user_metadata?.full_name ||
                 user.user_metadata?.name ||
                 user.email?.split('@')[0] ||
@@ -119,6 +122,7 @@ export default function Navbar() {
           } else {
             data = {
               ...data,
+              full_name: localNameOverride || data.full_name,
               avatar_url: resolvedAvatar,
             };
 

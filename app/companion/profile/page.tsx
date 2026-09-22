@@ -171,7 +171,13 @@ export default function CompanionProfilePage() {
         setAvatarUrl(chosenAvatar);
       }
 
+      let localNameOverride: string | null = null;
+      if (typeof window !== 'undefined') {
+        localNameOverride = localStorage.getItem('user_fullname_override');
+      }
+
       const initialName =
+        localNameOverride ||
         profileData?.full_name ||
         user.user_metadata?.full_name ||
         user.user_metadata?.name ||
@@ -625,15 +631,25 @@ export default function CompanionProfilePage() {
         return;
       }
 
+      // Save custom full_name to localStorage cache immediately
+      if (typeof window !== 'undefined' && fullName.trim()) {
+        localStorage.setItem('user_fullname_override', fullName.trim());
+      }
+
       // If name changed, increment quota count and update auth user metadata
+      const userMetadataUpdates: Record<string, unknown> = {
+        full_name: fullName.trim(),
+        name: fullName.trim(),
+      };
       if (nameChanged) {
         const nextCount = nameChangeCount + 1;
-        await supabase.auth.updateUser({
-          data: { name_change_count: nextCount },
-        });
+        userMetadataUpdates.name_change_count = nextCount;
         setNameChangeCount(nextCount);
         setInitialFullName(fullName.trim());
       }
+      await supabase.auth.updateUser({
+        data: userMetadataUpdates,
+      });
 
       // 1. Ensure user has an existing row in profiles table (UPSERT)
       const {
@@ -797,6 +813,9 @@ export default function CompanionProfilePage() {
         serviceAreasText,
       });
       isSavingRef.current = true;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('profileUpdated'));
+      }
       await Swal.fire({
         title: 'บันทึกสำเร็จ!',
         text: 'บันทึกข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว กำลังนำคุณไปยังแดชบอร์ดงาน',

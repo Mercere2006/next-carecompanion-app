@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         // Check existing profile and companion profile
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('role, avatar_url, full_name')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -43,6 +43,13 @@ export async function GET(request: Request) {
             null;
         }
 
+        // Preserve customized full_name if available, otherwise use Google OAuth name
+        const finalFullName =
+          profile?.full_name ||
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          null;
+
         // Determine user role: prioritize requestedRole, fallback to existing or 'customer'
         const determinedRole =
           requestedRole === 'companion'
@@ -55,7 +62,7 @@ export async function GET(request: Request) {
           .upsert({
             id: user.id,
             email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+            full_name: finalFullName,
             role: determinedRole,
             avatar_url: finalAvatar,
             updated_at: new Date().toISOString(),
