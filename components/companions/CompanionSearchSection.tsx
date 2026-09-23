@@ -259,7 +259,6 @@ export default function CompanionSearchSection({
                 key={comp.id}
                 companion={comp}
                 currentUser={currentUser}
-                onSelect={handleSelectCompanion}
               />
             ))}
           </div>

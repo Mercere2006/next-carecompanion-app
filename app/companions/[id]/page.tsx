@@ -73,12 +73,26 @@ export default async function CompanionDetailPage({
 
   if (data) {
     const isOwner = currentUser?.id === data.id;
-    const isComplete =
-      data.is_available === true &&
-      Number(data.hourly_rate) > 0 &&
-      Boolean(data.bio && data.bio.trim().length > 0);
 
-    // If profile is incomplete, only the profile owner can view it
+    // Enrich hourly rate from vehicle or bio if 0
+    let effectiveRate = Number(data.hourly_rate) || 0;
+    if (effectiveRate <= 0 && data.vehicle_model) {
+      const match = data.vehicle_model.match(/\[฿(\d+)\]/);
+      if (match && match[1]) effectiveRate = parseInt(match[1], 10);
+    }
+    if (effectiveRate <= 0 && data.bio) {
+      const match = data.bio.match(/\[฿(\d+)\]/);
+      if (match && match[1]) effectiveRate = parseInt(match[1], 10);
+    }
+    if (effectiveRate > 0) {
+      data.hourly_rate = effectiveRate;
+    }
+
+    const hasName = Boolean(data.profile?.full_name && data.profile.full_name.trim().length > 0);
+    const hasBio = Boolean(data.bio && data.bio.trim().length > 0);
+    const isComplete = hasName && (hasBio || data.experience_years > 0);
+
+    // If profile has no basic info and user is not owner, 404
     if (!isComplete && !isOwner) {
       notFound();
     }
