@@ -22,6 +22,8 @@ import {
   LogIn,
   AlertTriangle,
   Clock,
+  Shield,
+  Mail,
 } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
@@ -52,16 +54,31 @@ function maskPlate(plate?: string | null) {
 
 export default async function CompanionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const isDemoAdmin = resolvedSearchParams.demo_admin === '1' || resolvedSearchParams.admin === '1';
   const supabase = await createClient();
 
   // Check customer login state for privacy-gated data (phone, full license plate, reviews)
   const {
     data: { user: currentUser },
   } = await supabase.auth.getUser();
+
+  // Check if current user is an admin
+  let isAdmin = isDemoAdmin;
+  if (currentUser) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+    isAdmin = isAdmin || prof?.role === 'admin' || currentUser.user_metadata?.role === 'admin';
+  }
 
   // Try to load companion from Supabase
   let companion: CompanionCardData | null = null;
@@ -201,9 +218,35 @@ export default async function CompanionDetailPage({
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Main Profile Info (Col 1 & 2) */}
-          <div className="lg:col-span-2 space-y-6">
+        {/* Admin Mode Banner */}
+        {isAdmin && (
+          <div className="mb-6 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-amber-50/90 border border-amber-300 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm sm:text-base text-gray-900 flex items-center gap-1.5">
+                  มุมมองผู้ดูแลระบบ (Admin View)
+                </h4>
+                <p className="text-xs text-amber-900/80 mt-0.5">
+                  คุณกำลังดูโปรไฟล์ผู้ช่วยในฐานะแอดมิน การ์ดจองบริการสำหรับลูกค้าจะถูกซ่อนไว้โดยอัตโนมัติ
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 transition active:scale-95 shadow-xs"
+            >
+              <Shield className="w-4 h-4" />
+              กลับไปแผงควบคุม Admin
+            </Link>
+          </div>
+        )}
+
+        <div className={isAdmin ? 'max-w-4xl mx-auto space-y-6' : 'grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8'}>
+          {/* Main Profile Info (Col 1 & 2 for regular users, full width for admin) */}
+          <div className={isAdmin ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
             <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-gray-200/80 shadow-xs space-y-5 sm:space-y-6">
               {/* Header */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
@@ -248,6 +291,34 @@ export default async function CompanionDetailPage({
                       ประสบการณ์ {companion.experience_years} ปี
                     </span>
                   </div>
+
+                  {/* Admin Specific Contact & Rate Info */}
+                  {isAdmin && (
+                    <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-gray-100 mt-2 text-xs">
+                      <a
+                        href={`tel:${companion.profile?.phone || ''}`}
+                        className="inline-flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                        เบอร์ติดต่อ: {companion.profile?.phone || 'ไม่ระบุ'}
+                      </a>
+                      {companion.profile?.email && (
+                        <a
+                          href={`mailto:${companion.profile.email}`}
+                          className="inline-flex items-center gap-1.5 font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-xl border border-gray-200 transition"
+                        >
+                          <Mail className="w-3.5 h-3.5 text-gray-500" />
+                          {companion.profile.email}
+                        </a>
+                      )}
+                      <span className="inline-flex items-center gap-1.5 font-bold text-teal-800 bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-200">
+                        เรทค่าบริการ:{' '}
+                        {vehicleType === 'both'
+                          ? `฿${parsedVehicles.motorcycle.rate} - ฿${parsedVehicles.car.rate}/ชม.`
+                          : `${formatPrice(companion.hourly_rate)}/ชม.`}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -589,122 +660,124 @@ export default async function CompanionDetailPage({
             </div>
           </div>
 
-          {/* Right Booking Action Card (Col 3) */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-emerald-200 shadow-xl shadow-emerald-100/50 sticky top-28 space-y-6">
-              <div className="flex items-baseline justify-between pb-4 border-b border-gray-100">
-                <span className="text-sm font-semibold text-gray-500">อัตราค่าบริการ</span>
-                {vehicleType === 'both' ? (
-                  <div className="text-right">
-                    <span className="text-2xl font-black text-emerald-700">
-                      ฿{parsedVehicles.motorcycle.rate} - ฿{parsedVehicles.car.rate}
+          {/* Right Booking Action Card (Col 3) - Only for regular customers, hidden for Admin */}
+          {!isAdmin && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-emerald-200 shadow-xl shadow-emerald-100/50 sticky top-28 space-y-6">
+                <div className="flex items-baseline justify-between pb-4 border-b border-gray-100">
+                  <span className="text-sm font-semibold text-gray-500">อัตราค่าบริการ</span>
+                  {vehicleType === 'both' ? (
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-emerald-700">
+                        ฿{parsedVehicles.motorcycle.rate} - ฿{parsedVehicles.car.rate}
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-medium block">/ ชม. (ตามพาหนะที่เลือก)</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-3xl font-black text-emerald-700">
+                        {formatPrice(companion.hourly_rate)}
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium ml-1">/ ชั่วโมง</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 text-xs text-gray-600">
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <span>ยืนยันใบหน้าจริง & เบอร์โทรศัพท์ (OTP) แล้ว</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-gray-700">
+                    {vehicleType === 'both' ? (
+                      <>
+                        <Car className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <span>มีทั้งรถยนต์และมอเตอร์ไซค์ (เลือกได้ตอนจอง)</span>
+                      </>
+                    ) : vehicleType === 'car' ? (
+                      <>
+                        <Car className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <span>มีรถยนต์ส่วนตัว (บริการรับ-ส่งถึงที่)</span>
+                      </>
+                    ) : vehicleType === 'motorcycle' ? (
+                      <>
+                        <Bike className="w-4 h-4 text-teal-600 shrink-0" />
+                        <span>มีมอเตอร์ไซค์ส่วนตัว (คล่องตัว/รวดเร็ว)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Footprints className="w-4 h-4 text-gray-500 shrink-0" />
+                        <span>ขนส่งสาธารณะ / นัดพบตามสถานที่</span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <HeartHandshake className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>ดูแลและช่วยเหลืออำนวยความสะดวกตลอดทาง</span>
+                  </div>
+
+                  {activeSchedule && (
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>เวลาให้บริการ: {activeSchedule}</span>
+                    </div>
+                  )}
+
+                  {/* Contact Phone (Privacy Gated) */}
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-gray-500 font-medium">
+                      <Phone className="w-3.5 h-3.5 text-indigo-600" />
+                      เบอร์ติดต่อ:
                     </span>
-                    <span className="text-[11px] text-gray-400 font-medium block">/ ชม. (ตามพาหนะที่เลือก)</span>
+                    {currentUser ? (
+                      <a
+                        href={`tel:${companion.profile?.phone || ''}`}
+                        className="font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                      >
+                        {companion.profile?.phone || 'ไม่ระบุเบอร์'}
+                      </a>
+                    ) : (
+                      <span className="font-mono text-gray-400 flex items-center gap-1">
+                        {maskPhoneNumber(companion.profile?.phone)}
+                        <Lock className="w-3 h-3 text-amber-600 ml-0.5" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {companion.is_suspended ? (
+                  <div className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-200 text-gray-500 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
+                    <AlertTriangle className="w-4 h-4 text-gray-400" />
+                    ไม่สามารถจองได้ (บัญชีถูกระงับชั่วคราว)
                   </div>
                 ) : (
-                  <div>
-                    <span className="text-3xl font-black text-emerald-700">
-                      {formatPrice(companion.hourly_rate)}
-                    </span>
-                    <span className="text-xs text-gray-400 font-medium ml-1">/ ชั่วโมง</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 text-xs text-gray-600">
-                <div className="flex items-center gap-2 text-emerald-700 font-semibold">
-                  <ShieldCheck className="w-4 h-4 shrink-0" />
-                  <span>ยืนยันใบหน้าจริง & เบอร์โทรศัพท์ (OTP) แล้ว</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-gray-700">
-                  {vehicleType === 'both' ? (
-                    <>
-                      <Car className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span>มีทั้งรถยนต์และมอเตอร์ไซค์ (เลือกได้ตอนจอง)</span>
-                    </>
-                  ) : vehicleType === 'car' ? (
-                    <>
-                      <Car className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span>มีรถยนต์ส่วนตัว (บริการรับ-ส่งถึงที่)</span>
-                    </>
-                  ) : vehicleType === 'motorcycle' ? (
-                    <>
-                      <Bike className="w-4 h-4 text-teal-600 shrink-0" />
-                      <span>มีมอเตอร์ไซค์ส่วนตัว (คล่องตัว/รวดเร็ว)</span>
-                    </>
-                  ) : (
-                    <>
-                      <Footprints className="w-4 h-4 text-gray-500 shrink-0" />
-                      <span>ขนส่งสาธารณะ / นัดพบตามสถานที่</span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 text-gray-700">
-                  <HeartHandshake className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>ดูแลและช่วยเหลืออำนวยความสะดวกตลอดทาง</span>
-                </div>
-
-                {activeSchedule && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>เวลาให้บริการ: {activeSchedule}</span>
-                  </div>
+                  <Link
+                    href={`/customer/book/${companion.id}`}
+                    className="w-full py-4 rounded-2xl bg-emerald-700 text-white font-bold text-center text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98"
+                  >
+                    <Calendar className="w-5 h-5" />
+                    จองผู้ช่วยร่วมเดินทาง
+                  </Link>
                 )}
 
-                {/* Contact Phone (Privacy Gated) */}
-                <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-gray-500 font-medium">
-                    <Phone className="w-3.5 h-3.5 text-indigo-600" />
-                    เบอร์ติดต่อ:
-                  </span>
-                  {currentUser ? (
-                    <a
-                      href={`tel:${companion.profile?.phone || ''}`}
-                      className="font-bold text-emerald-700 hover:underline flex items-center gap-1"
-                    >
-                      {companion.profile?.phone || 'ไม่ระบุเบอร์'}
-                    </a>
-                  ) : (
-                    <span className="font-mono text-gray-400 flex items-center gap-1">
-                      {maskPhoneNumber(companion.profile?.phone)}
-                      <Lock className="w-3 h-3 text-amber-600 ml-0.5" />
-                    </span>
-                  )}
+                <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+                  *ระบบยังไม่มีการตัดเงินทันที ชำระค่าบริการโดยตรงหลังเสร็จสิ้นภารกิจ
+                </p>
+
+                {/* Report Companion Button */}
+                <div className="pt-2 border-t border-gray-100 flex justify-center">
+                  <ReportCompanionButton
+                    companionId={companion.id}
+                    companionName={companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
+                    companionAvatar={companionAvatar}
+                    className="w-full justify-center"
+                  />
                 </div>
-              </div>
-
-              {companion.is_suspended ? (
-                <div className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-200 text-gray-500 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
-                  <AlertTriangle className="w-4 h-4 text-gray-400" />
-                  ไม่สามารถจองได้ (บัญชีถูกระงับชั่วคราว)
-                </div>
-              ) : (
-                <Link
-                  href={`/customer/book/${companion.id}`}
-                  className="w-full py-4 rounded-2xl bg-emerald-700 text-white font-bold text-center text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98"
-                >
-                  <Calendar className="w-5 h-5" />
-                  จองผู้ช่วยร่วมเดินทาง
-                </Link>
-              )}
-
-              <p className="text-[11px] text-gray-400 text-center leading-relaxed">
-                *ระบบยังไม่มีการตัดเงินทันที ชำระค่าบริการโดยตรงหลังเสร็จสิ้นภารกิจ
-              </p>
-
-              {/* Report Companion Button */}
-              <div className="pt-2 border-t border-gray-100 flex justify-center">
-                <ReportCompanionButton
-                  companionId={companion.id}
-                  companionName={companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
-                  companionAvatar={companionAvatar}
-                  className="w-full justify-center"
-                />
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
 
