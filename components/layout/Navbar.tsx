@@ -221,20 +221,22 @@ export default function Navbar() {
           {/* Right Navigation & Action Controls */}
           <div className="hidden md:flex items-center gap-6">
             {profile ? (
-              <>
-                <Link
-                  href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
-                  className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
-                >
-                  งานผู้ช่วยของฉัน
-                </Link>
-                <Link
-                  href="/customer/dashboard"
-                  className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
-                >
-                  คำขอของฉัน
-                </Link>
-              </>
+              profile.role !== 'admin' && (
+                <>
+                  <Link
+                    href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
+                    className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
+                  >
+                    งานผู้ช่วยของฉัน
+                  </Link>
+                  <Link
+                    href="/customer/dashboard"
+                    className="text-sm font-bold text-gray-800 hover:text-emerald-700 transition"
+                  >
+                    คำขอของฉัน
+                  </Link>
+                </>
+              )
             ) : (
               <>
                 <Link
@@ -296,11 +298,6 @@ export default function Navbar() {
                       <p className="text-xs font-bold text-gray-800 max-w-[120px] truncate">
                         {profile.role === 'admin' ? 'Admin' : (profile.full_name || 'ผู้ใช้งาน')}
                       </p>
-                      {profile.role === 'admin' && (
-                        <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded-md inline-block mt-0.5 border border-amber-300">
-                          Admin
-                        </span>
-                      )}
                     </div>
                     <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -313,34 +310,42 @@ export default function Navbar() {
                           {profile.role === 'admin' ? 'Admin' : (profile.full_name || 'ผู้ใช้งาน')}
                         </p>
                         <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>
-                        {profile.role === 'admin' && (
-                          <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                            Admin
-                          </span>
-                        )}
                       </div>
 
-                      <div className="py-1">
-                        {isCompanion ? (
+                      {profile.role !== 'admin' ? (
+                        <div className="py-1">
+                          {isCompanion ? (
+                            <Link
+                              href="/companion/profile"
+                              onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                            >
+                              <User className="w-4 h-4 text-gray-400" />
+                              จัดการข้อมูลโปรไฟล์ผู้ช่วย
+                            </Link>
+                          ) : (
+                            <Link
+                              href="/companion/profile"
+                              onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition"
+                            >
+                              <Shield className="w-4 h-4 text-teal-600" />
+                              สมัคร/ยืนยันตัวตน Companion
+                            </Link>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="py-1">
                           <Link
-                            href="/companion/profile"
+                            href="/admin"
                             onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-50 transition"
                           >
-                            <User className="w-4 h-4 text-gray-400" />
-                            จัดการข้อมูลโปรไฟล์ผู้ช่วย
+                            <Shield className="w-4 h-4 text-amber-600" />
+                            แผงควบคุมระบบ (Admin)
                           </Link>
-                        ) : (
-                          <Link
-                            href="/companion/profile"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition"
-                          >
-                            <Shield className="w-4 h-4 text-teal-600" />
-                            สมัคร/ยืนยันตัวตน Companion
-                          </Link>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       <div className="border-t border-gray-100 pt-1">
                         <button
@@ -405,22 +410,24 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden relative z-10 border-t border-gray-100 bg-white/95 backdrop-blur-md px-4 py-5 space-y-3">
           {profile ? (
-            <>
-              <Link
-                href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-base font-semibold text-gray-800 py-2 hover:text-emerald-700 transition"
-              >
-                งานผู้ช่วยของฉัน
-              </Link>
-              <Link
-                href="/customer/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-base font-semibold text-gray-800 py-2 hover:text-emerald-700 transition"
-              >
-                คำขอของฉัน
-              </Link>
-            </>
+            profile.role !== 'admin' && (
+              <>
+                <Link
+                  href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-base font-semibold text-gray-800 py-2 hover:text-emerald-700 transition"
+                >
+                  งานผู้ช่วยของฉัน
+                </Link>
+                <Link
+                  href="/customer/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-base font-semibold text-gray-800 py-2 hover:text-emerald-700 transition"
+                >
+                  คำขอของฉัน
+                </Link>
+              </>
+            )
           ) : (
             <>
               <Link
@@ -439,6 +446,18 @@ export default function Navbar() {
               </Link>
             </>
           )}
+
+          {profile?.role === 'admin' && (
+            <Link
+              href="/admin"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-base font-bold text-amber-800 py-2 hover:text-amber-900 transition flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4 text-amber-600" />
+              แผงควบคุมระบบ (Admin)
+            </Link>
+          )}
+
           <Link
             href="/companions"
             onClick={() => setMobileMenuOpen(false)}
@@ -452,19 +471,16 @@ export default function Navbar() {
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-gray-500">
                   เข้าสู่ระบบในชื่อ: <strong className="text-emerald-800">{profile.role === 'admin' ? 'Admin' : profile.full_name}</strong>
-                  {profile.role === 'admin' && (
-                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                      Admin
-                    </span>
-                  )}
                 </p>
-                <Link
-                  href="/companion/profile"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block w-full text-center py-2.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-sm"
-                >
-                  {isCompanion ? 'จัดการข้อมูลโปรไฟล์ผู้ช่วย' : 'ยืนยันตัวตนเพื่อรับงาน (สแกนใบหน้า)'}
-                </Link>
+                {profile.role !== 'admin' && (
+                  <Link
+                    href="/companion/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block w-full text-center py-2.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-sm"
+                  >
+                    {isCompanion ? 'จัดการข้อมูลโปรไฟล์ผู้ช่วย' : 'ยืนยันตัวตนเพื่อรับงาน (สแกนใบหน้า)'}
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="w-full py-2.5 text-center text-rose-600 font-bold border border-rose-200 rounded-xl text-sm"
