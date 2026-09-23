@@ -313,7 +313,7 @@ export default function Navbar() {
                         <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>
                       </div>
 
-                      {profile.role !== 'admin' ? (
+                      {profile.role !== 'admin' && (
                         <div className="py-1">
                           {isCompanion ? (
                             <Link
@@ -334,17 +334,6 @@ export default function Navbar() {
                               สมัคร/ยืนยันตัวตน Companion
                             </Link>
                           )}
-                        </div>
-                      ) : (
-                        <div className="py-1">
-                          <Link
-                            href="/admin"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-50 transition"
-                          >
-                            <Shield className="w-4 h-4 text-amber-600" />
-                            ภาพรวมผู้ดูแลระบบ
-                          </Link>
                         </div>
                       )}
 

@@ -18,7 +18,6 @@ export default function AdminDashboardPage() {
 
   const [companions, setCompanions] = useState<CompanionCardData[]>([]);
   const [statusFilter, setStatusFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
-  const [showMockData, setShowMockData] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
   const [reports, setReports] = useState<ReportDetailData[]>([]);
@@ -425,12 +424,12 @@ export default function AdminDashboardPage() {
     Boolean(comp.profile?.email?.endsWith('@example.com'));
 
   const pendingRealCount = companions.filter((c) => c.verification_status === 'pending' && !isMock(c)).length;
-  const verifiedRealCount = companions.filter((c) => c.verification_status === 'verified' && (showMockData || !isMock(c))).length;
-  const rejectedRealCount = companions.filter((c) => c.verification_status === 'rejected').length;
+  const verifiedRealCount = companions.filter((c) => c.verification_status === 'verified' && !isMock(c)).length;
+  const rejectedRealCount = companions.filter((c) => c.verification_status === 'rejected' && !isMock(c)).length;
   const pendingReportsCount = reports.filter((r) => r.status === 'pending' || r.status === 'investigating').length;
 
   const filteredCompanions = companions.filter((comp) => {
-    if (!showMockData && isMock(comp)) return false;
+    if (isMock(comp)) return false;
     if (statusFilter === 'all') return true;
     return comp.verification_status === statusFilter;
   });
@@ -468,12 +467,9 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
-            <span className="text-xs font-bold text-gray-400 block mb-1">Companion จริงในระบบ</span>
+            <span className="text-xs font-bold text-gray-400 block mb-1">Companion ในระบบ</span>
             <span className="text-2xl sm:text-3xl font-black text-teal-700">
               {companions.filter((c) => !isMock(c)).length} คน
-            </span>
-            <span className="text-[10px] text-gray-400 block mt-0.5">
-              (+ Mock {companions.filter(isMock).length} คน)
             </span>
           </div>
 
@@ -617,17 +613,6 @@ export default function AdminDashboardPage() {
                     ทั้งหมด
                   </button>
                 </div>
-
-                {/* Mock Data Toggle */}
-                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-100 transition">
-                  <input
-                    type="checkbox"
-                    checked={showMockData}
-                    onChange={(e) => setShowMockData(e.target.checked)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <span>รวม Mock ({companions.filter(isMock).length})</span>
-                </label>
               </div>
             </div>
 
