@@ -4,22 +4,33 @@ import { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
-import { Profile, CompanionCardData, BookingDetailData } from '@/types/database';
+import { Profile, CompanionCardData, BookingDetailData, ReportDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2 } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'verification' | 'users' | 'bookings'>('verification');
+  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'users' | 'bookings'>('verification');
 
   const [companions, setCompanions] = useState<CompanionCardData[]>([]);
   const [statusFilter, setStatusFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
   const [showMockData, setShowMockData] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
+  const [reports, setReports] = useState<ReportDetailData[]>([]);
+  const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'pending' | 'investigating' | 'resolved' | 'dismissed'>('all');
+
+  // Modal for resolving/managing a report
+  const [selectedReportForAction, setSelectedReportForAction] = useState<ReportDetailData | null>(null);
+  const [actionDecision, setActionDecision] = useState<'warning' | 'suspend' | 'reactivate' | 'dismiss'>('warning');
+  const [adminNoteInput, setAdminNoteInput] = useState('');
+  const [suspensionReasonInput, setSuspensionReasonInput] = useState('');
+  const [savingReportAction, setSavingReportAction] = useState(false);
+
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewImageModal, setPreviewImageModal] = useState<{ url: string; name: string } | null>(null);
 
@@ -83,6 +94,19 @@ export default function AdminDashboardPage() {
         .order('created_at', { ascending: false });
 
       if (bookingData) setBookings(bookingData as unknown as BookingDetailData[]);
+
+      // 4. Fetch all reports
+      const { data: reportData } = await supabase
+        .from('reports')
+        .select(`
+          *,
+          customer:profiles!reports_customer_id_fkey(full_name, phone, email, avatar_url),
+          companion:profiles!reports_companion_id_fkey(full_name, phone, email, avatar_url),
+          booking:bookings!reports_booking_id_fkey(id, appointment_date, errand_title, total_price, status)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (reportData) setReports(reportData as unknown as ReportDetailData[]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -205,6 +229,170 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleResolveReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedReportForAction) return;
+
+    setSavingReportAction(true);
+    try {
+      const companionId = selectedReportForAction.companion_id;
+      const comp = companions.find((c) => c.id === companionId);
+
+      if (actionDecision === 'warning') {
+        const newCount = (comp?.warning_count || 0) + 1;
+        const { error: compErr } = await supabase
+          .from('companion_profiles')
+          .update({ warning_count: newCount, updated_at: new Date().toISOString() })
+          .eq('id', companionId);
+        if (compErr) throw compErr;
+
+        const { error: repErr } = await supabase
+          .from('reports')
+          .update({
+            status: 'resolved',
+            admin_notes: adminNoteInput.trim() || 'ตักเตือนผู้ช่วยและบันทึกข้อตกลงปรับปรุงตัวเรียบร้อยแล้ว',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedReportForAction.id);
+        if (repErr) throw repErr;
+      } else if (actionDecision === 'suspend') {
+        const { error: compErr } = await supabase
+          .from('companion_profiles')
+          .update({
+            is_suspended: true,
+            is_available: false,
+            suspension_reason: suspensionReasonInput.trim() || 'ถูกพักการให้บริการชั่วคราวเนื่องจากข้อร้องเรียน',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', companionId);
+        if (compErr) throw compErr;
+
+        const { error: repErr } = await supabase
+          .from('reports')
+          .update({
+            status: 'investigating',
+            admin_notes: adminNoteInput.trim() || 'ระงับบัญชีชั่วคราวเพื่อรอการตรวจสอบเพิ่มเติม',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedReportForAction.id);
+        if (repErr) throw repErr;
+      } else if (actionDecision === 'reactivate') {
+        const { error: compErr } = await supabase
+          .from('companion_profiles')
+          .update({
+            is_suspended: false,
+            is_available: true,
+            suspension_reason: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', companionId);
+        if (compErr) throw compErr;
+
+        const { error: repErr } = await supabase
+          .from('reports')
+          .update({
+            status: 'resolved',
+            admin_notes: adminNoteInput.trim() || 'พูดคุยตกลงเรียบร้อย ผู้ช่วยยินดีปรับปรุงตัว จึงปลดการระงับบัญชี',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedReportForAction.id);
+        if (repErr) throw repErr;
+      } else if (actionDecision === 'dismiss') {
+        const { error: repErr } = await supabase
+          .from('reports')
+          .update({
+            status: 'dismissed',
+            admin_notes: adminNoteInput.trim() || 'ยกเลิกรายงานเนื่องจากข้อมูลไม่สอดคล้องหรือไม่พบความผิด',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedReportForAction.id);
+        if (repErr) throw repErr;
+      }
+
+      await Swal.fire({
+        title: 'บันทึกผลการพิจารณาสำเร็จ',
+        text: 'ระบบได้อัปเดตสถานะของผู้ช่วยและบันทึกผลการรายงานเรียบร้อยแล้ว',
+        icon: 'success',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
+
+      setSelectedReportForAction(null);
+      setAdminNoteInput('');
+      setSuspensionReasonInput('');
+      fetchAdminData();
+    } catch (err) {
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: (err as Error).message,
+        icon: 'error',
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'ตกลง',
+      });
+    } finally {
+      setSavingReportAction(false);
+    }
+  };
+
+  const handleToggleCompanionSuspension = async (companion: CompanionCardData) => {
+    const isCurrentlySuspended = Boolean(companion.is_suspended);
+    const actionText = isCurrentlySuspended ? 'ปลดการระงับบัญชี' : 'ระงับการให้บริการชั่วคราว';
+
+    const result = await Swal.fire({
+      title: `ต้องการ${actionText}ใช่หรือไม่?`,
+      text: isCurrentlySuspended
+        ? `เมื่อปลดระงับ โปรไฟล์ของ ${companion.profile?.full_name || 'ผู้ช่วย'} จะกลับไปแสดงในหน้าค้นหา และสามารถรับงานได้ตามปกติ`
+        : `เมื่อระงับ โปรไฟล์ของ ${companion.profile?.full_name || 'ผู้ช่วย'} จะถูกซ่อน และจะไม่สามารถรับงานใหม่ได้จนกว่าจะปลดระงับ`,
+      icon: isCurrentlySuspended ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isCurrentlySuspended ? '#059669' : '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `ใช่, ${actionText}`,
+      cancelButtonText: 'ยกเลิก',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl font-sans border border-gray-100',
+        confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+        cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('companion_profiles')
+        .update({
+          is_suspended: !isCurrentlySuspended,
+          is_available: isCurrentlySuspended,
+          suspension_reason: !isCurrentlySuspended ? 'ถูกระงับการให้บริการชั่วคราวโดยผู้ดูแลระบบ' : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', companion.id);
+
+      if (error) throw error;
+
+      await Swal.fire({
+        title: `${actionText}สำเร็จ`,
+        icon: 'success',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+      });
+
+      fetchAdminData();
+    } catch (err) {
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: (err as Error).message,
+        icon: 'error',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -239,11 +427,17 @@ export default function AdminDashboardPage() {
   const pendingRealCount = companions.filter((c) => c.verification_status === 'pending' && !isMock(c)).length;
   const verifiedRealCount = companions.filter((c) => c.verification_status === 'verified' && (showMockData || !isMock(c))).length;
   const rejectedRealCount = companions.filter((c) => c.verification_status === 'rejected').length;
+  const pendingReportsCount = reports.filter((r) => r.status === 'pending' || r.status === 'investigating').length;
 
   const filteredCompanions = companions.filter((comp) => {
     if (!showMockData && isMock(comp)) return false;
     if (statusFilter === 'all') return true;
     return comp.verification_status === statusFilter;
+  });
+
+  const filteredReports = reports.filter((r) => {
+    if (reportStatusFilter === 'all') return true;
+    return r.status === reportStatusFilter;
   });
 
   return (
@@ -261,19 +455,19 @@ export default function AdminDashboardPage() {
               แผงควบคุมผู้ดูแลระบบ (Admin)
             </h1>
             <p className="text-xs sm:text-sm text-gray-600">
-              บริหารจัดการผู้ใช้งาน อนุมัติเอกสาร Companion และติดตามความเรียบร้อยของแพลตฟอร์ม
+              บริหารจัดการผู้ใช้งาน อนุมัติเอกสาร Companion ตรวจสอบข้อร้องเรียน และติดตามความเรียบร้อยของแพลตฟอร์ม
             </p>
           </div>
         </div>
 
         {/* Top Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">ผู้ใช้ทั้งหมด</span>
             <span className="text-2xl sm:text-3xl font-black text-gray-900">{users.length} คน</span>
           </div>
 
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">Companion จริงในระบบ</span>
             <span className="text-2xl sm:text-3xl font-black text-teal-700">
               {companions.filter((c) => !isMock(c)).length} คน
@@ -283,15 +477,29 @@ export default function AdminDashboardPage() {
             </span>
           </div>
 
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-amber-200 bg-amber-50/40 shadow-xs">
-            <span className="text-xs font-bold text-amber-800 block mb-1">รอตรวจสอบ (Pending)</span>
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-amber-200 bg-amber-50/40 shadow-xs">
+            <span className="text-xs font-bold text-amber-800 block mb-1">รอตรวจยืนยันตัวตน</span>
             <span className="text-2xl sm:text-3xl font-black text-amber-600">{pendingRealCount} คน</span>
             <span className="text-[10px] text-amber-700 block mt-0.5">
               {pendingRealCount > 0 ? 'ต้องการการตรวจสอบจากแอดมิน' : 'ไม่มีรายการค้าง'}
             </span>
           </div>
 
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs">
+          <div className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs border ${
+            pendingReportsCount > 0 ? 'border-rose-300 bg-rose-50/40' : 'border-gray-200/80'
+          }`}>
+            <span className={`text-xs font-bold block mb-1 ${pendingReportsCount > 0 ? 'text-rose-800' : 'text-gray-400'}`}>
+              ข้อร้องเรียน & รายงาน
+            </span>
+            <span className={`text-2xl sm:text-3xl font-black ${pendingReportsCount > 0 ? 'text-rose-600' : 'text-gray-900'}`}>
+              {pendingReportsCount} เรื่อง
+            </span>
+            <span className={`text-[10px] block mt-0.5 ${pendingReportsCount > 0 ? 'text-rose-700 font-semibold' : 'text-gray-400'}`}>
+              {pendingReportsCount > 0 ? 'รอแอดมินตรวจสอบ & พูดคุย' : 'ไม่มีเรื่องร้องเรียนค้าง'}
+            </span>
+          </div>
+
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">การจองทั้งหมด</span>
             <span className="text-2xl sm:text-3xl font-black text-emerald-700">{bookings.length} รายการ</span>
           </div>
@@ -301,7 +509,7 @@ export default function AdminDashboardPage() {
         <div className="flex items-center gap-2 border-b border-gray-200 overflow-x-auto pb-px">
           <button
             onClick={() => setActiveTab('verification')}
-            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'verification'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -312,8 +520,20 @@ export default function AdminDashboardPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('reports')}
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === 'reports'
+                ? 'border-rose-600 text-rose-700'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-600" />
+            ข้อร้องเรียน & รายงาน ({pendingReportsCount})
+          </button>
+
+          <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'users'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -325,7 +545,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('bookings')}
-            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'bookings'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -473,18 +693,46 @@ export default function AdminDashboardPage() {
                               <span className="text-xs text-gray-400 italic">ยังไม่สแกนใบหน้า</span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${
-                                comp.verification_status === 'verified'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : comp.verification_status === 'rejected'
-                                  ? 'bg-rose-100 text-rose-800'
-                                  : 'bg-amber-100 text-amber-800'
-                              }`}
-                            >
-                              {comp.verification_status}
-                            </span>
+                          <td className="px-6 py-4 space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                  comp.verification_status === 'verified'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : comp.verification_status === 'rejected'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}
+                              >
+                                {comp.verification_status}
+                              </span>
+
+                              {comp.is_suspended && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-2xs">
+                                  🔴 ระงับชั่วคราว
+                                </span>
+                              )}
+
+                              {Boolean(comp.warning_count && comp.warning_count > 0) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                  ⚠️ เตือน {comp.warning_count} ครั้ง
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Companion Rating */}
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <span className={`font-bold flex items-center gap-0.5 ${
+                                Number(comp.rating_avg) < 3.0 ? 'text-rose-600' : 'text-amber-600'
+                              }`}>
+                                ⭐ {Number(comp.rating_avg || 5.0).toFixed(1)} / 5.0
+                              </span>
+                              {Number(comp.rating_avg) < 3.0 && (
+                                <span className="text-[10px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.2 rounded-sm">
+                                  ดาวต่ำกว่าเกณฑ์
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-right space-x-2">
                             {/* Pending Status: Show Approve and Reject */}
@@ -507,7 +755,7 @@ export default function AdminDashboardPage() {
                               </>
                             )}
 
-                            {/* Verified Status: Already verified, show badge and optional Revoke */}
+                            {/* Verified Status: Already verified, show badge and optional Revoke & Suspend */}
                             {comp.verification_status === 'verified' && (
                               <div className="inline-flex items-center gap-2">
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -515,13 +763,26 @@ export default function AdminDashboardPage() {
                                   อนุมัติแล้ว
                                 </span>
                                 {!isMockRow && (
-                                  <button
-                                    disabled={isProcessing}
-                                    onClick={() => handleVerifyCompanion(comp.id, 'rejected')}
-                                    className="px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 font-semibold text-xs border border-rose-200 transition cursor-pointer"
-                                  >
-                                    เพิกถอน
-                                  </button>
+                                  <>
+                                    <button
+                                      disabled={isProcessing}
+                                      onClick={() => handleToggleCompanionSuspension(comp)}
+                                      className={`px-2.5 py-1 rounded-lg font-bold text-xs border transition cursor-pointer ${
+                                        comp.is_suspended
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                          : 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
+                                      }`}
+                                    >
+                                      {comp.is_suspended ? 'ปลดระงับ' : 'ระงับชั่วคราว'}
+                                    </button>
+                                    <button
+                                      disabled={isProcessing}
+                                      onClick={() => handleVerifyCompanion(comp.id, 'rejected')}
+                                      className="px-2.5 py-1 rounded-lg text-gray-500 hover:bg-gray-100 font-semibold text-xs border border-gray-200 transition cursor-pointer"
+                                    >
+                                      เพิกถอน
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             )}
@@ -559,6 +820,207 @@ export default function AdminDashboardPage() {
                   {statusFilter === 'pending'
                     ? 'เมื่อมีผู้สมัครรายใหม่ที่สแกนใบหน้าและยืนยันเบอร์แล้ว รายการจะแสดงขึ้นที่นี่'
                     : 'คุณสามารถเลือกฟิลเตอร์อื่นหรือเปิดแสดง Mock Data ด้านบนได้'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Reports & Complaints */}
+        {activeTab === 'reports' && (
+          <div className="bg-white rounded-3xl border border-gray-200/80 overflow-hidden shadow-xs space-y-0">
+            {/* Header & Filter Bar */}
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-rose-600" />
+                  ข้อร้องเรียนและรายงานผู้ช่วย (Companion Reports)
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  ตรวจสอบรายงานจากลูกค้า ติดต่อพูดคุยกับผู้ช่วยทางโทรศัพท์ และพิจารณาตักเตือนหรือระงับบัญชี
+                </p>
+              </div>
+
+              {/* Sub-Filters for Reports */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center bg-gray-100 p-1 rounded-xl">
+                  {(['all', 'pending', 'investigating', 'resolved', 'dismissed'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setReportStatusFilter(st)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer capitalize ${
+                        reportStatusFilter === st
+                          ? 'bg-white text-gray-900 shadow-xs'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      {st === 'all' && `ทั้งหมด (${reports.length})`}
+                      {st === 'pending' && `รอตรวจสอบ (${reports.filter((r) => r.status === 'pending').length})`}
+                      {st === 'investigating' && `กำลังตรวจ (${reports.filter((r) => r.status === 'investigating').length})`}
+                      {st === 'resolved' && `เสร็จสิ้น (${reports.filter((r) => r.status === 'resolved').length})`}
+                      {st === 'dismissed' && `ยกเลิกแล้ว (${reports.filter((r) => r.status === 'dismissed').length})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Reports List */}
+            {filteredReports.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {filteredReports.map((report) => {
+                  const comp = companions.find((c) => c.id === report.companion_id);
+                  const isSuspended = comp?.is_suspended;
+                  const warningCount = comp?.warning_count || 0;
+                  const ratingAvg = comp?.rating_avg || 5.0;
+
+                  return (
+                    <div key={report.id} className="p-5 sm:p-6 hover:bg-slate-50/50 transition space-y-4">
+                      {/* Top Row: Companion + Reporter + Status */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden shrink-0 border border-emerald-200">
+                            {report.companion?.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={report.companion.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-6 h-6 text-emerald-700" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <strong className="text-base font-bold text-gray-900">
+                                {report.companion?.full_name || 'ผู้ช่วย'}
+                              </strong>
+                              {isSuspended && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-2xs">
+                                  🔴 บัญชีถูกระงับ
+                                </span>
+                              )}
+                              {warningCount > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                  ⚠️ เคยเตือน {warningCount} ครั้ง
+                                </span>
+                              )}
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                                Number(ratingAvg) < 3.0 ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                ⭐ {Number(ratingAvg).toFixed(1)} / 5.0
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500 block mt-0.5">
+                              รายงานโดยลูกค้า: <strong>{report.customer?.full_name || 'ลูกค้า'}</strong> ({report.customer?.phone || report.customer?.email})
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Tag */}
+                        <div className="flex items-center gap-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            report.status === 'pending'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : report.status === 'investigating'
+                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                              : report.status === 'resolved'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {report.status === 'pending' && '⏳ รอตรวจสอบ'}
+                            {report.status === 'investigating' && '🔍 กำลังตรวจสอบ / ระงับชั่วคราว'}
+                            {report.status === 'resolved' && '✅ เสร็จสิ้นแล้ว'}
+                            {report.status === 'dismissed' && '✕ ยกเลิกรายงาน'}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {formatThaiDate(report.created_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Middle: Reason & Details */}
+                      <div className="bg-slate-50 rounded-2xl p-4 border border-gray-200/70 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-lg">
+                            สาเหตุ: {report.reason}
+                          </span>
+                          {report.booking && (
+                            <span className="text-xs text-gray-500">
+                              (งาน: #{report.booking.id.slice(0, 8)} - {report.booking.errand_title})
+                            </span>
+                          )}
+                        </div>
+                        {report.details ? (
+                          <p className="text-xs sm:text-sm text-gray-800 leading-relaxed pl-1">
+                            {report.details}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic pl-1">ไม่มีรายละเอียดเพิ่มเติมระบุไว้</p>
+                        )}
+
+                        {/* Admin Notes if present */}
+                        {report.admin_notes && (
+                          <div className="pt-2 border-t border-gray-200 text-xs text-emerald-800 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-100">
+                            <strong>📝 บันทึกผลจากแอดมิน:</strong> {report.admin_notes}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bottom Action Bar: Contact & Resolve */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        {/* Quick Contact Buttons */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {report.companion?.phone ? (
+                            <a
+                              href={`tel:${report.companion.phone}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200 transition"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              โทรหาผู้ช่วย ({report.companion.phone})
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">ไม่มีเบอร์โทร</span>
+                          )}
+
+                          {report.companion?.email && (
+                            <a
+                              href={`mailto:${report.companion.email}?subject=ข้อร้องเรียนการให้บริการ CareCompanion`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold border border-gray-200 transition"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              ส่งอีเมล
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Resolution Trigger */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedReportForAction(report);
+                              setActionDecision(isSuspended ? 'reactivate' : 'warning');
+                              setAdminNoteInput(report.admin_notes || '');
+                              setSuspensionReasonInput(comp?.suspension_reason || '');
+                            }}
+                            className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            บันทึกผลการพูดคุย & ดำเนินการ
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-16 text-center space-y-2">
+                <ShieldCheck className="w-12 h-12 text-emerald-600 mx-auto" />
+                <p className="text-gray-700 font-bold text-base">
+                  ไม่มีข้อร้องเรียนในหมวดนี้ ✨
+                </p>
+                <p className="text-xs text-gray-400">
+                  ระบบจะแสดงข้อร้องเรียนเมื่อมีลูกค้าส่งรายงานหรือให้คะแนนรีวิว 1-2 ดาว
                 </p>
               </div>
             )}
@@ -726,6 +1188,168 @@ export default function AdminDashboardPage() {
                   ปิดหน้าต่าง
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Record Admin Discussion & Action Resolution */}
+        {selectedReportForAction && (
+          <div
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={() => setSelectedReportForAction(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-gray-100 space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5 text-emerald-700">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center shrink-0">
+                    <ShieldAlert className="w-5 h-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base sm:text-lg text-gray-900 leading-tight">
+                      จัดการข้อร้องเรียน & บันทึกผลการพูดคุย
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      ผู้ช่วย: <strong className="text-gray-800">{selectedReportForAction.companion?.full_name || 'ผู้ช่วย'}</strong>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedReportForAction(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded-xl"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleResolveReportSubmit} className="space-y-4">
+                {/* Decision Option */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-2">
+                    ผลการพิจารณา / การดำเนินการ <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold">
+                    <label className={`p-3 rounded-2xl border flex items-center gap-2 cursor-pointer transition ${
+                      actionDecision === 'warning'
+                        ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-xs'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="actionDecision"
+                        value="warning"
+                        checked={actionDecision === 'warning'}
+                        onChange={() => setActionDecision('warning')}
+                        className="text-amber-600"
+                      />
+                      <span>ตักเตือน (คงสถานะปกติ)</span>
+                    </label>
+
+                    <label className={`p-3 rounded-2xl border flex items-center gap-2 cursor-pointer transition ${
+                      actionDecision === 'suspend'
+                        ? 'border-rose-400 bg-rose-50 text-rose-900 shadow-xs'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="actionDecision"
+                        value="suspend"
+                        checked={actionDecision === 'suspend'}
+                        onChange={() => setActionDecision('suspend')}
+                        className="text-rose-600"
+                      />
+                      <span>ระงับการให้บริการชั่วคราว</span>
+                    </label>
+
+                    <label className={`p-3 rounded-2xl border flex items-center gap-2 cursor-pointer transition ${
+                      actionDecision === 'reactivate'
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-900 shadow-xs'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="actionDecision"
+                        value="reactivate"
+                        checked={actionDecision === 'reactivate'}
+                        onChange={() => setActionDecision('reactivate')}
+                        className="text-emerald-600"
+                      />
+                      <span>ปลดการระงับ (กลับมารับงาน)</span>
+                    </label>
+
+                    <label className={`p-3 rounded-2xl border flex items-center gap-2 cursor-pointer transition ${
+                      actionDecision === 'dismiss'
+                        ? 'border-gray-400 bg-gray-100 text-gray-900 shadow-xs'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="actionDecision"
+                        value="dismiss"
+                        checked={actionDecision === 'dismiss'}
+                        onChange={() => setActionDecision('dismiss')}
+                        className="text-gray-600"
+                      />
+                      <span>ยกเลิกรายงาน (ไม่พบความผิด)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Suspension Reason (if suspend selected) */}
+                {actionDecision === 'suspend' && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      เหตุผลที่ระงับ (จะแสดงแจ้งเตือนในแดชบอร์ดของ Companion)
+                    </label>
+                    <input
+                      type="text"
+                      value={suspensionReasonInput}
+                      onChange={(e) => setSuspensionReasonInput(e.target.value)}
+                      placeholder="เช่น อยู่ระหว่างตรวจสอบข้อร้องเรียนเรื่องการคิดเงินเกินจริง..."
+                      className="w-full text-xs sm:text-sm p-3 rounded-xl border border-rose-300 focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                )}
+
+                {/* Admin Notes */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    บันทึกสรุปผลการพูดคุยกับผู้ช่วย (Admin Notes) <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={adminNoteInput}
+                    onChange={(e) => setAdminNoteInput(e.target.value)}
+                    placeholder="บันทึกรายละเอียด เช่น โทรคุยกับผู้ช่วยแล้ว ผู้ช่วยชี้แจงว่า... และยินดีปรับปรุงตัวต่อไป..."
+                    className="w-full text-xs sm:text-sm p-3 rounded-xl border border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-600 resize-none font-medium"
+                    required
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReportForAction(null)}
+                    disabled={savingReportAction}
+                    className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingReportAction}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {savingReportAction ? 'กำลังบันทึก...' : 'บันทึกผลการพิจารณา'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

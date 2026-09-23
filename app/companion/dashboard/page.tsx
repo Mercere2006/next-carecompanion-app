@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
-import { BookingDetailData } from '@/types/database';
+import { BookingDetailData, CompanionProfile } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
-import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play, CheckCheck, Star } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play, CheckCheck, Star, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CompanionDashboard() {
@@ -14,6 +14,7 @@ export default function CompanionDashboard() {
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [companionProfile, setCompanionProfile] = useState<CompanionProfile | null>(null);
 
   const fetchCompanionBookings = useCallback(async () => {
     try {
@@ -23,6 +24,7 @@ export default function CompanionDashboard() {
         return;
       }
 
+      // Fetch bookings
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -36,6 +38,17 @@ export default function CompanionDashboard() {
 
       if (!error && data) {
         setBookings(data as unknown as BookingDetailData[]);
+      }
+
+      // Fetch companion's own profile for suspension & warning checks
+      const { data: compProfile } = await supabase
+        .from('companion_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (compProfile) {
+        setCompanionProfile(compProfile as CompanionProfile);
       }
     } catch (err) {
       console.error(err);
@@ -52,6 +65,11 @@ export default function CompanionDashboard() {
   }, [fetchCompanionBookings]);
 
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
+    if (companionProfile?.is_suspended && newStatus === 'accepted') {
+      alert('ไม่สามารถตอบรับงานใหม่ได้: บัญชีของคุณอยู่ระหว่างการถูกระงับการให้บริการชั่วคราว กรุณารอการติดต่อจากผู้ดูแลระบบ');
+      return;
+    }
+
     setUpdatingId(bookingId);
     try {
       const { error } = await supabase
@@ -99,6 +117,38 @@ export default function CompanionDashboard() {
             ⚙️ จัดการข้อมูลโปรไฟล์ผู้ช่วย
           </Link>
         </div>
+
+        {/* Suspension Banner */}
+        {companionProfile?.is_suspended && (
+          <div className="bg-rose-50 border-2 border-rose-300 rounded-3xl p-5 sm:p-6 mb-6 sm:mb-8 shadow-xs">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg font-extrabold text-rose-950">
+                  บัญชีของคุณถูกระงับการให้บริการชั่วคราว
+                </h2>
+                <p className="text-xs sm:text-sm text-rose-800">
+                  <strong>สาเหตุ:</strong> {companionProfile.suspension_reason || 'อยู่ระหว่างการตรวจสอบข้อร้องเรียนและการให้บริการ'}
+                </p>
+                <div className="pt-2 text-xs text-rose-700 bg-white/80 p-3 rounded-xl border border-rose-200 leading-relaxed">
+                  ℹ️ <strong>สิ่งที่ต้องทำ:</strong> ในระหว่างนี้ระบบได้พักการรับงานของคุณชั่วคราว ผู้ดูแลระบบ (Admin) จะติดต่อหาคุณทางโทรศัพท์เพื่อสอบถามข้อเท็จจริง หากพูดคุยทำความเข้าใจและตกลงร่วมกันเรียบร้อยแล้ว แอดมินจะทำการปลดการระงับบัญชีให้คุณสามารถกลับมารับงานได้ตามปกติครับ
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Warning Reminder Banner */}
+        {!companionProfile?.is_suspended && Boolean(companionProfile?.warning_count && companionProfile.warning_count > 0) && (
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 mb-6 sm:mb-8 shadow-2xs flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm text-amber-900 leading-relaxed">
+              <strong>ข้อความแจ้งเตือนจากผู้ดูแลระบบ:</strong> บัญชีของคุณมีประวัติการตักเตือนสะสม {companionProfile?.warning_count} ครั้ง กรุณารักษามาตรฐานการให้บริการอย่างเคร่งครัดเพื่อป้องกันการถูกระงับบัญชี
+            </div>
+          </div>
+        )}
 
         {/* Overview Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
@@ -280,14 +330,25 @@ export default function CompanionDashboard() {
                             <XCircle className="w-3.5 h-3.5" />
                             ปฏิเสธงาน
                           </button>
-                          <button
-                            disabled={isUpdating}
-                            onClick={() => handleUpdateStatus(booking.id, 'accepted')}
-                            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            ตอบรับงานนี้
-                          </button>
+                          {companionProfile?.is_suspended ? (
+                            <button
+                              disabled
+                              title="ไม่สามารถรับงานได้เนื่องจากบัญชีถูกระงับชั่วคราว"
+                              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed flex items-center justify-center gap-1.5"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+                              ไม่สามารถรับงานได้ (ถูกระงับ)
+                            </button>
+                          ) : (
+                            <button
+                              disabled={isUpdating}
+                              onClick={() => handleUpdateStatus(booking.id, 'accepted')}
+                              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              ตอบรับงานนี้
+                            </button>
+                          )}
                         </>
                       )}
 

@@ -104,7 +104,7 @@ export default function CompanionSearchSection({
             };
           });
 
-          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, และเปิดรับงาน)
+          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, เปิดรับงาน และไม่ถูกระงับ)
           const completeProfiles = enriched.filter((c) => {
             const hasName = Boolean(
               c.profile?.full_name && c.profile.full_name.trim().length > 0,
@@ -112,7 +112,8 @@ export default function CompanionSearchSection({
             const hasRate = Number(c.hourly_rate) > 0;
             const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
             const isAvail = c.is_available === true;
-            return isAvail && hasRate && hasBio && hasName;
+            const notSuspended = !c.is_suspended;
+            return isAvail && notSuspended && hasRate && hasBio && hasName;
           });
 
           const realIds = new Set(completeProfiles.map((c) => c.id));

@@ -6,9 +6,10 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { BookingDetailData } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
-import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw, Flag } from 'lucide-react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
+import ReportCompanionModal from '@/components/customer/ReportCompanionModal';
 
 export default function CustomerDashboard() {
   const supabase = createClient();
@@ -20,6 +21,15 @@ export default function CustomerDashboard() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Report modal state
+  const [reportingBooking, setReportingBooking] = useState<{
+    bookingId: string;
+    companionId: string;
+    companionName: string;
+    companionAvatar?: string | null;
+    initialDetails?: string;
+  } | null>(null);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -142,9 +152,41 @@ export default function CustomerDashboard() {
         },
       });
 
+      const targetBooking = selectedBookingForReview;
+      const submittedComment = comment;
       setSelectedBookingForReview(null);
       setComment('');
       fetchBookings();
+
+      // Trigger low-rating report prompt
+      if (rating <= 2) {
+        const askReport = await Swal.fire({
+          title: 'การบริการมีปัญหาหรือไม่?',
+          text: 'คุณให้คะแนนต่ำกว่าเกณฑ์ (1-2 ดาว) หากพบปัญหาการบริการหรือพฤติกรรมไม่เหมาะสม คุณต้องการส่งรายงานข้อร้องเรียนนี้ถึงผู้ดูแลระบบ (Admin) เพื่อช่วยตรวจสอบด้วยหรือไม่?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#e11d48',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: 'ใช่, ต้องการรายงาน',
+          cancelButtonText: 'ไม่ต้องการ, ขอบคุณ',
+          reverseButtons: true,
+          customClass: {
+            popup: 'rounded-3xl shadow-2xl font-sans border border-gray-100',
+            confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+            cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+          },
+        });
+
+        if (askReport.isConfirmed) {
+          setReportingBooking({
+            bookingId: targetBooking.id,
+            companionId: targetBooking.companion_id,
+            companionName: targetBooking.companion?.full_name || 'ผู้ช่วยร่วมเดินทาง',
+            companionAvatar: targetBooking.companion?.avatar_url,
+            initialDetails: submittedComment,
+          });
+        }
+      }
     } catch (err) {
       Swal.fire({
         title: 'เกิดข้อผิดพลาด',
@@ -381,6 +423,23 @@ export default function CustomerDashboard() {
                           รีวิวแล้ว ({booking.review.rating} ดาว)
                         </div>
                       )}
+
+                      {/* Report Companion Button */}
+                      <button
+                        onClick={() =>
+                          setReportingBooking({
+                            bookingId: booking.id,
+                            companionId: booking.companion_id,
+                            companionName: booking.companion?.full_name || 'ผู้ช่วยร่วมเดินทาง',
+                            companionAvatar: booking.companion?.avatar_url,
+                          })
+                        }
+                        title="รายงานข้อร้องเรียนเกี่ยวกับผู้ช่วยท่านนี้"
+                        className="text-xs font-semibold px-3 py-2 rounded-xl text-gray-500 hover:text-rose-600 hover:bg-rose-50 border border-gray-200 hover:border-rose-200 transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Flag className="w-3.5 h-3.5 text-gray-400" />
+                        <span>รายงานผู้ช่วย</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -467,6 +526,20 @@ export default function CustomerDashboard() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Report Companion Modal */}
+        {reportingBooking && (
+          <ReportCompanionModal
+            isOpen={Boolean(reportingBooking)}
+            onClose={() => setReportingBooking(null)}
+            companionId={reportingBooking.companionId}
+            companionName={reportingBooking.companionName}
+            companionAvatar={reportingBooking.companionAvatar}
+            bookingId={reportingBooking.bookingId}
+            initialDetails={reportingBooking.initialDetails}
+            onSuccess={() => fetchBookings()}
+          />
         )}
       </main>
 

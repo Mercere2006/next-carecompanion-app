@@ -20,9 +20,11 @@ import {
   Lock,
   CheckCircle2,
   LogIn,
+  AlertTriangle,
 } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { parseVehicleDetails } from '@/lib/vehicleUtils';
+import ReportCompanionButton from '@/components/customer/ReportCompanionButton';
 import {
   MOCK_COMPANIONS,
   MOCK_REVIEWS,
@@ -175,6 +177,23 @@ export default async function CompanionDetailPage({
               <LogIn className="w-4 h-4" />
               เข้าสู่ระบบเพื่อดูข้อมูลทั้งหมด
             </Link>
+          </div>
+        )}
+
+        {/* Suspension Notice Banner */}
+        {companion.is_suspended && (
+          <div className="bg-rose-50 border-2 border-rose-200 text-rose-900 p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex items-start sm:items-center gap-3.5 shadow-xs mb-6">
+            <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <strong className="block text-sm sm:text-base font-extrabold text-rose-950">
+                ผู้ช่วยท่านนี้อยู่ระหว่างการพักการให้บริการชั่วคราว
+              </strong>
+              <p className="text-xs sm:text-sm text-rose-700 mt-0.5">
+                {companion.suspension_reason || 'ระบบพักการรับงานชั่วคราวเพื่อตรวจสอบข้อร้องเรียนและการบริการ'}
+              </p>
+            </div>
           </div>
         )}
 
@@ -631,17 +650,34 @@ export default async function CompanionDetailPage({
                 </div>
               </div>
 
-              <Link
-                href={`/customer/book/${companion.id}`}
-                className="w-full py-4 rounded-2xl bg-emerald-700 text-white font-bold text-center text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98"
-              >
-                <Calendar className="w-5 h-5" />
-                จองผู้ช่วยร่วมเดินทาง
-              </Link>
+              {companion.is_suspended ? (
+                <div className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-200 text-gray-500 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
+                  <AlertTriangle className="w-4 h-4 text-gray-400" />
+                  ไม่สามารถจองได้ (บัญชีถูกระงับชั่วคราว)
+                </div>
+              ) : (
+                <Link
+                  href={`/customer/book/${companion.id}`}
+                  className="w-full py-4 rounded-2xl bg-emerald-700 text-white font-bold text-center text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98"
+                >
+                  <Calendar className="w-5 h-5" />
+                  จองผู้ช่วยร่วมเดินทาง
+                </Link>
+              )}
 
               <p className="text-[11px] text-gray-400 text-center leading-relaxed">
                 *ระบบยังไม่มีการตัดเงินทันที ชำระค่าบริการโดยตรงหลังเสร็จสิ้นภารกิจ
               </p>
+
+              {/* Report Companion Button */}
+              <div className="pt-2 border-t border-gray-100 flex justify-center">
+                <ReportCompanionButton
+                  companionId={companion.id}
+                  companionName={companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
+                  companionAvatar={companionAvatar}
+                  className="w-full justify-center"
+                />
+              </div>
             </div>
           </div>
         </div>

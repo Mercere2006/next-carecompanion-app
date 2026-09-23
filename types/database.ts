@@ -41,6 +41,9 @@ export interface CompanionProfile {
   vehicle_type?: VehicleType;
   vehicle_model?: string | null; // เช่น "Honda City สีขาว" หรือ "Yamaha Grand Filano สีฟ้า"
   vehicle_plate?: string | null; // เช่น "1กข 1234 กทม."
+  is_suspended?: boolean;        // ถูกระงับการให้บริการหรือไม่
+  suspension_reason?: string | null; // สาเหตุการระงับ
+  warning_count?: number;        // จำนวนครั้งที่ถูกตักเตือน
   updated_at: string;
 }
 
@@ -88,6 +91,22 @@ export interface Review {
   created_at: string;
 }
 
+// 6. Report Type
+export type ReportStatus = 'pending' | 'investigating' | 'resolved' | 'dismissed';
+
+export interface Report {
+  id: string;
+  customer_id: string;
+  companion_id: string;
+  booking_id: string | null;
+  reason: string;
+  details: string | null;
+  status: ReportStatus;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Composite / Joined Types
 export interface CompanionCardData extends CompanionProfile {
   profile: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'> & {
@@ -100,4 +119,11 @@ export interface BookingDetailData extends Booking {
   companion?: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'>;
   category?: ServiceCategory;
   review?: Review | null;
+}
+
+export interface ReportDetailData extends Report {
+  customer?: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'>;
+  companion?: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'>;
+  companion_profile?: CompanionProfile;
+  booking?: Booking;
 }
