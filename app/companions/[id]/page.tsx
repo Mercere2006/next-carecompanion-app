@@ -252,13 +252,24 @@ export default async function CompanionDetailPage({
                     ผู้ให้บริการร่วมเดินทาง (Companion)
                   </p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-600 pt-1">
-                    <span className="flex items-center gap-1 text-amber-500 font-bold text-sm">
-                      <Star className="w-4 h-4 fill-amber-400" />
-                      {Number(companion.rating_avg).toFixed(1)}
-                    </span>
-                    <span>•</span>
-                    <span>{companion.rating_count} รีวิว</span>
-                    <span>•</span>
+                    {(companion.rating_count ?? 0) > 0 ? (
+                      <>
+                        <span className="flex items-center gap-1 text-amber-500 font-bold text-sm">
+                          <Star className="w-4 h-4 fill-amber-400" />
+                          {Number(companion.rating_avg).toFixed(1)}
+                        </span>
+                        <span>•</span>
+                        <span>{companion.rating_count} รีวิว</span>
+                        <span>•</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          ผู้ช่วยใหม่ (ยังไม่มีรีวิว)
+                        </span>
+                        <span>•</span>
+                      </>
+                    )}
                     <span className="flex items-center gap-1">
                       <Briefcase className="w-3.5 h-3.5 text-gray-400" />
                       ประสบการณ์ {companion.experience_years} ปี
@@ -535,10 +546,12 @@ export default async function CompanionDetailPage({
                 <div className="space-y-0.5">
                   <h2 className="text-base sm:text-lg font-bold text-gray-950 flex items-center gap-2">
                     <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
-                    รีวิวและความคิดเห็นจากผู้ใช้งาน ({companion.rating_count})
+                    รีวิวและความคิดเห็นจากผู้ใช้งาน ({companion.rating_count || 0})
                   </h2>
                   <p className="text-xs text-gray-500">
-                    คะแนนเฉลี่ย {Number(companion.rating_avg).toFixed(1)} / 5.0 จากผู้รับบริการจริง
+                    {(companion.rating_count || 0) > 0
+                      ? `คะแนนเฉลี่ย ${Number(companion.rating_avg).toFixed(1)} / 5.0 จากผู้รับบริการจริง`
+                      : 'ยังไม่มีคะแนนรีวิวสำหรับผู้ช่วยใหม่ (รอรับงานแรกจากลูกค้า)'}
                   </p>
                 </div>
 

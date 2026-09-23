@@ -77,13 +77,24 @@ export default function CompanionCard({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-gray-500 min-w-0">
-                <span className="flex items-center gap-0.5 text-amber-500 font-bold shrink-0">
-                  <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-amber-400" />
-                  {companion.rating_avg.toFixed(1)}
-                </span>
-                <span>•</span>
-                <span className="shrink-0">({companion.rating_count} รีวิว)</span>
-                <span>•</span>
+                {(companion.rating_count ?? 0) > 0 ? (
+                  <>
+                    <span className="flex items-center gap-0.5 text-amber-500 font-bold shrink-0">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-amber-400" />
+                      {companion.rating_avg.toFixed(1)}
+                    </span>
+                    <span>•</span>
+                    <span className="shrink-0">({companion.rating_count} รีวิว)</span>
+                    <span>•</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                      ผู้ช่วยใหม่
+                    </span>
+                    <span>•</span>
+                  </>
+                )}
                 <span className="flex items-center gap-0.5 shrink-0">
                   <Briefcase className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400" />
                   {companion.experience_years} ปี

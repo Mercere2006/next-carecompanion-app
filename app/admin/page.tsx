@@ -6,7 +6,8 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, CompanionCardData, BookingDetailData, ReportDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X, Clock, MapPin, Navigation, Car, Bike, FileText, ExternalLink } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X, Clock, MapPin, Navigation, Car, Bike, FileText, ExternalLink, Star, Briefcase, Award, Shield, Sparkles } from 'lucide-react';
+import { extractCleanBio, parseVehiclesList } from '@/lib/vehicleUtils';
 import Swal from 'sweetalert2';
 
 export default function AdminDashboardPage() {
@@ -33,6 +34,7 @@ export default function AdminDashboardPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewImageModal, setPreviewImageModal] = useState<{ url: string; name: string } | null>(null);
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<BookingDetailData | null>(null);
+  const [selectedCompanionForDetails, setSelectedCompanionForDetails] = useState<CompanionCardData | null>(null);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -638,9 +640,15 @@ export default function AdminDashboardPage() {
                         <tr key={comp.id} className="hover:bg-slate-50/60 transition">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <strong className="text-gray-900 block font-semibold">
-                                {comp.profile?.full_name || 'ไม่ระบุชื่อ'}
-                              </strong>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCompanionForDetails(comp)}
+                                className="text-left font-bold text-gray-900 hover:text-emerald-700 hover:underline inline-flex items-center gap-1.5 transition cursor-pointer group"
+                                title="คลิกเพื่อดูข้อมูลผู้สมัครและรายละเอียดการให้บริการทั้งหมด"
+                              >
+                                <span className="group-hover:text-emerald-700">{comp.profile?.full_name || 'ไม่ระบุชื่อ'}</span>
+                                <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 transition" />
+                              </button>
                               {isMockRow && (
                                 <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">
                                   Mock Data
@@ -707,18 +715,27 @@ export default function AdminDashboardPage() {
                             </div>
 
                             {/* Companion Rating */}
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                              <span className={`font-bold flex items-center gap-0.5 ${
-                                Number(comp.rating_avg) < 3.0 ? 'text-rose-600' : 'text-amber-600'
-                              }`}>
-                                ⭐ {Number(comp.rating_avg || 5.0).toFixed(1)} / 5.0
-                              </span>
-                              {Number(comp.rating_avg) < 3.0 && (
-                                <span className="text-[10px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.2 rounded-sm">
-                                  ดาวต่ำกว่าเกณฑ์
+                            {(comp.rating_count ?? 0) > 0 ? (
+                              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                <span className={`font-bold flex items-center gap-0.5 ${
+                                  Number(comp.rating_avg) < 3.0 ? 'text-rose-600' : 'text-amber-600'
+                                }`}>
+                                  ⭐ {Number(comp.rating_avg).toFixed(1)} / 5.0
                                 </span>
-                              )}
-                            </div>
+                                <span className="text-[11px] text-gray-400">({comp.rating_count} รีวิว)</span>
+                                {Number(comp.rating_avg) < 3.0 && (
+                                  <span className="text-[10px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.2 rounded-sm">
+                                    ดาวต่ำกว่าเกณฑ์
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                  ผู้สมัครใหม่ (ยังไม่มีรีวิว)
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right space-x-2">
                             {/* Pending Status: Show Approve and Reject */}
@@ -889,11 +906,17 @@ export default function AdminDashboardPage() {
                                   ⚠️ เคยเตือน {warningCount} ครั้ง
                                 </span>
                               )}
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                                Number(ratingAvg) < 3.0 ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
-                              }`}>
-                                ⭐ {Number(ratingAvg).toFixed(1)} / 5.0
-                              </span>
+                              {(comp?.rating_count ?? 0) > 0 ? (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                                  Number(ratingAvg) < 3.0 ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                  ⭐ {Number(ratingAvg).toFixed(1)} / 5.0
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-500">
+                                  ยังไม่มีรีวิว
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs text-gray-500 block mt-0.5">
                               รายงานโดยลูกค้า: <strong>{report.customer?.full_name || 'ลูกค้า'}</strong> ({report.customer?.phone || report.customer?.email})
@@ -1654,6 +1677,390 @@ export default function AdminDashboardPage() {
                   >
                     ปิดหน้าต่าง
                   </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Modal: View Full Companion Application Details for Admin */}
+        {selectedCompanionForDetails && (() => {
+          const comp = selectedCompanionForDetails;
+          const { cleanBio, embeddedSchedule } = extractCleanBio(comp.bio);
+          const vehicles = parseVehiclesList(
+            comp.bio,
+            comp.vehicle_type,
+            comp.vehicle_model,
+            comp.vehicle_plate,
+            comp.hourly_rate
+          );
+          const isProcessing = processingId === comp.id;
+
+          return (
+            <div
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+              onClick={() => setSelectedCompanionForDetails(null)}
+            >
+              <div
+                className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto space-y-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="flex items-start justify-between border-b border-gray-100 pb-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-lg overflow-hidden shrink-0 border border-emerald-200 shadow-xs">
+                      {comp.profile?.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={comp.profile.avatar_url}
+                          alt={comp.profile?.full_name || ''}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-7 h-7 text-emerald-700" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            comp.verification_status === 'verified'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : comp.verification_status === 'rejected'
+                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          {comp.verification_status === 'verified' && '✓ อนุมัติแล้ว'}
+                          {comp.verification_status === 'rejected' && '✕ ปฏิเสธแล้ว'}
+                          {comp.verification_status === 'pending' && '⏳ รอตรวจสอบ'}
+                        </span>
+
+                        {(comp.rating_count ?? 0) > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            ⭐ {Number(comp.rating_avg).toFixed(1)} ({comp.rating_count} รีวิว)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            🌱 ผู้สมัครใหม่ (ยังไม่มีรีวิว)
+                          </span>
+                        )}
+
+                        {comp.is_suspended && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-2xs">
+                            🔴 ระงับบัญชี
+                          </span>
+                        )}
+                        {Boolean(comp.warning_count && comp.warning_count > 0) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                            ⚠️ เตือน {comp.warning_count} ครั้ง
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-extrabold text-lg sm:text-xl text-gray-900 leading-tight">
+                        {comp.profile?.full_name || 'ไม่ระบุชื่อ'}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-1">
+                        {comp.profile?.phone && (
+                          <a
+                            href={`tel:${comp.profile.phone}`}
+                            className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600" />
+                            {comp.profile.phone}
+                          </a>
+                        )}
+                        {comp.profile?.email && (
+                          <span className="inline-flex items-center gap-1 text-gray-400">
+                            <Mail className="w-3 h-3" />
+                            {comp.profile.email}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCompanionForDetails(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition cursor-pointer shrink-0"
+                    title="ปิดหน้าต่าง"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Section 1: Face Scan Verification & Phone */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <ScanFace className="w-3.5 h-3.5 text-emerald-600" />
+                    หลักฐานการยืนยันตัวตน (Face Scan & Phone)
+                  </h4>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    {comp.id_card_image_url ? (
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleViewDocument(comp.id_card_image_url!, comp.profile?.full_name || 'Companion')}
+                          className="w-20 h-20 rounded-2xl bg-white overflow-hidden border-2 border-teal-500 hover:border-teal-600 hover:scale-105 transition cursor-pointer shrink-0 shadow-md group relative"
+                          title="คลิกเพื่อดูรูปขนาดเต็ม"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={comp.id_card_image_url}
+                            alt="Face Scan"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white">
+                            <Eye className="w-5 h-5" />
+                          </div>
+                        </button>
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            มีรูปถ่ายสแกนใบหน้าจริง
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(comp.id_card_image_url!, comp.profile?.full_name || 'Companion')}
+                            className="text-xs text-teal-700 hover:text-teal-800 hover:underline inline-flex items-center gap-1 font-semibold"
+                          >
+                            <Eye className="w-3 h-3" />
+                            คลิกดูรูปสแกนใบหน้าขนาดเต็ม
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>ผู้สมัครยังไม่ได้อัปโหลดรูปถ่ายสแกนใบหน้าจริง</span>
+                      </div>
+                    )}
+
+                    <div className="sm:ml-auto space-y-1 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-500">การยืนยันเบอร์โทร:</span>
+                        {comp.phone_verified ? (
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            ยืนยัน OTP แล้ว
+                          </span>
+                        ) : (
+                          <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                            ยังไม่ยืนยัน OTP
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        อัปเดตล่าสุด: {formatThaiDate(comp.updated_at)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Bio, Experience, Hourly Rate */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                      คำแนะนำตัว (Bio)
+                    </h4>
+                    <p className="text-xs sm:text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {cleanBio || 'ไม่ได้ระบุคำแนะนำตัว'}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-3 flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs text-gray-500 block font-semibold mb-1">ประสบการณ์ทำงาน</span>
+                      <strong className="text-xl font-bold text-gray-900 flex items-center gap-1">
+                        <Briefcase className="w-4 h-4 text-emerald-600" />
+                        {comp.experience_years || 0} ปี
+                      </strong>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <span className="text-xs text-gray-500 block font-semibold mb-1">ค่าบริการพื้นฐาน</span>
+                      <strong className="text-xl font-black text-emerald-700">
+                        {formatPrice(comp.hourly_rate)}
+                      </strong>
+                      <span className="text-[11px] text-gray-400 block">/ ชั่วโมง</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Vehicles */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Car className="w-3.5 h-3.5 text-emerald-600" />
+                    ยานพาหนะที่ใช้ให้บริการ ({vehicles.length} คัน)
+                  </h4>
+                  {vehicles.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {vehicles.map((v, i) => (
+                        <div key={v.id || i} className="bg-white rounded-xl p-3 border border-gray-200 shadow-2xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                              {v.type === 'car' ? (
+                                <Car className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Bike className="w-3.5 h-3.5 text-teal-600" />
+                              )}
+                              {v.type === 'car' ? 'รถยนต์' : 'รถจักรยานยนต์'}
+                            </span>
+                            <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                              ฿{v.rate} / ชม.
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-700 font-medium">{v.model || 'ไม่ระบุรุ่น'}</p>
+                          <p className="text-[11px] text-gray-400 font-mono">ทะเบียน: {v.plate || '-'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 italic">
+                      ไม่มีพาหนะส่วนตัว (ให้บริการเดินทางด้วยระบบขนส่งสาธารณะหรือเดินเท้า)
+                    </p>
+                  )}
+                </div>
+
+                {/* Section 4: Schedule */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                    วันและเวลาที่สะดวกให้บริการ
+                  </h4>
+                  <p className="text-xs sm:text-sm text-gray-800 font-medium">
+                    {comp.available_schedule || embeddedSchedule || 'ไม่ระบุช่วงเวลาให้บริการ'}
+                  </p>
+                </div>
+
+                {/* Section 5: Skills & Service Areas */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      ทักษะและความสามารถ ({comp.skills?.length || 0})
+                    </h4>
+                    {comp.skills && comp.skills.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {comp.skills.map((s, i) => (
+                          <span
+                            key={i}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          >
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">ไม่ได้ระบุทักษะ</p>
+                    )}
+                  </div>
+
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                      พื้นที่ให้บริการ ({comp.service_areas?.length || 0})
+                    </h4>
+                    {comp.service_areas && comp.service_areas.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {comp.service_areas.map((a, i) => (
+                          <span
+                            key={i}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200"
+                          >
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">ไม่ได้ระบุพื้นที่</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modal Footer / Actions */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCompanionForDetails(null)}
+                    className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    ปิดหน้าต่าง
+                  </button>
+
+                  <div className="flex flex-wrap items-center gap-2 justify-end">
+                    {comp.verification_status === 'pending' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={async () => {
+                            await handleVerifyCompanion(comp.id, 'verified');
+                            setSelectedCompanionForDetails(null);
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800 disabled:opacity-50 transition cursor-pointer shadow-xs active:scale-95"
+                        >
+                          ✓ อนุมัติ (Verify)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={async () => {
+                            await handleVerifyCompanion(comp.id, 'rejected');
+                            setSelectedCompanionForDetails(null);
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs border border-rose-200 disabled:opacity-50 transition cursor-pointer active:scale-95"
+                        >
+                          ✕ ปฏิเสธ
+                        </button>
+                      </>
+                    )}
+
+                    {comp.verification_status === 'verified' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={async () => {
+                            await handleToggleCompanionSuspension(comp);
+                            setSelectedCompanionForDetails(null);
+                          }}
+                          className={`px-4 py-2.5 rounded-xl font-bold text-xs border transition cursor-pointer ${
+                            comp.is_suspended
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
+                          }`}
+                        >
+                          {comp.is_suspended ? 'ปลดระงับบัญชี' : 'ระงับบัญชีชั่วคราว'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={async () => {
+                            await handleVerifyCompanion(comp.id, 'rejected');
+                            setSelectedCompanionForDetails(null);
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs border border-rose-200 disabled:opacity-50 transition cursor-pointer"
+                        >
+                          เพิกถอนสิทธิ์
+                        </button>
+                      </>
+                    )}
+
+                    {comp.verification_status === 'rejected' && (
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={async () => {
+                          await handleVerifyCompanion(comp.id, 'verified');
+                          setSelectedCompanionForDetails(null);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800 disabled:opacity-50 transition cursor-pointer shadow-xs"
+                      >
+                        อนุมัติใหม่
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
