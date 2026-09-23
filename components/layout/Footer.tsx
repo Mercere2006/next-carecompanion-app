@@ -46,7 +46,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/companions" className="hover:text-emerald-400 transition">
-                  ค้นหาผู้ช่วย
+                  ดูผู้ช่วย
                 </Link>
               </li>
               <li>

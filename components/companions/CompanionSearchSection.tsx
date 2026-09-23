@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import CompanionCard from "@/components/companions/CompanionCard";
 import { CompanionCardData } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { useCompanionFilter } from "./search/useCompanionFilter";
-import SearchFilterBox from "./search/SearchFilterBox";
 import LoginRequiredModal from "./search/LoginRequiredModal";
 
 import {
@@ -215,32 +215,32 @@ export default function CompanionSearchSection({
     <section id={id} className={`scroll-mt-24 ${className}`}>
       <div className="space-y-6 sm:space-y-8">
         {/* Section Header */}
-        <div className="space-y-2">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-950 tracking-tight break-words">
-            เลือกผู้ช่วยที่ตรงกับความต้องการของคุณ
-          </h2>
-          <p className="text-gray-600 text-xs sm:text-sm md:text-base">
-            ระบุประเภทธุระ พื้นที่ และความช่วยเหลือพิเศษ
-            เพื่อให้ระบบกรองผู้ข่วยที่เหมาะสมที่สุดให้คุณ
-          </p>
-        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-200/80">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight">
+              ดูผู้ช่วย
+            </h1>
+            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
+              รายชื่อผู้ช่วยทั้งหมดที่พร้อมให้บริการ
+            </p>
+          </div>
 
-        {/* CUSTOMER REQUIREMENT SPECIFICATION BOX */}
-        <SearchFilterBox
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          searchArea={searchArea}
-          onAreaChange={setSearchArea}
-          specialNeedFilter={specialNeedFilter}
-          onSpecialNeedChange={setSpecialNeedFilter}
-          maxRate={maxRate}
-          onMaxRateChange={setMaxRate}
-          searchKeyword={searchKeyword}
-          onSearchKeywordChange={setSearchKeyword}
-          resultsCount={filteredCompanions.length}
-          hasActiveFilters={hasActiveFilters}
-          onResetFilters={resetFilters}
-        />
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                placeholder="ค้นหาชื่อผู้ช่วย..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white"
+              />
+            </div>
+            <span className="text-xs sm:text-sm font-bold text-emerald-800 bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-200 shrink-0">
+              พบ {filteredCompanions.length} ท่าน
+            </span>
+          </div>
+        </div>
 
         {/* Results Grid */}
         {loading ? (
@@ -266,15 +266,17 @@ export default function CompanionSearchSection({
         ) : (
           <div className="text-center py-16 bg-white rounded-3xl border border-gray-200 p-8 space-y-4">
             <p className="text-gray-500 text-base">
-              ไม่พบผู้ช่วยที่ตรงกับเงื่อนไขความต้องการของคุณในขณะนี้
+              ไม่พบรายชื่อผู้ช่วยที่ค้นหาในขณะนี้
             </p>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="px-5 py-2.5 rounded-xl bg-emerald-100 text-emerald-800 text-sm font-bold hover:bg-emerald-200 transition cursor-pointer"
-            >
-              ล้างเงื่อนไขทั้งหมด
-            </button>
+            {searchKeyword && (
+              <button
+                type="button"
+                onClick={() => setSearchKeyword("")}
+                className="px-5 py-2.5 rounded-xl bg-emerald-100 text-emerald-800 text-sm font-bold hover:bg-emerald-200 transition cursor-pointer"
+              >
+                ล้างคำค้นหา
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -77,7 +77,7 @@ export default function Hero() {
             className="w-full py-4 px-8 rounded-2xl bg-emerald-700 text-white text-base sm:text-lg font-bold hover:bg-emerald-800 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-3 active:scale-95 cursor-pointer"
           >
             <Search className="w-5 h-5" />
-            ค้นหาผู้ช่วย
+            ดูผู้ช่วย
           </Link>
 
           {isLoggedIn ? (

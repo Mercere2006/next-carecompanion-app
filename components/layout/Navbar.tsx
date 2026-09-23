@@ -258,7 +258,7 @@ export default function Navbar() {
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800 shadow-md shadow-emerald-200 transition active:scale-95 cursor-pointer"
             >
               <Search className="w-4 h-4" />
-              ค้นหาผู้ช่วย
+              ดูผู้ช่วย
             </Link>
 
             {loading ? (
@@ -463,7 +463,7 @@ export default function Navbar() {
             onClick={() => setMobileMenuOpen(false)}
             className="block text-center py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-sm"
           >
-            ค้นหาผู้ช่วย
+            ดูผู้ช่วย
           </Link>
 
           <div className="pt-3 border-t border-gray-100">
