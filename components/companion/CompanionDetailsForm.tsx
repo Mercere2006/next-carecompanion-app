@@ -55,6 +55,7 @@ interface CompanionDetailsFormProps {
 
 export default function CompanionDetailsForm({
   isVerified,
+  isProfileSaved = false,
   saving,
   hasUnsavedChanges = false,
   avatarUrl,
@@ -186,9 +187,15 @@ export default function CompanionDetailsForm({
               </span>
             </div>
 
-            <p className="text-xs text-gray-500 max-w-xl">
-              ข้อมูลทั้งหมดด้านล่างอยู่ในโหมดล็อกป้องกันการแก้ไขโดยไม่ได้ตั้งใจ (สีเทา) หากต้องการแก้ไขส่วนใด ให้แตะที่ไอคอนดินสอ ✏️ ของส่วนนั้น
-            </p>
+            {isProfileSaved ? (
+              <p className="text-xs text-gray-500 max-w-xl">
+                ข้อมูลทั้งหมดด้านล่างอยู่ในโหมดล็อกป้องกันการแก้ไขโดยไม่ได้ตั้งใจ (สีเทา) หากต้องการแก้ไขส่วนใด ให้แตะที่ไอคอนดินสอ ✏️ ของส่วนนั้น
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 max-w-xl">
+                กรุณากรอกข้อมูลส่วนตัว ยานพาหนะ และรายละเอียดการให้บริการของคุณเพื่อสมัครเป็นผู้ช่วย
+              </p>
+            )}
 
             <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <button
@@ -229,70 +236,98 @@ export default function CompanionDetailsForm({
             </span>
           </div>
 
-          {editName ? (
-            /* ACTIVE EDITING STATE */
-            <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5 text-emerald-700" />
-                  แก้ไขชื่อ-นามสกุล
-                </span>
+          {isProfileSaved ? (
+            editName ? (
+              /* ACTIVE EDITING STATE (EDIT MODE) */
+              <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Pencil className="w-3.5 h-3.5 text-emerald-700" />
+                    แก้ไขชื่อ-นามสกุล
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditName(false)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    เสร็จสิ้น
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-1">
+                    <select
+                      disabled={isNameLocked}
+                      value={titlePrefix}
+                      onChange={(e) => setTitlePrefix(e.target.value as 'นาย' | 'นาง' | 'นางสาว')}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="นาย">นาย</option>
+                      <option value="นาง">นาง</option>
+                      <option value="นางสาว">นางสาว</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <input
+                      type="text"
+                      disabled={isNameLocked}
+                      value={rawName}
+                      onChange={(e) => setRawName(e.target.value)}
+                      placeholder="เช่น สมศรี ใจดี"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* LOCKED / GRAY STATE (EDIT MODE) */
+              <div className="flex items-center justify-between p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
+                <div className="flex items-center min-w-0">
+                  <span className="font-semibold text-sm sm:text-base text-slate-800 truncate">
+                    {titlePrefix} {rawName || 'ยังไม่ได้ระบุชื่อ'}
+                  </span>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setEditName(false)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
+                  onClick={() => {
+                    if (!isNameLocked) setEditName(true);
+                  }}
+                  disabled={isNameLocked}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-700"
+                  title={isNameLocked ? 'เปลี่ยนชื่อครบ 3 ครั้งแล้ว' : 'กดเพื่อแก้ไขชื่อ'}
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  เสร็จสิ้น
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>{isNameLocked ? 'ล็อกถาวร' : 'แก้ไขชื่อ'}</span>
                 </button>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="sm:col-span-1">
-                  <select
-                    disabled={isNameLocked}
-                    value={titlePrefix}
-                    onChange={(e) => setTitlePrefix(e.target.value as 'นาย' | 'นาง' | 'นางสาว')}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="นาย">นาย</option>
-                    <option value="นาง">นาง</option>
-                    <option value="นางสาว">นางสาว</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-3">
-                  <input
-                    type="text"
-                    disabled={isNameLocked}
-                    value={rawName}
-                    onChange={(e) => setRawName(e.target.value)}
-                    placeholder="เช่น สมศรี ใจดี"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
+            )
           ) : (
-            /* LOCKED / GRAY STATE */
-            <div className="flex items-center justify-between p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
-              <div className="flex items-center min-w-0">
-                <span className="font-semibold text-sm sm:text-base text-slate-800 truncate">
-                  {titlePrefix} {rawName || 'ยังไม่ได้ระบุชื่อ'}
-                </span>
+            /* APPLICATION MODE: DIRECT INPUT (NO PENCIL / NO GRAY LOCK) */
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="sm:col-span-1">
+                <select
+                  disabled={isNameLocked}
+                  value={titlePrefix}
+                  onChange={(e) => setTitlePrefix(e.target.value as 'นาย' | 'นาง' | 'นางสาว')}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="นาย">นาย</option>
+                  <option value="นาง">นาง</option>
+                  <option value="นางสาว">นางสาว</option>
+                </select>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isNameLocked) setEditName(true);
-                }}
-                disabled={isNameLocked}
-                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-700"
-                title={isNameLocked ? 'เปลี่ยนชื่อครบ 3 ครั้งแล้ว' : 'กดเพื่อแก้ไขชื่อ'}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>{isNameLocked ? 'ล็อกถาวร' : 'แก้ไขชื่อ'}</span>
-              </button>
+              <div className="sm:col-span-3">
+                <input
+                  type="text"
+                  disabled={isNameLocked}
+                  value={rawName}
+                  onChange={(e) => setRawName(e.target.value)}
+                  placeholder="เช่น สมศรี ใจดี"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -326,58 +361,182 @@ export default function CompanionDetailsForm({
               <span>ยานพาหนะในการร่วมเดินทาง ({vehicles.length} คัน)</span>
             </label>
 
-            {!editVehicles && (
+            {isProfileSaved ? (
+              !editVehicles && (
+                <button
+                  type="button"
+                  onClick={() => setEditVehicles(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 font-bold text-xs shadow-xs transition cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>แก้ไขยานพาหนะ</span>
+                </button>
+              )
+            ) : (
               <button
                 type="button"
-                onClick={() => setEditVehicles(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 font-bold text-xs shadow-xs transition cursor-pointer"
+                onClick={() => {
+                  setEditingVehicle(null);
+                  setIsVehicleModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-xs transition cursor-pointer"
               >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>แก้ไขยานพาหนะ</span>
+                <Plus className="w-3.5 h-3.5" />
+                เพิ่มยานพาหนะ
               </button>
             )}
           </div>
 
-          {editVehicles ? (
-            /* ACTIVE EDITING STATE FOR VEHICLES */
-            <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-4 transition">
-              <div className="flex items-center justify-between border-b border-emerald-200/80 pb-3">
-                <div className="flex items-center gap-2">
-                  <Pencil className="w-3.5 h-3.5 text-emerald-700" />
-                  <span className="text-xs font-bold text-emerald-900">
-                    จัดการยานพาหนะ (เพิ่ม / แก้ไข / ลบ)
-                  </span>
+          {isProfileSaved ? (
+            editVehicles ? (
+              /* ACTIVE EDITING STATE FOR VEHICLES */
+              <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-4 transition">
+                <div className="flex items-center justify-between border-b border-emerald-200/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Pencil className="w-3.5 h-3.5 text-emerald-700" />
+                    <span className="text-xs font-bold text-emerald-900">
+                      จัดการยานพาหนะ (เพิ่ม / แก้ไข / ลบ)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingVehicle(null);
+                        setIsVehicleModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      เพิ่มยานพาหนะ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditVehicles(false)}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs shadow-xs transition cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      เสร็จสิ้น
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingVehicle(null);
-                      setIsVehicleModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-xs transition cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    เพิ่มยานพาหนะ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditVehicles(false)}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs shadow-xs transition cursor-pointer"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    เสร็จสิ้น
-                  </button>
-                </div>
+                {vehicles.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {vehicles.map((v) => (
+                      <div
+                        key={v.id}
+                        className="p-3.5 rounded-xl border-2 border-emerald-200 bg-white space-y-2.5 shadow-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                v.type === 'car'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-teal-100 text-teal-800'
+                              }`}
+                            >
+                              {v.type === 'car' ? <Car className="w-4 h-4" /> : <Bike className="w-4 h-4" />}
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold text-emerald-900 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                {v.type === 'car' ? '🚗 รถยนต์' : '🛵 มอเตอร์ไซค์'}
+                              </span>
+                              <h4 className="font-bold text-xs text-gray-950 truncate mt-0.5">
+                                {v.model}
+                              </h4>
+                            </div>
+                          </div>
+                          <span className="font-extrabold text-xs text-emerald-700">
+                            ฿{v.rate}/ชม.
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1.5 border-t border-gray-100">
+                          <span className="font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-gray-200">
+                            {v.plate}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingVehicle(v);
+                                setIsVehicleModalOpen(true);
+                              }}
+                              className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                              title="แก้ไขคันนี้"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteVehicle(v.id)}
+                              className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                              title="ลบคันนี้"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-white/80 rounded-xl border border-dashed border-emerald-200 p-4 space-y-2">
+                    <p className="text-xs text-gray-500">ยังไม่มีข้อมูลยานพาหนะ กดปุ่มเพิ่มด้านบนได้เลย</p>
+                  </div>
+                )}
               </div>
+            ) : (
+              /* LOCKED / GRAY STATE FOR VEHICLES */
+              <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
+                {vehicles.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {vehicles.map((v) => (
+                      <div
+                        key={v.id}
+                        className="p-3 rounded-xl bg-white/70 border border-slate-200/90 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-slate-200/80 text-slate-600 flex items-center justify-center shrink-0">
+                            {v.type === 'car' ? <Car className="w-4 h-4" /> : <Bike className="w-4 h-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-800 truncate">
+                              {v.type === 'car' ? '🚗 รถยนต์' : '🛵 มอเตอร์ไซค์'}: {v.model}
+                            </p>
+                            <p className="text-[11px] font-mono text-slate-500 truncate">
+                              ทะเบียน: {v.plate}
+                            </p>
+                          </div>
+                        </div>
 
+                        <div className="text-right shrink-0">
+                          <span className="font-extrabold text-xs text-slate-800 block">
+                            ฿{v.rate}/ชม.
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 text-center text-xs text-slate-500 bg-white/50 rounded-xl border border-dashed border-slate-300">
+                    ไม่มีข้อมูลยานพาหนะส่วนตัว (ระบบคิดค่าบริการตามเรตขนส่งสาธารณะ)
+                  </div>
+                )}
+              </div>
+            )
+          ) : (
+            /* APPLICATION MODE: DIRECT VEHICLES LIST & ADD BUTTON (NO PENCIL / NO GRAY LOCK) */
+            <div className="space-y-3">
               {vehicles.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {vehicles.map((v) => (
                     <div
                       key={v.id}
-                      className="p-3.5 rounded-xl border-2 border-emerald-200 bg-white space-y-2.5 shadow-xs"
+                      className="p-3.5 rounded-xl border border-gray-200 bg-white space-y-2.5 shadow-xs"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -434,46 +593,9 @@ export default function CompanionDetailsForm({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-6 bg-white/80 rounded-xl border border-dashed border-emerald-200 p-4 space-y-2">
-                  <p className="text-xs text-gray-500">ยังไม่มีข้อมูลยานพาหนะ กดปุ่มเพิ่มด้านบนได้เลย</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* LOCKED / GRAY STATE FOR VEHICLES */
-            <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
-              {vehicles.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {vehicles.map((v) => (
-                    <div
-                      key={v.id}
-                      className="p-3 rounded-xl bg-white/70 border border-slate-200/90 flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-slate-200/80 text-slate-600 flex items-center justify-center shrink-0">
-                          {v.type === 'car' ? <Car className="w-4 h-4" /> : <Bike className="w-4 h-4" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs text-slate-800 truncate">
-                            {v.type === 'car' ? '🚗 รถยนต์' : '🛵 มอเตอร์ไซค์'}: {v.model}
-                          </p>
-                          <p className="text-[11px] font-mono text-slate-500 truncate">
-                            ทะเบียน: {v.plate}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="font-extrabold text-xs text-slate-800 block">
-                          ฿{v.rate}/ชม.
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-3 text-center text-xs text-slate-500 bg-white/50 rounded-xl border border-dashed border-slate-300">
-                  ไม่มีข้อมูลยานพาหนะส่วนตัว (ระบบคิดค่าบริการตามเรตขนส่งสาธารณะ)
+                <div className="p-4 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-1">
+                  <p>ยังไม่มีข้อมูลยานพาหนะส่วนตัว (สามารถกดปุ่ม <strong>&quot;+ เพิ่มยานพาหนะ&quot;</strong> ด้านบนได้)</p>
+                  <p className="text-[11px] text-slate-400">หากไม่มีพาหนะส่วนตัว ไม่จำเป็นต้องเพิ่ม ระบบจะคิดค่าบริการตามเรตเดินทางขนส่งสาธารณะ</p>
                 </div>
               )}
             </div>
@@ -488,7 +610,7 @@ export default function CompanionDetailsForm({
               <span>แนะนำตัว ประสบการณ์ และเรตราคาพื้นฐาน</span>
             </label>
 
-            {!editBio && (
+            {isProfileSaved && !editBio && (
               <button
                 type="button"
                 onClick={() => setEditBio(true)}
@@ -500,27 +622,89 @@ export default function CompanionDetailsForm({
             )}
           </div>
 
-          {editBio ? (
-            /* ACTIVE EDITING STATE FOR BIO */
-            <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5 text-emerald-700" />
-                  แก้ไขข้อความแนะนำตัวและประสบการณ์
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditBio(false)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  เสร็จสิ้น
-                </button>
-              </div>
+          {isProfileSaved ? (
+            editBio ? (
+              /* ACTIVE EDITING STATE FOR BIO */
+              <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Pencil className="w-3.5 h-3.5 text-emerald-700" />
+                    แก้ไขข้อความแนะนำตัวและประสบการณ์
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditBio(false)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    เสร็จสิ้น
+                  </button>
+                </div>
 
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-gray-700">
+                    ข้อความแนะนำตัว / สไตล์การดูแล
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="เช่น อดีตบุรุษพยาบาล ใจเย็น ชำนาญเส้นทาง รพ. ช่วยดูแลผู้สูงอายุอย่างใส่ใจ..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-gray-700">
+                      ประสบการณ์ดูแล/ร่วมเดินทาง (ปี)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={experienceYears}
+                      onChange={(e) => setExperienceYears(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-gray-700">
+                      อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท/ชม.)
+                    </label>
+                    <input
+                      type="number"
+                      min="50"
+                      max="2000"
+                      step="10"
+                      value={hourlyRate}
+                      onChange={(e) => setHourlyRate(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* LOCKED / GRAY STATE FOR BIO */
+              <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl space-y-2.5 text-slate-700">
+                <div className="flex items-center gap-3 text-xs text-slate-600 font-semibold">
+                  <span>ประสบการณ์: <strong className="text-slate-800">{experienceYears} ปี</strong></span>
+                  <span>•</span>
+                  <span>เรตพื้นฐาน: <strong className="text-slate-800">฿{hourlyRate}/ชม.</strong></span>
+                </div>
+
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-white/70 p-3 rounded-xl border border-slate-200/80">
+                  {bio || 'ยังไม่มีข้อความแนะนำตัว (กดไอคอนดินสอเพื่อแก้ไข)'}
+                </p>
+              </div>
+            )
+          ) : (
+            /* APPLICATION MODE: DIRECT INPUT (NO PENCIL / NO GRAY LOCK) */
+            <div className="space-y-4">
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold text-gray-700">
-                  ข้อความแนะนำตัว / สไตล์การดูแล
+                  ข้อความแนะนำตัว / สไตล์การดูแล <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -548,7 +732,7 @@ export default function CompanionDetailsForm({
 
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-gray-700">
-                    อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท/ชม.)
+                    อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท/ชม.) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -562,19 +746,6 @@ export default function CompanionDetailsForm({
                 </div>
               </div>
             </div>
-          ) : (
-            /* LOCKED / GRAY STATE FOR BIO */
-            <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl space-y-2.5 text-slate-700">
-              <div className="flex items-center gap-3 text-xs text-slate-600 font-semibold">
-                <span>ประสบการณ์: <strong className="text-slate-800">{experienceYears} ปี</strong></span>
-                <span>•</span>
-                <span>เรตพื้นฐาน: <strong className="text-slate-800">฿{hourlyRate}/ชม.</strong></span>
-              </div>
-
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-white/70 p-3 rounded-xl border border-slate-200/80">
-                {bio || 'ยังไม่มีข้อความแนะนำตัว (กดไอคอนดินสอเพื่อแก้ไข)'}
-              </p>
-            </div>
           )}
         </div>
 
@@ -586,7 +757,7 @@ export default function CompanionDetailsForm({
               <span>ช่วงเวลาที่สะดวกให้บริการ (Schedule)</span>
             </label>
 
-            {!editSchedule && (
+            {isProfileSaved && !editSchedule && (
               <button
                 type="button"
                 onClick={() => setEditSchedule(true)}
@@ -598,24 +769,60 @@ export default function CompanionDetailsForm({
             )}
           </div>
 
-          {editSchedule ? (
-            /* ACTIVE EDITING STATE FOR SCHEDULE */
-            <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5 text-emerald-700" />
-                  แก้ไขช่วงเวลาให้บริการ
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditSchedule(false)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  เสร็จสิ้น
-                </button>
-              </div>
+          {isProfileSaved ? (
+            editSchedule ? (
+              /* ACTIVE EDITING STATE FOR SCHEDULE */
+              <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Pencil className="w-3.5 h-3.5 text-emerald-700" />
+                    แก้ไขช่วงเวลาให้บริการ
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditSchedule(false)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    เสร็จสิ้น
+                  </button>
+                </div>
 
+                <input
+                  type="text"
+                  value={availableSchedule}
+                  onChange={(e) => setAvailableSchedule(e.target.value)}
+                  placeholder="เช่น จันทร์ - ศุกร์ (08:30 - 17:30 น.)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] text-gray-400">เลือกด่วน:</span>
+                  {schedulePresets.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAvailableSchedule(preset)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 hover:text-emerald-800 text-gray-700 border border-gray-200 transition cursor-pointer"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* LOCKED / GRAY STATE FOR SCHEDULE */
+              <div className="flex items-center justify-between p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
+                <div className="flex items-center min-w-0">
+                  <span className="text-sm font-semibold text-slate-800 truncate">
+                    {availableSchedule || 'ยังไม่ได้ระบุช่วงเวลา (กดไอคอนดินสอเพื่อแก้ไข)'}
+                  </span>
+                </div>
+              </div>
+            )
+          ) : (
+            /* APPLICATION MODE: DIRECT INPUT (NO PENCIL / NO GRAY LOCK) */
+            <div className="space-y-2">
               <input
                 type="text"
                 value={availableSchedule}
@@ -638,15 +845,6 @@ export default function CompanionDetailsForm({
                 ))}
               </div>
             </div>
-          ) : (
-            /* LOCKED / GRAY STATE FOR SCHEDULE */
-            <div className="flex items-center justify-between p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
-              <div className="flex items-center min-w-0">
-                <span className="text-sm font-semibold text-slate-800 truncate">
-                  {availableSchedule || 'ยังไม่ได้ระบุช่วงเวลา (กดไอคอนดินสอเพื่อแก้ไข)'}
-                </span>
-              </div>
-            </div>
           )}
         </div>
 
@@ -658,7 +856,7 @@ export default function CompanionDetailsForm({
               <span>ทักษะและความสามารถ (Skills)</span>
             </label>
 
-            {!editSkills && (
+            {isProfileSaved && !editSkills && (
               <button
                 type="button"
                 onClick={() => setEditSkills(true)}
@@ -670,24 +868,77 @@ export default function CompanionDetailsForm({
             )}
           </div>
 
-          {editSkills ? (
-            /* ACTIVE EDITING STATE FOR SKILLS */
-            <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5 text-emerald-700" />
-                  แก้ไขทักษะและความสามารถ
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditSkills(false)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  เสร็จสิ้น
-                </button>
-              </div>
+          {isProfileSaved ? (
+            editSkills ? (
+              /* ACTIVE EDITING STATE FOR SKILLS */
+              <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Pencil className="w-3.5 h-3.5 text-emerald-700" />
+                    แก้ไขทักษะและความสามารถ
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditSkills(false)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    เสร็จสิ้น
+                  </button>
+                </div>
 
+                <input
+                  type="text"
+                  value={skillsText}
+                  onChange={(e) => setSkillsText(e.target.value)}
+                  placeholder="เช่น ช่วยพยุงเดิน, ชำนาญเส้นทาง รพ., เข็นวีลแชร์"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] text-gray-400">เพิ่มด่วน:</span>
+                  {['ช่วยพยุงเดิน', 'เข็นวีลแชร์', 'ชำนาญเส้นทาง รพ.', 'ปฐมพยาบาลเบื้องต้น', 'สื่อสารภาษาอังกฤษ'].map(
+                    (skill) => (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => addSkillTag(skill)}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 hover:text-emerald-800 text-gray-700 border border-gray-200 transition cursor-pointer"
+                      >
+                        + {skill}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* LOCKED / GRAY STATE FOR SKILLS */
+              <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
+                <div className="flex flex-wrap gap-2">
+                  {skillsText ? (
+                    skillsText
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .map((skill, idx) => (
+                        <span
+                          key={idx}
+                          className="text-xs px-3 py-1 rounded-xl bg-slate-200/90 text-slate-700 font-semibold border border-slate-300/70"
+                        >
+                          {skill}
+                        </span>
+                      ))
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">
+                      ยังไม่ได้ระบุทักษะ (กดไอคอนดินสอเพื่อแก้ไข)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          ) : (
+            /* APPLICATION MODE: DIRECT INPUT (NO PENCIL / NO GRAY LOCK) */
+            <div className="space-y-2">
               <input
                 type="text"
                 value={skillsText}
@@ -712,30 +963,6 @@ export default function CompanionDetailsForm({
                 )}
               </div>
             </div>
-          ) : (
-            /* LOCKED / GRAY STATE FOR SKILLS */
-            <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
-              <div className="flex flex-wrap gap-2">
-                {skillsText ? (
-                  skillsText
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                    .map((skill, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs px-3 py-1 rounded-xl bg-slate-200/90 text-slate-700 font-semibold border border-slate-300/70"
-                      >
-                        {skill}
-                      </span>
-                    ))
-                ) : (
-                  <span className="text-xs text-slate-400 italic">
-                    ยังไม่ได้ระบุทักษะ (กดไอคอนดินสอเพื่อแก้ไข)
-                  </span>
-                )}
-              </div>
-            </div>
           )}
         </div>
 
@@ -747,7 +974,7 @@ export default function CompanionDetailsForm({
               <span>พื้นที่ให้บริการที่สะดวก (Service Areas)</span>
             </label>
 
-            {!editAreas && (
+            {isProfileSaved && !editAreas && (
               <button
                 type="button"
                 onClick={() => setEditAreas(true)}
@@ -759,24 +986,76 @@ export default function CompanionDetailsForm({
             )}
           </div>
 
-          {editAreas ? (
-            /* ACTIVE EDITING STATE FOR SERVICE AREAS */
-            <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5 text-emerald-700" />
-                  แก้ไขพื้นที่ให้บริการ
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditAreas(false)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  เสร็จสิ้น
-                </button>
-              </div>
+          {isProfileSaved ? (
+            editAreas ? (
+              /* ACTIVE EDITING STATE FOR SERVICE AREAS */
+              <div className="p-4 bg-emerald-50/40 border-2 border-emerald-500/80 rounded-2xl space-y-3 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Pencil className="w-3.5 h-3.5 text-emerald-700" />
+                    แก้ไขพื้นที่ให้บริการ
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditAreas(false)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    เสร็จสิ้น
+                  </button>
+                </div>
 
+                <input
+                  type="text"
+                  value={serviceAreasText}
+                  onChange={(e) => setServiceAreasText(e.target.value)}
+                  placeholder="เช่น พญาไท, บางกอกน้อย, ราชเทวี, จตุจักร"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] text-gray-400">เพิ่มด่วน:</span>
+                  {['พญาไท', 'บางกอกน้อย', 'ราชเทวี', 'จตุจักร', 'ปทุมวัน', 'สาทร', 'ลาดพร้าว'].map((area) => (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => addAreaTag(area)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 hover:text-emerald-800 text-gray-700 border border-gray-200 transition cursor-pointer"
+                    >
+                      + {area}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* LOCKED / GRAY STATE FOR SERVICE AREAS */
+              <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
+                <div className="flex flex-wrap gap-2">
+                  {serviceAreasText ? (
+                    serviceAreasText
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .map((area, idx) => (
+                        <span
+                          key={idx}
+                          className="text-xs px-3 py-1 rounded-xl bg-slate-200/90 text-slate-700 font-semibold border border-slate-300/70 flex items-center gap-1"
+                        >
+                          <MapPin className="w-3 h-3 text-slate-500" />
+                          {area}
+                        </span>
+                      ))
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">
+                      ยังไม่ได้ระบุพื้นที่ (กดไอคอนดินสอเพื่อแก้ไข)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          ) : (
+            /* APPLICATION MODE: DIRECT INPUT (NO PENCIL / NO GRAY LOCK) */
+            <div className="space-y-2">
               <input
                 type="text"
                 value={serviceAreasText}
@@ -799,31 +1078,6 @@ export default function CompanionDetailsForm({
                 ))}
               </div>
             </div>
-          ) : (
-            /* LOCKED / GRAY STATE FOR SERVICE AREAS */
-            <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700">
-              <div className="flex flex-wrap gap-2">
-                {serviceAreasText ? (
-                  serviceAreasText
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                    .map((area, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs px-3 py-1 rounded-xl bg-slate-200/90 text-slate-700 font-semibold border border-slate-300/70 flex items-center gap-1"
-                      >
-                        <MapPin className="w-3 h-3 text-slate-500" />
-                        {area}
-                      </span>
-                    ))
-                ) : (
-                  <span className="text-xs text-slate-400 italic">
-                    ยังไม่ได้ระบุพื้นที่ (กดไอคอนดินสอเพื่อแก้ไข)
-                  </span>
-                )}
-              </div>
-            </div>
           )}
         </div>
 
@@ -835,22 +1089,32 @@ export default function CompanionDetailsForm({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
               </span>
-              <span>คุณมีการแก้ไขข้อมูลที่ยังไม่ได้บันทึก กรุณากดปุ่ม <strong>&quot;บันทึกการแก้ไขโปรไฟล์&quot;</strong> ด้านล่าง</span>
+              <span>
+                {isProfileSaved ? (
+                  <>คุณมีการแก้ไขข้อมูลที่ยังไม่ได้บันทึก กรุณากดปุ่ม <strong>&quot;บันทึกการแก้ไขโปรไฟล์&quot;</strong> ด้านล่าง</>
+                ) : (
+                  <>คุณมีข้อมูลที่ยังไม่ได้บันทึก กรุณากดปุ่ม <strong>&quot;บันทึก&quot;</strong> ด้านล่าง</>
+                )}
+              </span>
             </div>
           </div>
         )}
 
         {/* 9. BOTTOM ACTION BAR: SAVE & DELETE PROFILE */}
-        <div className="pt-6 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4">
-          {/* Delete Profile Button */}
-          <button
-            type="button"
-            onClick={onDeleteProfile}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white hover:bg-rose-50 border-2 border-rose-200 text-rose-700 font-bold text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
-          >
-            <Trash2 className="w-4 h-4 text-rose-600" />
-            ลบโปรไฟล์ผู้ช่วย
-          </button>
+        <div className={`pt-6 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:items-center ${
+          isProfileSaved ? 'justify-between' : 'justify-end'
+        } gap-4`}>
+          {/* Delete Profile Button (Only for existing profiles) */}
+          {isProfileSaved && (
+            <button
+              type="button"
+              onClick={onDeleteProfile}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white hover:bg-rose-50 border-2 border-rose-200 text-rose-700 font-bold text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
+            >
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              ลบโปรไฟล์ผู้ช่วย
+            </button>
+          )}
 
           {/* Save Profile Button */}
           <button
@@ -866,9 +1130,11 @@ export default function CompanionDetailsForm({
             <span>
               {saving
                 ? 'กำลังบันทึกข้อมูล...'
-                : hasUnsavedChanges
-                ? 'บันทึกการแก้ไขโปรไฟล์ (มีข้อมูลใหม่)'
-                : 'บันทึกการแก้ไขโปรไฟล์'}
+                : isProfileSaved
+                ? hasUnsavedChanges
+                  ? 'บันทึกการแก้ไขโปรไฟล์ (มีข้อมูลใหม่)'
+                  : 'บันทึกการแก้ไขโปรไฟล์'
+                : 'บันทึก'}
             </span>
           </button>
         </div>

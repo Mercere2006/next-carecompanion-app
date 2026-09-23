@@ -548,7 +548,7 @@ export default function CompanionProfilePage() {
       }
 
       setSuccessMsg(
-        '🎉 ยืนยันตัวตนสำเร็จ 100%! สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่านแล้ว ปลดล็อคขั้นตอนที่ 2 เรียบร้อย'
+        '🎉 ยืนยันตัวตนสำเร็จ 100%! สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่านแล้ว กรุณากรอกข้อมูลด้านล่างเพื่อสมัครเป็นผู้ช่วย'
       );
     } catch (e) {
       console.error('Failed to save verified state', e);
@@ -1098,15 +1098,15 @@ export default function CompanionProfilePage() {
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold mb-2">
               <ScanFace className="w-3.5 h-3.5" />
-              <span>{isVerified ? 'จัดการโปรไฟล์ผู้ช่วย' : 'ระบบยืนยันตัวตนและจัดการโปรไฟล์ผู้ช่วย'}</span>
+              <span>{isProfileSaved ? 'จัดการโปรไฟล์ผู้ช่วย' : 'สมัครเป็นผู้ช่วย'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight break-words">
-              {isVerified ? 'จัดการข้อมูลโปรไฟล์ผู้ช่วย (Companion)' : 'ตั้งค่าโปรไฟล์และเปิดรับงาน Companion'}
+              {isProfileSaved ? 'จัดการข้อมูลโปรไฟล์ผู้ช่วย (Companion)' : 'สมัครเป็นผู้ช่วย (Companion)'}
             </h1>
             <p className="text-gray-600 text-xs sm:text-sm mt-1">
-              {isVerified
+              {isProfileSaved
                 ? 'แก้ไขข้อมูลส่วนตัว ยานพาหนะ และรายละเอียดการให้บริการของคุณ'
-                : 'สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่าน OTP เพื่อปลดล็อคการกรอกรายละเอียดและเปิดรับงาน'}
+                : 'กรอกข้อมูลส่วนตัว ยานพาหนะ และรายละเอียดการให้บริการเพื่อเริ่มรับงาน'}
             </p>
           </div>
 
