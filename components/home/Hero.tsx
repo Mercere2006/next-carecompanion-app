@@ -9,17 +9,38 @@ import Image from 'next/image';
 
 export default function Hero() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session?.user);
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        setIsAdmin(profile?.role === 'admin');
+      } else {
+        setIsAdmin(false);
+      }
     }
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsLoggedIn(!!session?.user);
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        setIsAdmin(profile?.role === 'admin');
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     return () => {
@@ -77,7 +98,7 @@ export default function Hero() {
             className="w-full py-4 px-8 rounded-2xl bg-emerald-700 text-white text-base sm:text-lg font-bold hover:bg-emerald-800 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-3 active:scale-95 cursor-pointer"
           >
             <Search className="w-5 h-5" />
-            ดูผู้ช่วย
+            {isAdmin ? 'ดูผู้ช่วย' : 'ค้นหาผู้ช่วย'}
           </Link>
 
           {isLoggedIn ? (

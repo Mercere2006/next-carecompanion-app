@@ -39,6 +39,7 @@ export default function CompanionSearchSection({
   const [companions, setCompanions] = useState<CompanionCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Auth gate modal state
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -64,11 +65,22 @@ export default function CompanionSearchSection({
 
   useEffect(() => {
     async function loadInitial() {
-      // 1. Check user auth
+      // 1. Check user auth & role
       const {
         data: { user },
       } = await supabase.auth.getUser();
       setCurrentUser(user ? { id: user.id } : null);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profile?.role === "admin") {
+          setIsAdmin(true);
+        }
+      }
 
       // 2. Fetch companions from DB and merge with fallback companions
       try {
@@ -219,7 +231,7 @@ export default function CompanionSearchSection({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-200/80">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight">
-              ดูผู้ช่วย
+              {isAdmin ? 'ดูผู้ช่วย' : 'ค้นหาผู้ช่วย'}
             </h1>
             <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
               รายชื่อผู้ช่วยทั้งหมดที่พร้อมให้บริการ
