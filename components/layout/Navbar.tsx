@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/types/database';
 import { HeartHandshake, User, LogOut, Menu, X, Shield, Search, ChevronDown } from 'lucide-react';
@@ -10,6 +10,7 @@ import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isCompanion, setIsCompanion] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -221,7 +222,7 @@ export default function Navbar() {
           {/* Right Navigation & Action Controls */}
           <div className="hidden md:flex items-center gap-6">
             {profile ? (
-              profile.role !== 'admin' && (
+              profile.role !== 'admin' ? (
                 <>
                   <Link
                     href={isCompanion ? '/companion/dashboard' : '/companion/profile'}
@@ -236,6 +237,17 @@ export default function Navbar() {
                     คำขอของฉัน
                   </Link>
                 </>
+              ) : (
+                <Link
+                  href="/admin"
+                  className={`text-sm font-bold transition ${
+                    pathname === '/admin'
+                      ? 'text-emerald-700 font-extrabold'
+                      : 'text-gray-800 hover:text-emerald-700'
+                  }`}
+                >
+                  ภาพรวมผู้ดูแลระบบ
+                </Link>
               )
             ) : (
               <>
@@ -331,7 +343,7 @@ export default function Navbar() {
                             className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-50 transition"
                           >
                             <Shield className="w-4 h-4 text-amber-600" />
-                            แผงควบคุมระบบ (Admin)
+                            ภาพรวมผู้ดูแลระบบ
                           </Link>
                         </div>
                       )}
@@ -443,7 +455,7 @@ export default function Navbar() {
               className="block text-base font-bold text-amber-800 py-2 hover:text-amber-900 transition flex items-center gap-2"
             >
               <Shield className="w-4 h-4 text-amber-600" />
-              แผงควบคุมระบบ (Admin)
+              ภาพรวมผู้ดูแลระบบ
             </Link>
           )}
 

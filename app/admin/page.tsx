@@ -452,7 +452,7 @@ export default function AdminDashboardPage() {
               Platform Administration
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 mt-1 break-words">
-              แผงควบคุมผู้ดูแลระบบ (Admin)
+              ภาพรวมผู้ดูแลระบบ (Admin)
             </h1>
             <p className="text-xs sm:text-sm text-gray-600">
               บริหารจัดการผู้ใช้งาน อนุมัติเอกสาร Companion ตรวจสอบข้อร้องเรียน และติดตามความเรียบร้อยของแพลตฟอร์ม
