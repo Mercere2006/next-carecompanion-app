@@ -265,17 +265,6 @@ export default function Navbar() {
               <div className="w-8 h-8 bg-gray-100 animate-pulse rounded-full" />
             ) : profile ? (
               <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-                {/* Admin Link if admin */}
-                {profile.role === 'admin' && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 font-semibold text-xs hover:bg-amber-100 border border-amber-300 transition"
-                  >
-                    <Shield className="w-3.5 h-3.5" />
-                    Admin
-                  </Link>
-                )}
-
                 {/* Real-time Notification Bell for Incoming Customer Requests */}
                 <NotificationBell userId={profile.id} />
 

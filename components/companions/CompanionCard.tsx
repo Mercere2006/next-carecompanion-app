@@ -15,7 +15,7 @@ export default function CompanionCard({
   onSelect,
   currentUser,
 }: CompanionCardProps) {
-  const { embeddedSchedule } = extractCleanBio(companion.bio);
+  const { cleanBio, embeddedSchedule } = extractCleanBio(companion.bio);
   const parsedVehicles = parseVehicleDetails(
     companion.vehicle_type,
     companion.vehicle_model,
@@ -114,9 +114,9 @@ export default function CompanionCard({
         </div>
 
         {/* Bio */}
-        {companion.bio && (
+        {cleanBio && (
           <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed mb-3">
-            {companion.bio}
+            {cleanBio}
           </p>
         )}
 

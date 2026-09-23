@@ -21,9 +21,10 @@ import {
   CheckCircle2,
   LogIn,
   AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { parseVehicleDetails } from '@/lib/vehicleUtils';
+import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
 import ReportCompanionButton from '@/components/customer/ReportCompanionButton';
 import {
   MOCK_COMPANIONS,
@@ -122,6 +123,9 @@ export default async function CompanionDetailPage({
     dbReviews && dbReviews.length > 0
       ? dbReviews
       : MOCK_REVIEWS[id] || DEFAULT_MOCK_REVIEWS;
+
+  const { cleanBio, embeddedSchedule } = extractCleanBio(companion.bio);
+  const activeSchedule = companion.available_schedule || embeddedSchedule;
 
   const parsedVehicles = parseVehicleDetails(
     companion.vehicle_type,
@@ -251,9 +255,23 @@ export default async function CompanionDetailPage({
               <div className="border-t border-gray-100 pt-5 space-y-2">
                 <h2 className="text-base font-bold text-gray-900">เกี่ยวกับผู้ช่วย</h2>
                 <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">
-                  {companion.bio || 'ยังไม่มีคำแนะนำตัว'}
+                  {cleanBio || 'ยังไม่มีคำแนะนำตัว'}
                 </p>
               </div>
+
+              {/* Available Schedule */}
+              {activeSchedule && (
+                <div className="border-t border-gray-100 pt-5 space-y-2">
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-emerald-700" />
+                    วันและเวลาที่สะดวกให้บริการ
+                  </h2>
+                  <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-semibold">
+                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{activeSchedule}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Vehicle & Transportation Details (Grab-style Transport Card) */}
               <div className="border-t border-gray-100 pt-5 space-y-3">
@@ -627,6 +645,13 @@ export default async function CompanionDetailPage({
                   <HeartHandshake className="w-4 h-4 text-teal-600 shrink-0" />
                   <span>ดูแลและช่วยเหลืออำนวยความสะดวกตลอดทาง</span>
                 </div>
+
+                {activeSchedule && (
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>เวลาให้บริการ: {activeSchedule}</span>
+                  </div>
+                )}
 
                 {/* Contact Phone (Privacy Gated) */}
                 <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
