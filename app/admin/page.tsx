@@ -6,7 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, CompanionCardData, BookingDetailData, ReportDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X, Clock, MapPin, Navigation, Car, Bike, FileText, ExternalLink } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function AdminDashboardPage() {
@@ -32,6 +32,7 @@ export default function AdminDashboardPage() {
 
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewImageModal, setPreviewImageModal] = useState<{ url: string; name: string } | null>(null);
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<BookingDetailData | null>(null);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -86,9 +87,9 @@ export default function AdminDashboardPage() {
         .from('bookings')
         .select(`
           *,
-          customer:profiles!bookings_customer_id_fkey(full_name, phone, email),
-          companion:profiles!bookings_companion_id_fkey(full_name, phone, email),
-          category:service_categories(id, name)
+          customer:profiles!bookings_customer_id_fkey(full_name, avatar_url, phone, emergency_phone, email),
+          companion:profiles!bookings_companion_id_fkey(full_name, avatar_url, phone, email),
+          category:service_categories(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -1095,34 +1096,50 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {bookings.map((b) => {
-                    const statusInfo = getStatusBadgeInfo(b.status);
-                    return (
-                      <tr key={b.id} className="hover:bg-slate-50/60 transition">
-                        <td className="px-6 py-4">
-                          <strong className="text-gray-900 block font-semibold">{b.errand_title}</strong>
-                          <span className="text-xs text-gray-400">
-                            {b.origin_address} ➔ {b.destination_address}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">{b.customer?.full_name || 'ลูกค้า'}</td>
-                        <td className="px-6 py-4">{b.companion?.full_name || 'ผู้ช่วย'}</td>
-                        <td className="px-6 py-4">
-                          {formatThaiDate(b.appointment_date)} {b.start_time?.slice(0, 5)} น.
-                        </td>
-                        <td className="px-6 py-4 font-bold text-emerald-700">
-                          {formatPrice(b.total_price)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusInfo.bgColor}`}
-                          >
-                            {statusInfo.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {bookings.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                        ยังไม่มีรายการจองในระบบ
+                      </td>
+                    </tr>
+                  ) : (
+                    bookings.map((b) => {
+                      const statusInfo = getStatusBadgeInfo(b.status);
+                      return (
+                        <tr key={b.id} className="hover:bg-slate-50/60 transition">
+                          <td className="px-6 py-4">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBookingForDetails(b)}
+                              className="text-left font-bold text-gray-900 hover:text-emerald-700 hover:underline transition flex items-center gap-1.5 cursor-pointer group"
+                              title="คลิกเพื่อดูรายละเอียดการจองทั้งหมด"
+                            >
+                              <span className="group-hover:text-emerald-700">{b.errand_title}</span>
+                              <Eye className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 transition shrink-0" />
+                            </button>
+                            <span className="text-xs text-gray-400 block mt-0.5">
+                              {b.origin_address} ➔ {b.destination_address}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">{b.customer?.full_name || 'ลูกค้า'}</td>
+                          <td className="px-6 py-4">{b.companion?.full_name || 'ผู้ช่วย'}</td>
+                          <td className="px-6 py-4">
+                            {formatThaiDate(b.appointment_date)} {b.start_time?.slice(0, 5)} น.
+                          </td>
+                          <td className="px-6 py-4 font-bold text-emerald-700">
+                            {formatPrice(b.total_price)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusInfo.bgColor}`}
+                            >
+                              {statusInfo.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1338,6 +1355,310 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
+        {/* Modal: View Full Booking Details for Admin */}
+        {selectedBookingForDetails && (() => {
+          const b = selectedBookingForDetails;
+          const statusInfo = getStatusBadgeInfo(b.status);
+          const companionProfile = companions.find((c) => c.id === b.companion_id);
+
+          return (
+            <div
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+              onClick={() => setSelectedBookingForDetails(null)}
+            >
+              <div
+                className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto space-y-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="flex items-start justify-between border-b border-gray-100 pb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusInfo.bgColor}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dotColor}`} />
+                          {statusInfo.label}
+                        </span>
+                        {b.category?.name && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {b.category.name}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-400 font-mono">
+                          ID: #{b.id.slice(0, 8)}
+                        </span>
+                      </div>
+                      <h3 className="font-extrabold text-lg sm:text-xl text-gray-900 leading-tight">
+                        {b.errand_title}
+                      </h3>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBookingForDetails(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition cursor-pointer shrink-0"
+                    title="ปิดหน้าต่าง"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Section 1: Errand Details & Description */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                    รายละเอียดธุระที่ต้องทำ
+                  </h4>
+                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {b.errand_details || 'ไม่ได้ระบุรายละเอียดเพิ่มเติม'}
+                  </p>
+                </div>
+
+                {/* Section 2: Parties Involved (Customer & Companion) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Customer Card */}
+                  <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        ผู้จอง (Customer)
+                      </span>
+                      <span className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold">
+                        ลูกค้า
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-11 h-11 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                        {b.customer?.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={b.customer.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <strong className="block text-sm text-gray-900 truncate">
+                          {b.customer?.full_name || 'ลูกค้า'}
+                        </strong>
+                        {b.customer?.phone && (
+                          <a
+                            href={`tel:${b.customer.phone}`}
+                            className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1.5"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{b.customer.phone}</span>
+                          </a>
+                        )}
+                        {b.customer?.email && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1.5 truncate">
+                            <Mail className="w-3 h-3 text-gray-400 shrink-0" />
+                            <span className="truncate">{b.customer.email}</span>
+                          </p>
+                        )}
+                        {b.customer?.emergency_phone && (
+                          <div className="mt-2 text-[11px] text-rose-700 bg-rose-50 border border-rose-200/80 rounded-lg px-2 py-1 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                            <span>เบอร์ฉุกเฉิน: <strong>{b.customer.emergency_phone}</strong></span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Companion Card */}
+                  <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        ผู้ช่วย (Companion)
+                      </span>
+                      <span className="text-[11px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md font-semibold">
+                        ผู้ให้บริการ
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                        {b.companion?.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={b.companion.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <strong className="block text-sm text-gray-900 truncate">
+                          {b.companion?.full_name || 'ผู้ช่วย'}
+                        </strong>
+                        {b.companion?.phone && (
+                          <a
+                            href={`tel:${b.companion.phone}`}
+                            className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1.5"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{b.companion.phone}</span>
+                          </a>
+                        )}
+                        {b.companion?.email && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1.5 truncate">
+                            <Mail className="w-3 h-3 text-gray-400 shrink-0" />
+                            <span className="truncate">{b.companion.email}</span>
+                          </p>
+                        )}
+                        {companionProfile && (
+                          <div className="mt-2 text-[11px] text-gray-600 bg-gray-50 border border-gray-200/60 rounded-lg px-2 py-1 space-y-0.5">
+                            <div className="flex items-center gap-1 font-semibold text-gray-700">
+                              {companionProfile.vehicle_type === 'car' ? (
+                                <Car className="w-3 h-3 text-emerald-600" />
+                              ) : companionProfile.vehicle_type === 'motorcycle' ? (
+                                <Bike className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <span className="text-xs">🚶</span>
+                              )}
+                              <span>
+                                {companionProfile.vehicle_type === 'car'
+                                  ? 'รถยนต์'
+                                  : companionProfile.vehicle_type === 'motorcycle'
+                                  ? 'รถจักรยานยนต์'
+                                  : 'ไม่มีพาหนะ / ขนส่งสาธารณะ'}
+                              </span>
+                            </div>
+                            {(companionProfile.vehicle_model || companionProfile.vehicle_plate) && (
+                              <p className="text-[10px] text-gray-500 truncate">
+                                {companionProfile.vehicle_model} {companionProfile.vehicle_plate ? `(${companionProfile.vehicle_plate})` : ''}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Route & Navigation */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                      เส้นทาง & สถานที่
+                    </h4>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+                        b.origin_address
+                      )}&destination=${encodeURIComponent(b.destination_address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      เปิดดูใน Google Maps
+                    </a>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-gray-100">
+                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-emerald-700 block">
+                          จุดรับ (ต้นทาง)
+                        </span>
+                        <p className="font-semibold text-gray-900 mt-0.5">{b.origin_address}</p>
+                        {(b.origin_lat || b.origin_lng) && (
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            พิกัด: {b.origin_lat?.toFixed(5)}, {b.origin_lng?.toFixed(5)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-gray-100">
+                      <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-rose-700 block">
+                          จุดส่ง (ปลายทาง)
+                        </span>
+                        <p className="font-semibold text-gray-900 mt-0.5">{b.destination_address}</p>
+                        {(b.destination_lat || b.destination_lng) && (
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            พิกัด: {b.destination_lat?.toFixed(5)}, {b.destination_lng?.toFixed(5)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4: Schedule, Duration & Special Needs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100 space-y-2">
+                    <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-700" />
+                      กำหนดการนัดหมาย
+                    </h4>
+                    <div className="space-y-1 text-xs sm:text-sm text-gray-700">
+                      <p className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        <span>วันที่: <strong className="text-gray-900">{formatThaiDate(b.appointment_date)}</strong></span>
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-gray-400" />
+                        <span>เวลา: <strong className="text-gray-900">{b.start_time?.slice(0, 5)} น.</strong></span>
+                      </p>
+                      <p className="text-xs text-emerald-800">
+                        ระยะเวลาที่จอง: <strong className="text-emerald-900">{b.duration_hours} ชั่วโมง</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50/60 rounded-2xl p-4 border border-amber-200/80 space-y-2">
+                    <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                      ความต้องการพิเศษ / ข้อควรระวัง
+                    </h4>
+                    <p className="text-xs sm:text-sm text-amber-950 leading-relaxed">
+                      {b.special_needs || 'ไม่มีระบุความต้องการพิเศษ'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Section 5: Pricing & System Metadata */}
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs text-gray-500 block">ยอดรวมค่าบริการทั้งหมด</span>
+                    <strong className="text-2xl font-black text-emerald-700">
+                      {formatPrice(b.total_price)}
+                    </strong>
+                  </div>
+                  <div className="text-xs text-gray-400 text-left sm:text-right space-y-0.5">
+                    <p>สร้างคำขอเมื่อ: {formatThaiDate(b.created_at)}</p>
+                    <p className="font-mono text-[11px]">Booking ID: {b.id}</p>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBookingForDetails(null)}
+                    className="px-6 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs transition cursor-pointer"
+                  >
+                    ปิดหน้าต่าง
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </main>
 
       <Footer />
