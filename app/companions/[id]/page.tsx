@@ -298,7 +298,7 @@ export default async function CompanionDetailPage({
                       <span className="inline-flex items-center gap-1.5 font-bold text-teal-800 bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-200">
                         เรทค่าบริการ:{' '}
                         {vehicleType === 'both'
-                          ? `฿${parsedVehicles.motorcycle.rate} - ฿${parsedVehicles.car.rate}/ชม.`
+                          ? `฿${parsedVehicles.motorcycle.rate} - ฿${parsedVehicles.car.rate}`
                           : `${formatPrice(companion.hourly_rate)}/ชม.`}
                       </span>
                     </div>
@@ -381,7 +381,7 @@ export default async function CompanionDetailPage({
                             <span>1. รถยนต์ส่วนตัว (Car / SUV)</span>
                           </span>
                           <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                            ฿{parsedVehicles.car.rate}/ชม.
+                            ฿{parsedVehicles.car.rate}
                           </span>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
@@ -414,7 +414,7 @@ export default async function CompanionDetailPage({
                             <span>2. รถจักรยานยนต์ (Motorcycle)</span>
                           </span>
                           <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md">
-                            ฿{parsedVehicles.motorcycle.rate}/ชม.
+                            ฿{parsedVehicles.motorcycle.rate}
                           </span>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">

@@ -83,7 +83,7 @@ export default function VehicleBookingSelector({
             <div className="mt-3 pt-2 border-t border-gray-100 flex items-baseline justify-between">
               <span className="text-[10px] text-gray-400 font-medium">ค่าบริการ</span>
               <span className="text-sm font-black text-emerald-700">
-                ฿{car.rate} <span className="text-[10px] font-normal text-gray-500">/ชม.</span>
+                ฿{car.rate}
               </span>
             </div>
           </button>
@@ -124,7 +124,7 @@ export default function VehicleBookingSelector({
             <div className="mt-3 pt-2 border-t border-gray-100 flex items-baseline justify-between">
               <span className="text-[10px] text-gray-400 font-medium">ค่าบริการ</span>
               <span className="text-sm font-black text-teal-700">
-                ฿{motorcycle.rate} <span className="text-[10px] font-normal text-gray-500">/ชม.</span>
+                ฿{motorcycle.rate}
               </span>
             </div>
           </button>

@@ -450,7 +450,7 @@ export default function CompanionDetailsForm({
                             </div>
                           </div>
                           <span className="font-extrabold text-xs text-emerald-700">
-                            ฿{v.rate}/ชม.
+                            ฿{v.rate}
                           </span>
                         </div>
 
@@ -515,7 +515,7 @@ export default function CompanionDetailsForm({
 
                         <div className="text-right shrink-0">
                           <span className="font-extrabold text-xs text-slate-800 block">
-                            ฿{v.rate}/ชม.
+                            ฿{v.rate}
                           </span>
                         </div>
                       </div>
@@ -559,7 +559,7 @@ export default function CompanionDetailsForm({
                           </div>
                         </div>
                         <span className="font-extrabold text-xs text-emerald-700">
-                          ฿{v.rate}/ชม.
+                          ฿{v.rate}
                         </span>
                       </div>
 

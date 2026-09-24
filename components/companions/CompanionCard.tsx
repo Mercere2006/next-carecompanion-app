@@ -112,7 +112,7 @@ export default function CompanionCard({
                   ฿{parsedVehicles.motorcycle.rate} - ฿{parsedVehicles.car.rate}
                 </span>
                 <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">
-                  / ชม. (ตามพาหนะ)
+                  (ตามพาหนะ)
                 </span>
               </>
             ) : (
@@ -144,7 +144,7 @@ export default function CompanionCard({
                   {parsedVehicles.car.model || 'รถยนต์ส่วนตัว'}
                 </span>
                 <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100/80 px-1.5 py-0.5 rounded shrink-0">
-                  ฿{parsedVehicles.car.rate}/ชม.
+                  ฿{parsedVehicles.car.rate}
                 </span>
               </div>
               <div className="shrink-0 text-[11px]">
@@ -168,7 +168,7 @@ export default function CompanionCard({
                   {parsedVehicles.motorcycle.model || 'รถมอเตอร์ไซค์'}
                 </span>
                 <span className="text-[10px] text-teal-800 font-bold bg-teal-100/80 px-1.5 py-0.5 rounded shrink-0">
-                  ฿{parsedVehicles.motorcycle.rate}/ชม.
+                  ฿{parsedVehicles.motorcycle.rate}
                 </span>
               </div>
               <div className="shrink-0 text-[11px]">

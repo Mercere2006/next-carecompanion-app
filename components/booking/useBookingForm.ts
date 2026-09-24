@@ -358,12 +358,12 @@ export function useBookingForm(companionId: string) {
     try {
       let vehicleNote = "";
       if (selectedVehicle === "car" && vehicleDetails?.hasCar) {
-        vehicleNote = `[ยานพาหนะที่เลือก: 🚗 รถยนต์ส่วนตัว (${vehicleDetails.car.model || "มีรถยนต์ส่วนตัว"}) - ฿${activeHourlyRate}/ชม.]`;
+        vehicleNote = `[ยานพาหนะที่เลือก: 🚗 รถยนต์ส่วนตัว (${vehicleDetails.car.model || "มีรถยนต์ส่วนตัว"}) - ฿${activeHourlyRate}]`;
       } else if (
         selectedVehicle === "motorcycle" &&
         vehicleDetails?.hasMotorcycle
       ) {
-        vehicleNote = `[ยานพาหนะที่เลือก: 🛵 รถมอเตอร์ไซค์ (${vehicleDetails.motorcycle.model || "มีมอเตอร์ไซค์"}) - ฿${activeHourlyRate}/ชม.]`;
+        vehicleNote = `[ยานพาหนะที่เลือก: 🛵 รถมอเตอร์ไซค์ (${vehicleDetails.motorcycle.model || "มีมอเตอร์ไซค์"}) - ฿${activeHourlyRate}]`;
       } else {
         vehicleNote = `[ยานพาหนะที่เลือก: 🚶 พบกันที่จุดหมายปลายทาง - ฿${activeHourlyRate}/ชม.]`;
       }
