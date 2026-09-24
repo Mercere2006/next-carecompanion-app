@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { MapPin, Navigation, Loader2, Building2, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MapPin, Navigation, Loader2, X } from 'lucide-react';
+import GoogleMapPinModal from './GoogleMapPinModal';
+import { searchThaiPlaces, POPULAR_THAI_PLACES, ThaiPlace } from '@/lib/thaiPlaces';
 
 interface LocationPickerProps {
   label: string;
@@ -15,16 +17,6 @@ interface LocationPickerProps {
   allowCurrentLocation?: boolean;
 }
 
-// Popular locations in Bangkok for quick-pick convenience during testing / demo
-const POPULAR_LOCATIONS = [
-  { name: 'โรงพยาบาลศิริราช ปิยมหาราชการุณย์', lat: 13.7578, lng: 100.4855 },
-  { name: 'โรงพยาบาลจุฬาลงกรณ์ สภากาชาดไทย (ตึก ภปร)', lat: 13.7314, lng: 100.5348 },
-  { name: 'โรงพยาบาลรามาธิบดี พญาไท', lat: 13.7668, lng: 100.5284 },
-  { name: 'ธนาคารกรุงเทพ สำนักงานใหญ่ สีลม', lat: 13.7278, lng: 100.5312 },
-  { name: 'สำนักงานเขตจตุจักร', lat: 13.8268, lng: 100.5601 },
-  { name: 'ตลาดนัดจตุจักร ประตู 1', lat: 13.7999, lng: 100.5501 },
-];
-
 export default function LocationPicker({
   label,
   pinColor,
@@ -36,13 +28,60 @@ export default function LocationPicker({
   placeholder = 'กรอกชื่อสถานที่หรือที่อยู่',
   allowCurrentLocation = false,
 }: LocationPickerProps) {
-  const [showQuickPick, setShowQuickPick] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [suggestions, setSuggestions] = useState<ThaiPlace[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleSelectQuickLocation = (loc: { name: string; lat: number; lng: number }) => {
-    onAddressChange(loc.name);
-    onCoordinatesChange(loc.lat, loc.lng);
-    setShowQuickPick(false);
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Autocomplete suggestions as user types
+  useEffect(() => {
+    const query = address.trim();
+    if (!query) {
+      // If focused and empty, suggest top popular places
+      setSuggestions(POPULAR_THAI_PLACES.slice(0, 5));
+      return;
+    }
+
+    // 1. Instant local search
+    const localMatches = searchThaiPlaces(query, 6);
+    setSuggestions(localMatches);
+
+    // 2. Fetch server API if query is >= 2 chars
+    if (query.length >= 2) {
+      const timer = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/geocode/search?q=' + encodeURIComponent(query));
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.results && Array.isArray(data.results) && data.results.length > 0) {
+              setSuggestions(data.results);
+            }
+          }
+        } catch (err) {
+          console.warn('Geocode search error:', err);
+        }
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [address]);
+
+  const handleSelectPlace = (place: ThaiPlace) => {
+    onAddressChange(place.name);
+    onCoordinatesChange(place.lat, place.lng);
+    setIsFocused(false);
   };
 
   const handleUseCurrentLocation = () => {
@@ -92,7 +131,7 @@ export default function LocationPicker({
   };
 
   return (
-    <div className="space-y-2 bg-slate-50/80 p-4 rounded-2xl border border-gray-200">
+    <div ref={containerRef} className="space-y-2 bg-slate-50/80 p-4 rounded-2xl border border-gray-200 relative">
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm font-bold text-gray-800">
           <span
@@ -124,11 +163,11 @@ export default function LocationPicker({
         ) : (
           <button
             type="button"
-            onClick={() => setShowQuickPick((prev) => !prev)}
-            className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer"
+            onClick={() => setShowMapModal(true)}
+            className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs"
           >
-            <Building2 className="w-3.5 h-3.5" />
-            {showQuickPick ? 'ปิดสถานที่ยอดนิยม' : 'สถานที่ยอดนิยม'}
+            <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" />
+            ปักหมุดพิกัดบน Google Map
           </button>
         )}
       </div>
@@ -144,7 +183,7 @@ export default function LocationPicker({
           required
           value={address}
           onChange={(e) => onAddressChange(e.target.value)}
-          onFocus={() => setShowQuickPick(true)}
+          onFocus={() => setIsFocused(true)}
           placeholder={isLocating ? 'กำลังค้นหาชื่อสถานที่จาก GPS...' : placeholder}
           className={`w-full pl-11 ${
             address ? 'pr-10' : 'pr-4'
@@ -157,7 +196,10 @@ export default function LocationPicker({
         {address && (
           <button
             type="button"
-            onClick={() => onAddressChange('')}
+            onClick={() => {
+              onAddressChange('');
+              setSuggestions([]);
+            }}
             className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-600 cursor-pointer"
             title="ล้างข้อความ"
           >
@@ -166,52 +208,60 @@ export default function LocationPicker({
         )}
       </div>
 
-      {/* Quick Picks Dropdown for demo / easy selection */}
-      {showQuickPick && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-2 text-xs space-y-1">
-          <p className="px-2 py-1 text-gray-400 font-bold uppercase text-[10px]">
-            จุดสำคัญยอดนิยม (คลิกเพื่อเลือกทันที):
+      {/* Autocomplete Suggestions Dropdown */}
+      {isFocused && suggestions.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-2 text-xs space-y-1 z-30 relative mt-1 max-h-64 overflow-y-auto">
+          <p className="px-2 py-1 text-gray-400 font-bold uppercase text-[10px] flex items-center justify-between">
+            <span>สถานที่แนะนำ ({suggestions.length}):</span>
+            <span className="text-[9px] text-gray-400 font-normal">คลิกเพื่อเลือกทันที</span>
           </p>
-          {POPULAR_LOCATIONS.map((loc, idx) => (
+          {suggestions.map((item, idx) => (
             <button
               key={idx}
               type="button"
-              onClick={() => handleSelectQuickLocation(loc)}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg ${
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelectPlace(item);
+              }}
+              className={`w-full text-left p-2.5 rounded-xl ${
                 pinColor === 'green'
-                  ? 'hover:bg-emerald-50 hover:text-emerald-800'
-                  : 'hover:bg-rose-50 hover:text-rose-800'
-              } text-gray-700 transition flex items-center justify-between gap-2 min-w-0`}
+                  ? 'hover:bg-emerald-50 text-gray-800'
+                  : 'hover:bg-rose-50 text-gray-800'
+              } transition flex items-start gap-2.5 cursor-pointer group`}
             >
-              <span className="truncate min-w-0 flex-1">{loc.name}</span>
-              <span className="text-gray-400 text-[10px] shrink-0">
-                {loc.lat}, {loc.lng}
-              </span>
+              <MapPin
+                className={`w-4 h-4 shrink-0 mt-0.5 ${
+                  pinColor === 'green' ? 'text-emerald-500' : 'text-rose-500'
+                } group-hover:scale-110 transition-transform`}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-bold text-gray-900 flex items-center justify-between gap-2">
+                  <span className="truncate">{item.name}</span>
+                  <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-slate-100 text-gray-600 shrink-0">
+                    {item.category}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 truncate mt-0.5">
+                  {item.address}
+                </p>
+              </div>
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => setShowQuickPick(false)}
-            className="w-full text-center py-1 text-gray-500 hover:text-gray-700 font-medium cursor-pointer"
-          >
-            ปิดตัวเลือก
-          </button>
         </div>
       )}
 
-      {/* Lat/Lng indicator */}
-      {lat && lng ? (
-        <div className="flex items-center justify-between text-[11px] text-gray-500 px-1 flex-wrap gap-1">
-          <span>พิกัด GPS ปักหมุด:</span>
-          <span className="font-mono text-emerald-700 font-medium">
-            Lat: {lat}, Lng: {lng}
-          </span>
-        </div>
-      ) : (
-        <p className="text-[11px] text-amber-600 italic px-1">
-          *พิมพ์ชื่อสถานที่หรือเลือกจากจุดสำคัญเพื่อกำหนดพิกัด GPS
-        </p>
-      )}
+      {/* Google Map Pin Picker Modal */}
+      <GoogleMapPinModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        initialAddress={address}
+        initialLat={lat}
+        initialLng={lng}
+        onConfirm={(placeName, pLat, pLng) => {
+          onAddressChange(placeName);
+          onCoordinatesChange(pLat, pLng);
+        }}
+      />
     </div>
   );
 }
