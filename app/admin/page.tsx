@@ -1637,9 +1637,6 @@ export default function AdminDashboardPage() {
                         <Clock className="w-3.5 h-3.5 text-gray-400" />
                         <span>เวลา: <strong className="text-gray-900">{b.start_time?.slice(0, 5)} น.</strong></span>
                       </p>
-                      <p className="text-xs text-emerald-800">
-                        ระยะเวลาที่จอง: <strong className="text-emerald-900">{b.duration_hours} ชั่วโมง</strong>
-                      </p>
                     </div>
                   </div>
 

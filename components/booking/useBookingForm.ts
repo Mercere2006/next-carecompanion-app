@@ -53,7 +53,6 @@ export function useBookingForm(companionId: string) {
   const [destinationLng, setDestinationLng] = useState<number | null>(null);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
-  const [durationHours, setDurationHours] = useState(3);
   const [specialNeeds, setSpecialNeeds] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -448,7 +447,7 @@ export function useBookingForm(companionId: string) {
         destination_lng: destinationLng,
         appointment_date: appointmentDate,
         start_time: startTime,
-        duration_hours: durationHours,
+        duration_hours: 1,
         special_needs: specialNeeds,
         total_price: totalPrice,
         status: "pending",
@@ -536,8 +535,6 @@ export function useBookingForm(companionId: string) {
     setAppointmentDate,
     startTime,
     setStartTime,
-    durationHours,
-    setDurationHours,
     specialNeeds,
     setSpecialNeeds,
     errorMsg,

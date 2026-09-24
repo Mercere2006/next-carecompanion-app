@@ -328,7 +328,7 @@ export default function CustomerDashboard() {
                         </span>
                         <span className="flex items-center gap-1 font-medium">
                           <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                          เวลา: {booking.start_time.slice(0, 5)} น. ({booking.duration_hours} ชม.)
+                          เวลา: {booking.start_time.slice(0, 5)} น.
                         </span>
                         {booking.special_needs && (
                           <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">

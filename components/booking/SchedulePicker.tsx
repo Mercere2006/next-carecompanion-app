@@ -1,7 +1,5 @@
 import React from "react";
 import { Calendar, Clock } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
-import { DURATION_OPTIONS } from "./constants";
 
 interface SchedulePickerProps {
   appointmentDate: string;
