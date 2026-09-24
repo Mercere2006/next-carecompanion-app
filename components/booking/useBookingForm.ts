@@ -324,12 +324,20 @@ export function useBookingForm(companionId: string) {
       return;
     }
 
-    if (
-      !errandTitle.trim() ||
-      !originAddress.trim() ||
-      !destinationAddress.trim()
-    ) {
-      setErrorMsg("กรุณากรอกข้อมูลธุระและสถานที่ให้ครบถ้วน");
+    const isMeetAtDestination = selectedVehicle === 'none';
+
+    if (!errandTitle.trim()) {
+      setErrorMsg("กรุณาระบุหัวข้อธุระ");
+      return;
+    }
+
+    if (!destinationAddress.trim()) {
+      setErrorMsg("กรุณาระบุจุดหมายปลายทาง");
+      return;
+    }
+
+    if (!isMeetAtDestination && !originAddress.trim()) {
+      setErrorMsg("กรุณาระบุจุดเริ่มต้น / จุดรับผู้เดินทาง หรือเลือกพบกันที่จุดหมาย");
       return;
     }
 
@@ -346,7 +354,7 @@ export function useBookingForm(companionId: string) {
       ) {
         vehicleNote = `[ยานพาหนะที่เลือก: 🛵 รถมอเตอร์ไซค์ (${vehicleDetails.motorcycle.model || "มีมอเตอร์ไซค์"}) - ฿${activeHourlyRate}/ชม.]`;
       } else {
-        vehicleNote = `[ยานพาหนะที่เลือก: 🚶 ขนส่งสาธารณะ / นัดพบตามสถานที่ - ฿${activeHourlyRate}/ชม.]`;
+        vehicleNote = `[ยานพาหนะที่เลือก: 🚶 พบกันที่จุดหมายปลายทาง - ฿${activeHourlyRate}/ชม.]`;
       }
 
       const combinedDetails = [
@@ -365,10 +373,12 @@ export function useBookingForm(companionId: string) {
         category_id: categoryId === 99 ? 5 : categoryId,
         errand_title: errandTitle,
         errand_details: combinedDetails,
-        origin_address: originAddress,
-        origin_lat: originLat,
-        origin_lng: originLng,
-        destination_address: destinationAddress,
+        origin_address: isMeetAtDestination
+          ? (originAddress.trim() || `พบกันที่จุดหมาย: ${destinationAddress.trim()}`)
+          : originAddress.trim(),
+        origin_lat: isMeetAtDestination ? (originLat || destinationLat) : originLat,
+        origin_lng: isMeetAtDestination ? (originLng || destinationLng) : originLng,
+        destination_address: destinationAddress.trim(),
         destination_lat: destinationLat,
         destination_lng: destinationLng,
         appointment_date: appointmentDate,

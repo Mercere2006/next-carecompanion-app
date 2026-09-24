@@ -15,6 +15,8 @@ interface LocationPickerProps {
   onCoordinatesChange: (lat: number, lng: number) => void;
   placeholder?: string;
   allowCurrentLocation?: boolean;
+  disabled?: boolean;
+  disabledNotice?: string;
 }
 
 export default function LocationPicker({
@@ -27,6 +29,8 @@ export default function LocationPicker({
   onCoordinatesChange,
   placeholder = 'กรอกชื่อสถานที่หรือที่อยู่',
   allowCurrentLocation = false,
+  disabled = false,
+  disabledNotice,
 }: LocationPickerProps) {
   const [showMapModal, setShowMapModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -131,17 +135,32 @@ export default function LocationPicker({
   };
 
   return (
-    <div ref={containerRef} className="space-y-2 bg-slate-50/80 p-4 rounded-2xl border border-gray-200 relative">
+    <div
+      ref={containerRef}
+      className={`space-y-2 p-4 rounded-2xl border transition relative ${
+        disabled
+          ? 'bg-gray-100/70 border-gray-200'
+          : 'bg-slate-50/80 border-gray-200'
+      }`}
+    >
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm font-bold text-gray-800">
           <span
             className={`w-3 h-3 rounded-full ${
-              pinColor === 'green' ? 'bg-emerald-500' : 'bg-rose-500'
+              disabled
+                ? 'bg-gray-300'
+                : pinColor === 'green'
+                  ? 'bg-emerald-500'
+                  : 'bg-rose-500'
             }`}
           />
           {label}
         </label>
-        {allowCurrentLocation ? (
+        {disabled ? (
+          <span className="text-[11px] font-semibold bg-gray-200 text-gray-600 px-2.5 py-0.5 rounded-full">
+            ไม่เปิดใช้งาน
+          </span>
+        ) : allowCurrentLocation ? (
           <button
             type="button"
             disabled={isLocating}
@@ -167,7 +186,7 @@ export default function LocationPicker({
             className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs"
           >
             <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" />
-            ปักหมุดพิกัดบน Google Map
+            ปักหมุดบน Google Map
           </button>
         )}
       </div>
@@ -175,25 +194,42 @@ export default function LocationPicker({
       <div className="relative">
         <MapPin
           className={`w-5 h-5 absolute left-3.5 top-3.5 ${
-            pinColor === 'green' ? 'text-emerald-600' : 'text-rose-600'
+            disabled
+              ? 'text-gray-400'
+              : pinColor === 'green'
+                ? 'text-emerald-600'
+                : 'text-rose-600'
           }`}
         />
         <input
           type="text"
-          required
-          value={address}
+          disabled={disabled}
+          required={!disabled}
+          value={disabled ? '' : address}
           onChange={(e) => onAddressChange(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          placeholder={isLocating ? 'กำลังค้นหาชื่อสถานที่จาก GPS...' : placeholder}
+          onFocus={() => {
+            if (!disabled) setIsFocused(true);
+          }}
+          placeholder={
+            disabled
+              ? (disabledNotice || 'พบกันที่จุดหมาย (ช่องนี้ปิดการใช้งาน)')
+              : isLocating
+                ? 'กำลังค้นหาชื่อสถานที่จาก GPS...'
+                : placeholder
+          }
           className={`w-full pl-11 ${
-            address ? 'pr-10' : 'pr-4'
-          } py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 ${
-            pinColor === 'green'
-              ? 'focus:ring-emerald-500 focus:border-emerald-500'
-              : 'focus:ring-rose-500 focus:border-rose-500'
-          } text-sm bg-white text-gray-900`}
+            !disabled && address ? 'pr-10' : 'pr-4'
+          } py-3 rounded-xl border ${
+            disabled
+              ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+              : `border-gray-300 focus:outline-none focus:ring-2 ${
+                  pinColor === 'green'
+                    ? 'focus:ring-emerald-500 focus:border-emerald-500'
+                    : 'focus:ring-rose-500 focus:border-rose-500'
+                } bg-white text-gray-900`
+          } text-sm`}
         />
-        {address && (
+        {!disabled && address && (
           <button
             type="button"
             onClick={() => {
@@ -208,8 +244,15 @@ export default function LocationPicker({
         )}
       </div>
 
+      {disabled && (
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-800 text-xs">
+          <span className="text-base">🚶</span>
+          <span>{disabledNotice || 'คุณเลือกพบกันที่จุดหมายปลายทาง ช่องจุดรับผู้เดินทางนี้จึงไม่จำเป็นต้องระบุ'}</span>
+        </div>
+      )}
+
       {/* Autocomplete Suggestions Dropdown */}
-      {isFocused && suggestions.length > 0 && (
+      {!disabled && isFocused && suggestions.length > 0 && (
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-2 text-xs space-y-1 z-30 relative mt-1 max-h-64 overflow-y-auto">
           <p className="px-2 py-1 text-gray-400 font-bold uppercase text-[10px] flex items-center justify-between">
             <span>สถานที่แนะนำ ({suggestions.length}):</span>

@@ -87,6 +87,7 @@ function BookingForm({ companionId }: { companionId: string }) {
                 form.setDestinationLat(lat);
                 form.setDestinationLng(lng);
               }}
+              isMeetAtDestination={form.selectedVehicle === 'none'}
             />
 
             {/* Vehicle Selection for Booking */}

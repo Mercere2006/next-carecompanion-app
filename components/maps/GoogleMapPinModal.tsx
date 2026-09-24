@@ -103,7 +103,7 @@ export default function GoogleMapPinModal({
             </div>
             <div>
               <h3 className="font-bold text-base text-gray-900 flex items-center gap-2">
-                ปักหมุดพิกัดบน Google Map
+                ปักหมุดบน Google Map
                 <span className="text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full">
                   จุดหมายปลายทาง
                 </span>
