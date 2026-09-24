@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MapPin, Search, X, Check, ExternalLink } from 'lucide-react';
-import { searchThaiPlaces, POPULAR_THAI_PLACES, ThaiPlace } from '@/lib/thaiPlaces';
+import { searchThaiPlaces, ThaiPlace } from '@/lib/thaiPlaces';
 
 interface GoogleMapPinModalProps {
   isOpen: boolean;
@@ -21,11 +21,12 @@ export default function GoogleMapPinModal({
   initialLng,
   initialAddress,
 }: GoogleMapPinModalProps) {
-  const defaultPlace = POPULAR_THAI_PLACES[0];
-  const [selectedName, setSelectedName] = useState(initialAddress || defaultPlace.name);
-  const [selectedAddress, setSelectedAddress] = useState(initialAddress || defaultPlace.address);
-  const [selectedLat, setSelectedLat] = useState<number>(initialLat || defaultPlace.lat);
-  const [selectedLng, setSelectedLng] = useState<number>(initialLng || defaultPlace.lng);
+  const DEFAULT_LAT = 13.7563;
+  const DEFAULT_LNG = 100.5018;
+
+  const [selectedName, setSelectedName] = useState(initialAddress || '');
+  const [selectedLat, setSelectedLat] = useState<number>(initialLat || DEFAULT_LAT);
+  const [selectedLng, setSelectedLng] = useState<number>(initialLng || DEFAULT_LNG);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<ThaiPlace[]>([]);
@@ -33,14 +34,9 @@ export default function GoogleMapPinModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialAddress) {
-        setSelectedName(initialAddress);
-        setSelectedAddress(initialAddress);
-      }
-      if (initialLat && initialLng) {
-        setSelectedLat(initialLat);
-        setSelectedLng(initialLng);
-      }
+      setSelectedName(initialAddress || '');
+      setSelectedLat(initialLat || DEFAULT_LAT);
+      setSelectedLng(initialLng || DEFAULT_LNG);
       setSearchQuery('');
       setSuggestions([]);
     }
@@ -79,7 +75,6 @@ export default function GoogleMapPinModal({
 
   const handleSelectPlace = (place: ThaiPlace) => {
     setSelectedName(place.name);
-    setSelectedAddress(place.address || place.name);
     setSelectedLat(place.lat);
     setSelectedLng(place.lng);
     setSearchQuery('');
@@ -182,23 +177,8 @@ export default function GoogleMapPinModal({
             )}
           </div>
 
-          {/* Quick Filter Tags */}
-          <div className="flex items-center gap-1.5 flex-wrap text-xs">
-            <span className="text-gray-400 text-[11px] font-medium mr-1">สถานที่ยอดนิยม:</span>
-            {POPULAR_THAI_PLACES.slice(0, 5).map((place, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSelectPlace(place)}
-                className={`px-2.5 py-1 rounded-lg border transition cursor-pointer text-xs ${selectedName === place.name ? "bg-rose-600 text-white border-rose-600 font-semibold" : "bg-slate-50 text-gray-700 border-gray-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"}`}
-              >
-                {place.name.replace(/\(.*?\)/g, "").trim()}
-              </button>
-            ))}
-          </div>
-
           {/* Embedded Google Map Preview */}
-          <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-inner bg-slate-100 h-64 sm:h-72">
+          <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-inner bg-slate-100 h-80 sm:h-96">
             <iframe
               src={googleMapsEmbedUrl}
               title="Google Map Pin Preview"
@@ -207,12 +187,14 @@ export default function GoogleMapPinModal({
               referrerPolicy="no-referrer-when-downgrade"
             />
             {/* Overlay Pin Indicator */}
-            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 pointer-events-none">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-              <span className="text-xs font-bold text-gray-800">
-                จุดหมุด: {selectedName}
-              </span>
-            </div>
+            {selectedName && (
+              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 pointer-events-none">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span className="text-xs font-bold text-gray-800">
+                  จุดหมุด: {selectedName}
+                </span>
+              </div>
+            )}
 
             {/* External link button */}
             <a
@@ -224,26 +206,6 @@ export default function GoogleMapPinModal({
               เปิดใน Google Maps เต็มจอ
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
-          </div>
-
-          {/* Selected Location Details Banner */}
-          <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
-              <MapPin className="w-4 h-4 fill-rose-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-rose-950 truncate">
-                  {selectedName}
-                </h4>
-                <span className="text-[10px] font-semibold text-rose-600 bg-white px-2 py-0.5 rounded-full border border-rose-200">
-                  พร้อมปักหมุด
-                </span>
-              </div>
-              <p className="text-xs text-rose-800/80 mt-0.5 line-clamp-2">
-                {selectedAddress}
-              </p>
-            </div>
           </div>
         </div>
 
@@ -258,8 +220,9 @@ export default function GoogleMapPinModal({
           </button>
           <button
             type="button"
+            disabled={!selectedName}
             onClick={handleConfirm}
-            className="px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-600/20 transition flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-rose-600/20 transition flex items-center gap-2 cursor-pointer"
           >
             <Check className="w-4 h-4" />
             ยืนยันปักหมุดตำแหน่งนี้
