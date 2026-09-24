@@ -1,20 +1,20 @@
 import React from "react";
 import { formatPrice } from "@/lib/utils";
-import { Car, Bike, Footprints } from "lucide-react";
+import { Car, Bike, Footprints, Check, User } from "lucide-react";
 import { CompanionVehicleInfo } from "./useBookingForm";
 
 interface BookingHeaderProps {
   companionName: string;
   companionRate: number;
   companionVehicle: CompanionVehicleInfo | null;
-  totalPrice: number;
+  companionAvatar?: string | null;
 }
 
 export default function BookingHeader({
   companionName,
   companionRate,
   companionVehicle,
-  totalPrice,
+  companionAvatar,
 }: BookingHeaderProps) {
   return (
     <div className="border-b border-gray-100 pb-5 sm:pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -75,13 +75,27 @@ export default function BookingHeader({
           )}
         </div>
       </div>
-      <div className="text-left sm:text-right bg-emerald-50 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-emerald-200 shrink-0 w-full sm:w-auto flex sm:block justify-between items-center">
-        <span className="text-xs text-emerald-800 font-medium block">
-          ประเมินราคารวม
-        </span>
-        <span className="text-xl sm:text-2xl font-black text-emerald-700">
-          {formatPrice(totalPrice)}
-        </span>
+      <div className="shrink-0 flex items-center self-start sm:self-center">
+        {companionAvatar ? (
+          <div className="relative">
+            <img
+              src={companionAvatar}
+              alt={companionName}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-emerald-500/30 shadow-md"
+            />
+            <div
+              className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center border-2 border-white shadow-xs"
+              title="ผู้ช่วยที่ได้รับการรับรอง"
+            >
+              <Check className="w-3 h-3 stroke-[3]" />
+            </div>
+          </div>
+        ) : (
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50 text-emerald-700 border-2 border-emerald-500/20 flex flex-col items-center justify-center shadow-xs">
+            <User className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+            <span className="text-[9px] font-bold mt-0.5 text-emerald-800">ผู้ช่วย</span>
+          </div>
+        )}
       </div>
     </div>
   );

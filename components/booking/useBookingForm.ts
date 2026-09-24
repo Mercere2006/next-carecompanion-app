@@ -22,6 +22,7 @@ export function useBookingForm(companionId: string) {
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [activeHourlyRate, setActiveHourlyRate] = useState(250);
   const [companionName, setCompanionName] = useState("ผู้ช่วยร่วมเดินทาง");
+  const [companionAvatar, setCompanionAvatar] = useState<string | null>(null);
   const [isPrefilled, setIsPrefilled] = useState(false);
 
   // Vehicle states
@@ -80,14 +81,14 @@ export function useBookingForm(companionId: string) {
         .select(
           `
           *,
-          profile:profiles(full_name)
+          profile:profiles(full_name, avatar_url)
         `,
         )
         .eq("id", companionId)
         .single();
 
       type BookingCompanionData = Partial<CompanionProfile> & {
-        profile?: { full_name?: string | null } | null;
+        profile?: { full_name?: string | null; avatar_url?: string | null } | null;
       };
 
       let compData: BookingCompanionData | null = comp as BookingCompanionData | null;
@@ -143,9 +144,19 @@ export function useBookingForm(companionId: string) {
                   ? `${parsed.car.model || 'รถยนต์'} / ${parsed.motorcycle.model || 'มอเตอร์ไซค์'}`
                   : null,
         });
-        const profileData = compData.profile as { full_name?: string } | null;
+        const profileData = compData.profile as { full_name?: string; avatar_url?: string } | null;
         if (profileData?.full_name) {
           setCompanionName(profileData.full_name);
+        }
+
+        const isGoogleAvatar = (url?: string | null) =>
+          Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+        const avatar =
+          profileData?.avatar_url && !isGoogleAvatar(profileData.avatar_url)
+            ? profileData.avatar_url
+            : compData.id_card_image_url || profileData?.avatar_url || null;
+        if (avatar) {
+          setCompanionAvatar(avatar);
         }
       }
 
@@ -432,6 +443,7 @@ export function useBookingForm(companionId: string) {
     submitting,
     user,
     companionName,
+    companionAvatar,
     companionRate: activeHourlyRate,
     activeHourlyRate,
     companionVehicle,

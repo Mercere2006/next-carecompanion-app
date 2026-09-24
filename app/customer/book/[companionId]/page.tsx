@@ -45,7 +45,7 @@ function BookingForm({ companionId }: { companionId: string }) {
             companionName={form.companionName}
             companionRate={form.companionRate}
             companionVehicle={form.companionVehicle}
-            totalPrice={form.totalPrice}
+            companionAvatar={form.companionAvatar}
           />
 
           <BookingBanners
