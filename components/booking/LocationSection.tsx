@@ -44,6 +44,7 @@ export default function LocationSection({
           onAddressChange={onOriginAddressChange}
           onCoordinatesChange={onOriginCoordinatesChange}
           placeholder="เช่น คอนโด ลุมพินี พาร์ค พระราม 9 หรือ เขตบางกอกน้อย"
+          allowCurrentLocation={true}
         />
 
         <LocationPicker
@@ -55,6 +56,7 @@ export default function LocationSection({
           onAddressChange={onDestinationAddressChange}
           onCoordinatesChange={onDestinationCoordinatesChange}
           placeholder="เช่น โรงพยาบาลศิริราช ตึกสยามินทร์"
+          allowCurrentLocation={false}
         />
       </div>
     </div>

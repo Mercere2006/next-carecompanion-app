@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Navigation, Loader2 } from 'lucide-react';
+import { MapPin, Navigation, Loader2, Building2, X } from 'lucide-react';
 
 interface LocationPickerProps {
   label: string;
@@ -12,6 +12,7 @@ interface LocationPickerProps {
   onAddressChange: (address: string) => void;
   onCoordinatesChange: (lat: number, lng: number) => void;
   placeholder?: string;
+  allowCurrentLocation?: boolean;
 }
 
 // Popular locations in Bangkok for quick-pick convenience during testing / demo
@@ -33,6 +34,7 @@ export default function LocationPicker({
   onAddressChange,
   onCoordinatesChange,
   placeholder = 'กรอกชื่อสถานที่หรือที่อยู่',
+  allowCurrentLocation = false,
 }: LocationPickerProps) {
   const [showQuickPick, setShowQuickPick] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -100,24 +102,35 @@ export default function LocationPicker({
           />
           {label}
         </label>
-        <button
-          type="button"
-          disabled={isLocating}
-          onClick={handleUseCurrentLocation}
-          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60 flex items-center gap-1 transition cursor-pointer"
-        >
-          {isLocating ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-              กำลังระบุสถานที่...
-            </>
-          ) : (
-            <>
-              <Navigation className="w-3.5 h-3.5" />
-              ใช้ตำแหน่งปัจจุบัน
-            </>
-          )}
-        </button>
+        {allowCurrentLocation ? (
+          <button
+            type="button"
+            disabled={isLocating}
+            onClick={handleUseCurrentLocation}
+            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60 flex items-center gap-1 transition cursor-pointer"
+          >
+            {isLocating ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                กำลังระบุสถานที่...
+              </>
+            ) : (
+              <>
+                <Navigation className="w-3.5 h-3.5" />
+                ใช้ตำแหน่งปัจจุบัน
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowQuickPick((prev) => !prev)}
+            className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer"
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            {showQuickPick ? 'ปิดสถานที่ยอดนิยม' : 'สถานที่ยอดนิยม'}
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -133,8 +146,24 @@ export default function LocationPicker({
           onChange={(e) => onAddressChange(e.target.value)}
           onFocus={() => setShowQuickPick(true)}
           placeholder={isLocating ? 'กำลังค้นหาชื่อสถานที่จาก GPS...' : placeholder}
-          className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white text-gray-900"
+          className={`w-full pl-11 ${
+            address ? 'pr-10' : 'pr-4'
+          } py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 ${
+            pinColor === 'green'
+              ? 'focus:ring-emerald-500 focus:border-emerald-500'
+              : 'focus:ring-rose-500 focus:border-rose-500'
+          } text-sm bg-white text-gray-900`}
         />
+        {address && (
+          <button
+            type="button"
+            onClick={() => onAddressChange('')}
+            className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+            title="ล้างข้อความ"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Quick Picks Dropdown for demo / easy selection */}
@@ -148,7 +177,11 @@ export default function LocationPicker({
               key={idx}
               type="button"
               onClick={() => handleSelectQuickLocation(loc)}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-emerald-50 hover:text-emerald-800 text-gray-700 transition flex items-center justify-between gap-2 min-w-0"
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg ${
+                pinColor === 'green'
+                  ? 'hover:bg-emerald-50 hover:text-emerald-800'
+                  : 'hover:bg-rose-50 hover:text-rose-800'
+              } text-gray-700 transition flex items-center justify-between gap-2 min-w-0`}
             >
               <span className="truncate min-w-0 flex-1">{loc.name}</span>
               <span className="text-gray-400 text-[10px] shrink-0">
