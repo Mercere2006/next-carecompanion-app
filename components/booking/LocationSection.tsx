@@ -46,7 +46,7 @@ export default function LocationSection({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <LocationPicker
-          label="จุดเริ่มต้น / จุดรับผู้เดินทาง"
+          label="จุดรับผู้เดินทาง"
           pinColor="green"
           address={originAddress}
           lat={originLat}
@@ -60,7 +60,7 @@ export default function LocationSection({
         />
 
         <LocationPicker
-          label="จุดหมายปลายทาง / จุดส่ง"
+          label="จุดหมายปลายทาง"
           pinColor="red"
           address={destinationAddress}
           lat={destinationLat}

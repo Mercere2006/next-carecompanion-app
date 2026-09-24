@@ -348,7 +348,7 @@ export function useBookingForm(companionId: string) {
     }
 
     if (!isMeetAtDestination && !originAddress.trim()) {
-      setErrorMsg("กรุณาระบุจุดเริ่มต้น / จุดรับผู้เดินทาง หรือเลือกพบกันที่จุดหมาย");
+      setErrorMsg("กรุณาระบุจุดรับผู้เดินทาง หรือเลือกพบกันที่จุดหมาย");
       return;
     }
 
