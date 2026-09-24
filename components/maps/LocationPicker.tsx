@@ -137,16 +137,16 @@ export default function LocationPicker({
   return (
     <div
       ref={containerRef}
-      className={`space-y-2 p-4 rounded-2xl border transition relative ${
+      className={`space-y-2.5 p-4 rounded-2xl border transition relative flex flex-col justify-start ${
         disabled
           ? 'bg-gray-100/70 border-gray-200'
           : 'bg-slate-50/80 border-gray-200'
       }`}
     >
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm font-bold text-gray-800">
+      <div className="flex items-center justify-between gap-2 min-h-[26px]">
+        <label className="flex items-center gap-2 text-sm font-bold text-gray-800 min-w-0">
           <span
-            className={`w-3 h-3 rounded-full ${
+            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
               disabled
                 ? 'bg-gray-300'
                 : pinColor === 'green'
@@ -154,10 +154,10 @@ export default function LocationPicker({
                   : 'bg-rose-500'
             }`}
           />
-          {label}
+          <span className="truncate">{label}</span>
         </label>
         {disabled ? (
-          <span className="text-[11px] font-semibold bg-gray-200 text-gray-600 px-2.5 py-0.5 rounded-full">
+          <span className="text-[11px] font-semibold bg-gray-200 text-gray-600 px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">
             ไม่เปิดใช้งาน
           </span>
         ) : allowCurrentLocation ? (
@@ -165,7 +165,7 @@ export default function LocationPicker({
             type="button"
             disabled={isLocating}
             onClick={handleUseCurrentLocation}
-            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60 flex items-center gap-1 transition cursor-pointer"
+            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline disabled:opacity-60 flex items-center gap-1 transition cursor-pointer shrink-0 whitespace-nowrap"
           >
             {isLocating ? (
               <>
@@ -183,9 +183,9 @@ export default function LocationPicker({
           <button
             type="button"
             onClick={() => setShowMapModal(true)}
-            className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+            className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 transition cursor-pointer shrink-0 whitespace-nowrap"
           >
-            <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" />
+            <MapPin className="w-3.5 h-3.5 text-rose-500" />
             ปักหมุดบน Google Map
           </button>
         )}
