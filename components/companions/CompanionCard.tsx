@@ -8,12 +8,14 @@ interface CompanionCardProps {
   companion: CompanionCardData;
   onSelect?: (companion: CompanionCardData) => void;
   currentUser?: { id: string } | null;
+  isAdmin?: boolean;
 }
 
 export default function CompanionCard({
   companion,
   onSelect,
   currentUser,
+  isAdmin = false,
 }: CompanionCardProps) {
   const { cleanBio, embeddedSchedule } = extractCleanBio(companion.bio);
   const parsedVehicles = parseVehicleDetails(
@@ -284,7 +286,7 @@ export default function CompanionCard({
           href={`/companions/${companion.id}`}
           className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-emerald-200 hover:border-emerald-700 shadow-2xs cursor-pointer active:scale-98"
         >
-          ดูประวัติผู้ช่วยคนนี้
+          {isAdmin ? 'ดูประวัติผู้ช่วยคนนี้' : 'เลือกผู้ช่วยคนนี้'}
           <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
         </Link>
       )}
