@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Loader2 } from 'lucide-react';
 
 interface LocationPickerProps {
   label: string;
@@ -35,6 +35,7 @@ export default function LocationPicker({
   placeholder = 'กรอกชื่อสถานที่หรือที่อยู่',
 }: LocationPickerProps) {
   const [showQuickPick, setShowQuickPick] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
   const handleSelectQuickLocation = (loc: { name: string; lat: number; lng: number }) => {
     onAddressChange(loc.name);
@@ -43,22 +44,49 @@ export default function LocationPicker({
   };
 
   const handleUseCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const latitude = Number(position.coords.latitude.toFixed(5));
-          const longitude = Number(position.coords.longitude.toFixed(5));
-          onCoordinatesChange(latitude, longitude);
-          if (!address) {
-            onAddressChange(`พิกัดปัจจุบัน (${latitude}, ${longitude})`);
-          }
-        },
-        (error) => {
-          console.warn('Geolocation error:', error);
-          alert('ไม่สามารถดึงตำแหน่งปัจจุบันได้ กรุณาพิมพ์ที่อยู่หรือเลือกจุดสำคัญ');
-        }
-      );
+    if (!navigator.geolocation) {
+      alert('เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง GPS');
+      return;
     }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = Number(position.coords.latitude.toFixed(5));
+        const longitude = Number(position.coords.longitude.toFixed(5));
+        onCoordinatesChange(latitude, longitude);
+
+        try {
+          // Fetch reverse geocoded Thai address
+          const res = await fetch(`/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.address) {
+              onAddressChange(data.address);
+              setIsLocating(false);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Reverse geocoding error:', err);
+        } finally {
+          setIsLocating(false);
+        }
+
+        // Fallback if reverse geocoding didn't return
+        onAddressChange(`พิกัดปัจจุบัน (${latitude}, ${longitude})`);
+      },
+      (error) => {
+        console.warn('Geolocation error:', error);
+        setIsLocating(false);
+        alert('ไม่สามารถดึงตำแหน่งปัจจุบันได้ กรุณาตรวจสอบการอนุญาตเข้าถึงตำแหน่ง (GPS) หรือพิมพ์ที่อยู่ด้วยตนเอง');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
   };
 
   return (
@@ -74,11 +102,21 @@ export default function LocationPicker({
         </label>
         <button
           type="button"
+          disabled={isLocating}
           onClick={handleUseCurrentLocation}
-          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60 flex items-center gap-1 transition cursor-pointer"
         >
-          <Navigation className="w-3.5 h-3.5" />
-          ใช้ตำแหน่งปัจจุบัน
+          {isLocating ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+              กำลังระบุสถานที่...
+            </>
+          ) : (
+            <>
+              <Navigation className="w-3.5 h-3.5" />
+              ใช้ตำแหน่งปัจจุบัน
+            </>
+          )}
         </button>
       </div>
 
@@ -94,7 +132,7 @@ export default function LocationPicker({
           value={address}
           onChange={(e) => onAddressChange(e.target.value)}
           onFocus={() => setShowQuickPick(true)}
-          placeholder={placeholder}
+          placeholder={isLocating ? 'กำลังค้นหาชื่อสถานที่จาก GPS...' : placeholder}
           className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white text-gray-900"
         />
       </div>
