@@ -5,9 +5,10 @@ import { CompanionVehicleInfo } from "./useBookingForm";
 
 interface BookingHeaderProps {
   companionName: string;
-  companionRate: number;
+  companionRate?: number;
   companionVehicle: CompanionVehicleInfo | null;
   companionAvatar?: string | null;
+  companionLocationName?: string;
 }
 
 export default function BookingHeader({
@@ -15,6 +16,7 @@ export default function BookingHeader({
   companionRate,
   companionVehicle,
   companionAvatar,
+  companionLocationName,
 }: BookingHeaderProps) {
   return (
     <div className="border-b border-gray-100 pb-5 sm:pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -28,8 +30,12 @@ export default function BookingHeader({
         <div className="flex flex-wrap items-center gap-2 mt-1.5">
           <p className="text-xs sm:text-sm text-gray-600">
             ผู้ช่วยของคุณ:{" "}
-            <strong className="text-emerald-700">{companionName}</strong> (
-            {formatPrice(companionRate)}/ชม.)
+            <strong className="text-emerald-700">{companionName}</strong>
+            {companionLocationName && (
+              <span className="text-gray-500 font-normal ml-1">
+                (พิกัดเริ่มต้น: <span className="font-semibold text-gray-700">{companionLocationName}</span>)
+              </span>
+            )}
           </p>
           {companionVehicle && (
             <span

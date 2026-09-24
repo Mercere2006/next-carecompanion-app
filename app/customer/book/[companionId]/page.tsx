@@ -46,6 +46,7 @@ function BookingForm({ companionId }: { companionId: string }) {
             companionRate={form.companionRate}
             companionVehicle={form.companionVehicle}
             companionAvatar={form.companionAvatar}
+            companionLocationName={form.companionLocationName}
           />
 
           <BookingBanners
@@ -88,6 +89,12 @@ function BookingForm({ companionId }: { companionId: string }) {
                 form.setDestinationLng(lng);
               }}
               isMeetAtDestination={form.selectedVehicle === 'none'}
+              companionLocationName={form.companionLocationName}
+              totalDistanceKm={form.totalDistanceKm}
+              distanceFee={form.distanceFee}
+              leg1Km={form.leg1Km}
+              leg2Km={form.leg2Km}
+              hasCalculatedDistance={form.hasCalculatedDistance}
             />
 
             {/* Vehicle Selection for Booking */}
@@ -100,11 +107,8 @@ function BookingForm({ companionId }: { companionId: string }) {
             <SchedulePicker
               appointmentDate={form.appointmentDate}
               startTime={form.startTime}
-              durationHours={form.durationHours}
-              companionRate={form.companionRate}
               onAppointmentDateChange={form.setAppointmentDate}
               onStartTimeChange={form.setStartTime}
-              onDurationHoursChange={form.setDurationHours}
             />
 
             <SpecialNeedsFields
@@ -116,6 +120,9 @@ function BookingForm({ companionId }: { companionId: string }) {
 
             <BookingSubmitBar
               totalPrice={form.totalPrice}
+              vehicleFee={form.vehicleBaseFee}
+              distanceFee={form.distanceFee}
+              totalDistanceKm={form.totalDistanceKm}
               submitting={form.submitting}
             />
           </form>

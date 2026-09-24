@@ -4,11 +4,17 @@ import { HeartHandshake } from "lucide-react";
 
 interface BookingSubmitBarProps {
   totalPrice: number;
+  vehicleFee?: number;
+  distanceFee?: number;
+  totalDistanceKm?: number;
   submitting: boolean;
 }
 
 export default function BookingSubmitBar({
   totalPrice,
+  vehicleFee = 0,
+  distanceFee = 0,
+  totalDistanceKm = 0,
   submitting,
 }: BookingSubmitBarProps) {
   return (
@@ -17,9 +23,19 @@ export default function BookingSubmitBar({
         <span className="text-xs text-gray-500 block">
           ยอดรวมทั้งสิ้น (ชำระหลังเสร็จสิ้นภารกิจ)
         </span>
-        <span className="text-2xl sm:text-3xl font-black text-emerald-700">
-          {formatPrice(totalPrice)}
-        </span>
+        <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
+          <span className="text-2xl sm:text-3xl font-black text-emerald-700">
+            {formatPrice(totalPrice)}
+          </span>
+          {totalPrice > 0 && (
+            <span className="text-xs text-gray-500 font-medium">
+              {vehicleFee > 0 && `(ค่ารถ ฿${vehicleFee}`}
+              {vehicleFee > 0 && distanceFee > 0 && ` + `}
+              {distanceFee > 0 && `ค่าระยะทาง ฿${distanceFee} [${totalDistanceKm} กม.]`}
+              {`)`}
+            </span>
+          )}
+        </div>
       </div>
 
       <button

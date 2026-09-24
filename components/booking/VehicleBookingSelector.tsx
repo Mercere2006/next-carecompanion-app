@@ -6,7 +6,7 @@ import { ParsedVehicleInfo } from '@/lib/vehicleUtils';
 
 interface VehicleBookingSelectorProps {
   vehicleDetails: ParsedVehicleInfo | null;
-  selectedVehicle: 'car' | 'motorcycle' | 'none';
+  selectedVehicle: 'car' | 'motorcycle' | 'none' | null;
   onSelectVehicle: (v: 'car' | 'motorcycle' | 'none') => void;
 }
 
@@ -28,7 +28,7 @@ export default function VehicleBookingSelector({
           <span>ยานพาหนะในการร่วมเดินทาง</span>
         </label>
         <p className="text-xs text-gray-600">
-          ผู้ช่วยท่านนี้ให้บริการด้วยระบบขนส่งสาธารณะ (BTS / MRT / แท็กซี่) หรือพบกัน ณ จุดนัดหมาย (อัตราค่าบริการ {baseRate} บ./ชม.)
+          ผู้ช่วยท่านนี้ให้บริการด้วยระบบขนส่งสาธารณะ (BTS / MRT / แท็กซี่) หรือพบกัน ณ จุดนัดหมาย (คำนวณค่าบริการตามระยะทางเดินทางจริง)
         </p>
       </div>
     );
@@ -43,7 +43,7 @@ export default function VehicleBookingSelector({
           <span className="text-rose-500">*</span>
         </label>
         <span className="text-[11px] text-gray-500">
-          อัตราค่าบริการและยอดรวมจะปรับเปลี่ยนตามพาหนะที่คุณเลือก
+          เลือกประเภทพาหนะที่ต้องการ เพื่อคำนวณค่าบริการร่วมกับระยะทาง
         </span>
       </div>
 
@@ -164,7 +164,7 @@ export default function VehicleBookingSelector({
           <div className="mt-3 pt-2 border-t border-gray-100 flex items-baseline justify-between">
             <span className="text-[10px] text-gray-400 font-medium">ค่าบริการ</span>
             <span className="text-sm font-black text-gray-800">
-              ฿{baseRate} <span className="text-[10px] font-normal text-gray-500">/ชม.</span>
+              ฿0 <span className="text-[10px] font-normal text-gray-500">(คิดตามระยะทาง)</span>
             </span>
           </div>
         </button>

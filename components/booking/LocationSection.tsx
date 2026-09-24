@@ -16,6 +16,12 @@ interface LocationSectionProps {
     lng: number | null,
   ) => void;
   isMeetAtDestination?: boolean;
+  companionLocationName?: string;
+  totalDistanceKm?: number;
+  distanceFee?: number;
+  leg1Km?: number;
+  leg2Km?: number;
+  hasCalculatedDistance?: boolean;
 }
 
 export default function LocationSection({
@@ -30,6 +36,12 @@ export default function LocationSection({
   onDestinationAddressChange,
   onDestinationCoordinatesChange,
   isMeetAtDestination = false,
+  companionLocationName,
+  totalDistanceKm,
+  distanceFee = 0,
+  leg1Km,
+  leg2Km,
+  hasCalculatedDistance = false,
 }: LocationSectionProps) {
   return (
     <div className="space-y-4">
@@ -71,6 +83,43 @@ export default function LocationSection({
           allowCurrentLocation={false}
         />
       </div>
+
+      {hasCalculatedDistance && (
+        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2.5 text-xs animate-in fade-in duration-200">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
+              <span>🧭</span>
+              คำนวณระยะทางจากพิกัดจริง
+            </span>
+            <span className="text-emerald-800 font-extrabold text-xs sm:text-sm bg-emerald-100/80 px-2.5 py-1 rounded-xl">
+              ค่าระยะทาง +฿{distanceFee}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-600 pt-1 border-t border-emerald-100">
+            <div>
+              <span className="text-gray-500">📍 พิกัดล่าสุดผู้ช่วย: </span>
+              <strong className="text-gray-900">{companionLocationName}</strong>
+            </div>
+            <div>
+              <span className="text-gray-500">📏 ระยะทางรวม: </span>
+              <strong className="text-emerald-800 font-black text-sm">{totalDistanceKm} กม.</strong>
+              <span className="text-gray-400 text-[11px] ml-1">
+                {leg1Km && leg1Km > 0 ? `(มารับ ${leg1Km} กม. + เดินทาง ${leg2Km} กม.)` : `(เดินทาง ${leg2Km} กม.)`}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-emerald-800/80 bg-white/70 px-3 py-1.5 rounded-xl border border-emerald-200/50 flex flex-wrap items-center justify-between gap-1">
+            <span>
+              💡 อัตราตามระยะทาง: 0–2 กม. (฿45) • 2–6 กม. (8 บ./กม.) • 6–40 กม. (7 บ./กม.) • 40+ กม. (10 บ./กม.)
+            </span>
+            {leg1Km !== undefined && leg1Km <= 3 && (
+              <span className="font-semibold text-emerald-700">✨ ผู้ช่วยอยู่ใกล้จุดที่คุณเลือก ค่าเดินทางจึงถูกลง</span>
+            )}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

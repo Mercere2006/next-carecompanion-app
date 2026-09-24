@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Swal from "sweetalert2";
@@ -6,6 +6,12 @@ import { SERVICE_CATEGORIES } from "./constants";
 import { parseVehicleDetails, ParsedVehicleInfo } from "@/lib/vehicleUtils";
 import { MOCK_COMPANIONS } from "@/components/companions/search/constants";
 import { CompanionProfile } from "@/types/database";
+import {
+  getCompanionLocation,
+  calculateBookingPricing,
+  CompanionLocation,
+  BookingPricingResult,
+} from "@/lib/distancePricing";
 
 export interface CompanionVehicleInfo {
   type: string;
@@ -23,14 +29,16 @@ export function useBookingForm(companionId: string) {
   const [activeHourlyRate, setActiveHourlyRate] = useState(250);
   const [companionName, setCompanionName] = useState("ผู้ช่วยร่วมเดินทาง");
   const [companionAvatar, setCompanionAvatar] = useState<string | null>(null);
+  const [companionLocation, setCompanionLocation] =
+    useState<CompanionLocation | null>(null);
   const [isPrefilled, setIsPrefilled] = useState(false);
 
   // Vehicle states
   const [vehicleDetails, setVehicleDetails] =
     useState<ParsedVehicleInfo | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<
-    "car" | "motorcycle" | "none"
-  >("none");
+    "car" | "motorcycle" | "none" | null
+  >(null);
 
   // Form states
   const [categoryId, setCategoryId] = useState(1);
@@ -38,11 +46,11 @@ export function useBookingForm(companionId: string) {
   const [errandTitle, setErrandTitle] = useState("");
   const [errandDetails, setErrandDetails] = useState("");
   const [originAddress, setOriginAddress] = useState("");
-  const [originLat, setOriginLat] = useState<number | null>(13.7563);
-  const [originLng, setOriginLng] = useState<number | null>(100.5018);
+  const [originLat, setOriginLat] = useState<number | null>(null);
+  const [originLng, setOriginLng] = useState<number | null>(null);
   const [destinationAddress, setDestinationAddress] = useState("");
-  const [destinationLat, setDestinationLat] = useState<number | null>(13.7578);
-  const [destinationLng, setDestinationLng] = useState<number | null>(100.4855);
+  const [destinationLat, setDestinationLat] = useState<number | null>(null);
+  const [destinationLng, setDestinationLng] = useState<number | null>(null);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [durationHours, setDurationHours] = useState(3);
@@ -52,7 +60,49 @@ export function useBookingForm(companionId: string) {
   const [companionVehicle, setCompanionVehicle] =
     useState<CompanionVehicleInfo | null>(null);
 
-  const totalPrice = activeHourlyRate * durationHours;
+  // Calculate pricing based on vehicle fee + distance fee from companion location
+  const pricing: BookingPricingResult = useMemo(() => {
+    const compLoc = companionLocation || {
+      lat: 13.7563,
+      lng: 100.5018,
+      name: "กรุงเทพมหานคร",
+    };
+
+    return calculateBookingPricing({
+      selectedVehicle,
+      vehicleRates: {
+        carRate: vehicleDetails?.car?.rate || 0,
+        motorcycleRate: vehicleDetails?.motorcycle?.rate || 0,
+        baseRate: vehicleDetails?.baseRate || 0,
+      },
+      companionLoc: compLoc,
+      originAddress,
+      originLat,
+      originLng,
+      destinationAddress,
+      destinationLat,
+      destinationLng,
+      isMeetAtDestination: selectedVehicle === "none",
+    });
+  }, [
+    selectedVehicle,
+    vehicleDetails,
+    companionLocation,
+    originAddress,
+    originLat,
+    originLng,
+    destinationAddress,
+    destinationLat,
+    destinationLng,
+  ]);
+
+  const totalPrice = pricing.totalPrice;
+  const vehicleBaseFee = pricing.vehicleBaseFee;
+  const distanceFee = pricing.distanceFee;
+  const totalDistanceKm = pricing.totalDistanceKm;
+  const leg1Km = pricing.leg1Km;
+  const leg2Km = pricing.leg2Km;
+  const hasCalculatedDistance = pricing.hasCalculatedDistance;
 
   const handleSelectVehicle = (v: "car" | "motorcycle" | "none") => {
     setSelectedVehicle(v);
@@ -119,19 +169,13 @@ export function useBookingForm(companionId: string) {
         );
         setVehicleDetails(parsed);
 
-        let initialVehicle: "car" | "motorcycle" | "none" = "none";
-        let initialRate = parsed.baseRate;
+        // Resolve companion location for distance calculation
+        const resolvedLoc = getCompanionLocation(compData);
+        setCompanionLocation(resolvedLoc);
 
-        if (parsed.hasCar) {
-          initialVehicle = "car";
-          initialRate = parsed.car.rate;
-        } else if (parsed.hasMotorcycle) {
-          initialVehicle = "motorcycle";
-          initialRate = parsed.motorcycle.rate;
-        }
-
-        setSelectedVehicle(initialVehicle);
-        setActiveHourlyRate(initialRate);
+        // Keep vehicle unselected initially so total price starts at ฿0
+        setSelectedVehicle(null);
+        setActiveHourlyRate(parsed.baseRate);
 
         setCompanionVehicle({
           type: parsed.type,
@@ -342,6 +386,11 @@ export function useBookingForm(companionId: string) {
       return;
     }
 
+    if (!selectedVehicle) {
+      setErrorMsg("กรุณาเลือกรูปแบบยานพาหนะในการร่วมเดินทาง (รถยนต์, มอเตอร์ไซค์ หรือพบกันที่จุดหมาย)");
+      return;
+    }
+
     if (!destinationAddress.trim()) {
       setErrorMsg("กรุณาระบุจุดหมายปลายทาง");
       return;
@@ -358,19 +407,24 @@ export function useBookingForm(companionId: string) {
     try {
       let vehicleNote = "";
       if (selectedVehicle === "car" && vehicleDetails?.hasCar) {
-        vehicleNote = `[ยานพาหนะที่เลือก: 🚗 รถยนต์ส่วนตัว (${vehicleDetails.car.model || "มีรถยนต์ส่วนตัว"}) - ฿${activeHourlyRate}]`;
+        vehicleNote = `[ยานพาหนะที่เลือก: 🚗 รถยนต์ส่วนตัว (${vehicleDetails.car.model || "มีรถยนต์ส่วนตัว"}) - ค่ารถ ฿${vehicleBaseFee}]`;
       } else if (
         selectedVehicle === "motorcycle" &&
         vehicleDetails?.hasMotorcycle
       ) {
-        vehicleNote = `[ยานพาหนะที่เลือก: 🛵 รถมอเตอร์ไซค์ (${vehicleDetails.motorcycle.model || "มีมอเตอร์ไซค์"}) - ฿${activeHourlyRate}]`;
+        vehicleNote = `[ยานพาหนะที่เลือก: 🛵 รถมอเตอร์ไซค์ (${vehicleDetails.motorcycle.model || "มีมอเตอร์ไซค์"}) - ค่ารถ ฿${vehicleBaseFee}]`;
       } else {
-        vehicleNote = `[ยานพาหนะที่เลือก: 🚶 พบกันที่จุดหมายปลายทาง - ฿${activeHourlyRate}/ชม.]`;
+        vehicleNote = `[ยานพาหนะที่เลือก: 🚶 พบกันที่จุดหมายปลายทาง]`;
       }
+
+      const distanceSummaryNote = hasCalculatedDistance
+        ? `[ระยะทางรวม: ${totalDistanceKm} กม. (ค่าระยะทาง ฿${distanceFee} จากจุดเริ่มต้นผู้ช่วย: ${companionLocation?.name || "พิกัดผู้ช่วย"})]`
+        : "";
 
       const combinedDetails = [
         customCategory ? `[ประเภทธุระระบุเอง: ${customCategory}]` : "",
         vehicleNote,
+        distanceSummaryNote,
         errandDetails,
       ]
         .filter(Boolean)
@@ -452,6 +506,14 @@ export function useBookingForm(companionId: string) {
     handleSelectVehicle,
     isPrefilled,
     totalPrice,
+    vehicleBaseFee,
+    distanceFee,
+    totalDistanceKm,
+    leg1Km,
+    leg2Km,
+    hasCalculatedDistance,
+    companionLocation,
+    companionLocationName: companionLocation?.name || "",
     categoryId,
     customCategory,
     errandTitle,
