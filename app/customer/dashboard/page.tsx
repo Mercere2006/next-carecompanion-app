@@ -355,14 +355,16 @@ export default function CustomerDashboard() {
                             <strong className="text-sm text-gray-900 block">
                               {booking.companion?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
                             </strong>
-                            {booking.companion?.phone && (
+                            {booking.companion?.phone ? (
                               <a
                                 href={`tel:${booking.companion.phone}`}
-                                className="text-xs text-emerald-700 font-semibold hover:underline flex items-center gap-1"
+                                className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-lg bg-emerald-100/90 text-emerald-800 hover:bg-emerald-200 text-xs font-bold transition shadow-2xs"
                               >
-                                <Phone className="w-3 h-3" />
-                                {booking.companion.phone}
+                                <Phone className="w-3.5 h-3.5 text-emerald-700" />
+                                โทร {booking.companion.phone}
                               </a>
+                            ) : (
+                              <span className="text-xs text-gray-400 block mt-0.5">ไม่มีข้อมูลเบอร์โทร</span>
                             )}
                           </div>
                         </div>

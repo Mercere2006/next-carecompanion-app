@@ -79,6 +79,19 @@ export default async function CompanionDetailPage({
     isAdmin = isAdmin || prof?.role === 'admin' || currentUser.user_metadata?.role === 'admin';
   }
 
+  // Check if current user has an active/completed booking with this companion
+  let hasBookedCompanion = false;
+  if (currentUser) {
+    const { data: userBooking } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('customer_id', currentUser.id)
+      .eq('companion_id', id)
+      .limit(1)
+      .maybeSingle();
+    hasBookedCompanion = Boolean(userBooking);
+  }
+
   // Try to load companion from Supabase
   let companion: CompanionCardData | null = null;
   const { data } = await supabase
@@ -186,7 +199,7 @@ export default async function CompanionDetailPage({
                   โหมดผู้เยี่ยมชม (Guest View)
                 </h4>
                 <p className="text-xs text-amber-900/80 mt-0.5">
-                  หมายเลขโทรศัพท์ หมายเลขทะเบียนรถ และรีวิวจากลูกค้าฉบับเต็มถูกปิดบังไว้ เพื่อความเป็นส่วนตัวและความปลอดภัย
+                  หมายเลขทะเบียนรถ และรีวิวจากลูกค้าฉบับเต็มถูกปิดบังไว้ เพื่อความเป็นส่วนตัวและความปลอดภัย (หมายเลขโทรศัพท์จะแสดงเมื่อคุณจองผู้ช่วยแล้วเท่านั้น)
                 </p>
               </div>
             </div>
@@ -710,26 +723,21 @@ export default async function CompanionDetailPage({
                     </div>
                   )}
 
-                  {/* Contact Phone (Privacy Gated) */}
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-gray-500 font-medium">
-                      <Phone className="w-3.5 h-3.5 text-indigo-600" />
-                      เบอร์ติดต่อ:
-                    </span>
-                    {currentUser ? (
-                      <a
-                        href={`tel:${companion.profile?.phone || ''}`}
-                        className="font-bold text-emerald-700 hover:underline flex items-center gap-1"
-                      >
-                        {companion.profile?.phone || 'ไม่ระบุเบอร์'}
-                      </a>
-                    ) : (
-                      <span className="font-mono text-gray-400 flex items-center gap-1">
-                        {maskPhoneNumber(companion.profile?.phone)}
-                        <Lock className="w-3 h-3 text-amber-600 ml-0.5" />
+                  {/* Contact Phone: แสดงเฉพาะเมื่อผู้ใช้ได้ทำการจองผู้ช่วยท่านนี้แล้ว (หรือเป็น Admin/เจ้าของโปรไฟล์) */}
+                  {(hasBookedCompanion || isAdmin || (currentUser && currentUser.id === companion.id)) && companion.profile?.phone && (
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-emerald-800 font-medium text-xs">
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                        เบอร์ติดต่อผู้ช่วย:
                       </span>
-                    )}
-                  </div>
+                      <a
+                        href={`tel:${companion.profile.phone}`}
+                        className="font-bold text-emerald-700 hover:underline flex items-center gap-1 text-xs sm:text-sm"
+                      >
+                        {companion.profile.phone}
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 {companion.is_suspended ? (
