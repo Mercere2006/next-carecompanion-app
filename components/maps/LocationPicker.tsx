@@ -149,7 +149,7 @@ export default function LocationPicker({
           : 'bg-slate-50/80 border-gray-200'
       }`}
     >
-      <div className="flex items-center justify-between gap-2 min-h-[26px]">
+      <div className="flex items-center justify-between gap-2 min-h-[26px] flex-wrap">
         <label className="flex items-center gap-2 text-sm font-bold text-gray-800 min-w-0">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -166,34 +166,48 @@ export default function LocationPicker({
           <span className="text-[11px] font-semibold bg-gray-200 text-gray-600 px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">
             ไม่เปิดใช้งาน
           </span>
-        ) : allowCurrentLocation ? (
-          <button
-            type="button"
-            disabled={isLocating}
-            onClick={handleUseCurrentLocation}
-            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline disabled:opacity-60 flex items-center gap-1 transition cursor-pointer shrink-0 whitespace-nowrap"
-          >
-            {isLocating ? (
+        ) : (
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {allowCurrentLocation && (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                กำลังระบุสถานที่...
-              </>
-            ) : (
-              <>
-                <Navigation className="w-3.5 h-3.5" />
-                ใช้ตำแหน่งปัจจุบัน
+                <button
+                  type="button"
+                  disabled={isLocating}
+                  onClick={handleUseCurrentLocation}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline disabled:opacity-60 flex items-center gap-1 transition cursor-pointer shrink-0 whitespace-nowrap"
+                >
+                  {isLocating ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      กำลังระบุ...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="w-3.5 h-3.5" />
+                      ใช้ตำแหน่งปัจจุบัน
+                    </>
+                  )}
+                </button>
+                <span className="text-gray-300 text-xs select-none">|</span>
               </>
             )}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowMapModal(true)}
-            className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 transition cursor-pointer shrink-0 whitespace-nowrap"
-          >
-            <MapPin className="w-3.5 h-3.5 text-rose-500" />
-            ปักหมุดบน Google Map
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowMapModal(true)}
+              className={`text-xs font-semibold hover:underline flex items-center gap-1 transition cursor-pointer shrink-0 whitespace-nowrap ${
+                pinColor === 'green'
+                  ? 'text-emerald-700 hover:text-emerald-800'
+                  : 'text-rose-600 hover:text-rose-700'
+              }`}
+            >
+              <MapPin
+                className={`w-3.5 h-3.5 ${
+                  pinColor === 'green' ? 'text-emerald-600' : 'text-rose-500'
+                }`}
+              />
+              ปักหมุดบนแผนที่
+            </button>
+          </div>
         )}
       </div>
 
@@ -315,6 +329,8 @@ export default function LocationPicker({
         initialAddress={address}
         initialLat={lat}
         initialLng={lng}
+        title={label}
+        pinColor={pinColor}
         onConfirm={(placeName, pLat, pLng) => {
           onAddressChange(placeName);
           onCoordinatesChange(pLat, pLng);

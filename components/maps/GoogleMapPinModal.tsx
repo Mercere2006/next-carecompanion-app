@@ -11,6 +11,8 @@ interface GoogleMapPinModalProps {
   initialLat?: number | null;
   initialLng?: number | null;
   initialAddress?: string;
+  title?: string;
+  pinColor?: 'green' | 'red';
 }
 
 export default function GoogleMapPinModal({
@@ -20,7 +22,10 @@ export default function GoogleMapPinModal({
   initialLat,
   initialLng,
   initialAddress,
+  title,
+  pinColor = 'red',
 }: GoogleMapPinModalProps) {
+  const isGreen = pinColor === 'green';
   const DEFAULT_LAT = 13.7563;
   const DEFAULT_LNG = 100.5018;
 
@@ -98,18 +103,32 @@ export default function GoogleMapPinModal({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
-              <MapPin className="w-5 h-5 fill-rose-500 text-rose-600" />
+            <div
+              className={`w-9 h-9 rounded-2xl flex items-center justify-center shadow-xs ${
+                isGreen ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+              }`}
+            >
+              <MapPin
+                className={`w-5 h-5 ${
+                  isGreen ? 'fill-emerald-500 text-emerald-600' : 'fill-rose-500 text-rose-600'
+                }`}
+              />
             </div>
             <div>
               <h3 className="font-bold text-base text-gray-900 flex items-center gap-2">
                 ปักหมุดบน Google Map
-                <span className="text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full">
-                  จุดหมายปลายทาง
+                <span
+                  className={`text-[11px] font-semibold border px-2 py-0.5 rounded-full ${
+                    isGreen
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-rose-50 text-rose-600 border-rose-200'
+                  }`}
+                >
+                  {title || (isGreen ? 'จุดรับผู้เดินทาง' : 'จุดหมายปลายทาง')}
                 </span>
               </h3>
               <p className="text-xs text-gray-500">
-                ค้นหาสถานที่ หรือเลือกพิกัดจุดหมายแล้วกดยืนยันเพื่อปักหมุด
+                ค้นหาสถานที่ หรือเลือกพิกัดแล้วกดยืนยันเพื่อปักหมุด
               </p>
             </div>
           </div>
@@ -133,7 +152,11 @@ export default function GoogleMapPinModal({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="ค้นหาสถานที่ เช่น มหาวิทยาลัยสยาม, รพ.ศิริราช, สยามพารากอน..."
-                className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                className={`w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 text-sm bg-white text-gray-900 ${
+                  isGreen
+                    ? 'focus:ring-emerald-500 focus:border-emerald-500'
+                    : 'focus:ring-rose-500 focus:border-rose-500'
+                }`}
               />
               {searchQuery && (
                 <button
@@ -157,11 +180,21 @@ export default function GoogleMapPinModal({
                     key={idx}
                     type="button"
                     onClick={() => handleSelectPlace(item)}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-rose-50 text-gray-800 transition flex items-start gap-2.5 cursor-pointer group"
+                    className={`w-full text-left p-2.5 rounded-xl text-gray-800 transition flex items-start gap-2.5 cursor-pointer group ${
+                      isGreen ? 'hover:bg-emerald-50' : 'hover:bg-rose-50'
+                    }`}
                   >
-                    <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                    <MapPin
+                      className={`w-4 h-4 shrink-0 mt-0.5 group-hover:scale-110 transition-transform ${
+                        isGreen ? 'text-emerald-500' : 'text-rose-500'
+                      }`}
+                    />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-bold text-gray-900 group-hover:text-rose-700 flex items-center justify-between">
+                      <div
+                        className={`text-sm font-bold text-gray-900 flex items-center justify-between ${
+                          isGreen ? 'group-hover:text-emerald-700' : 'group-hover:text-rose-700'
+                        }`}
+                      >
                         <span>{item.name}</span>
                         <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-slate-100 text-gray-600">
                           {item.category}
@@ -189,7 +222,11 @@ export default function GoogleMapPinModal({
             {/* Overlay Pin Indicator */}
             {selectedName && (
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 pointer-events-none">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span
+                  className={`w-2.5 h-2.5 rounded-full animate-ping ${
+                    isGreen ? 'bg-emerald-500' : 'bg-rose-500'
+                  }`}
+                />
                 <span className="text-xs font-bold text-gray-800">
                   จุดหมุด: {selectedName}
                 </span>
@@ -201,7 +238,9 @@ export default function GoogleMapPinModal({
               href={googleMapsExternalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-700 hover:text-rose-700 text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 shadow-md flex items-center gap-1.5 transition"
+              className={`absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 shadow-md flex items-center gap-1.5 transition ${
+                isGreen ? 'hover:text-emerald-700' : 'hover:text-rose-700'
+              }`}
             >
               เปิดใน Google Maps เต็มจอ
               <ExternalLink className="w-3.5 h-3.5" />
@@ -222,7 +261,11 @@ export default function GoogleMapPinModal({
             type="button"
             disabled={!selectedName}
             onClick={handleConfirm}
-            className="px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-rose-600/20 transition flex items-center gap-2 cursor-pointer"
+            className={`px-5 py-2.5 text-xs sm:text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer ${
+              isGreen
+                ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+            }`}
           >
             <Check className="w-4 h-4" />
             ยืนยันปักหมุดตำแหน่งนี้
