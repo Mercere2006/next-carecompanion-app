@@ -3,17 +3,60 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Bell, Check, Calendar, ArrowRight, Clock } from 'lucide-react';
+import {
+  Bell,
+  Check,
+  Calendar,
+  ArrowRight,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Sparkles,
+  ShieldAlert,
+} from 'lucide-react';
 import { formatPrice, formatThaiDate } from '@/lib/utils';
+import {
+  getSystemNotifications,
+  markSystemNotificationRead,
+  markAllSystemNotificationsRead,
+  SystemNotification,
+} from '@/lib/notifications';
+
+export type NotificationType =
+  | 'booking'
+  | 'verification_pending'
+  | 'verification_approved'
+  | 'verification_rejected'
+  | 'system';
 
 export interface BookingNotification {
   id: string;
+  type?: NotificationType;
   errand_title: string;
   appointment_date: string;
   start_time: string;
   total_price: number;
   status: string;
   created_at: string;
+  link?: string;
+  customer?: {
+    full_name?: string | null;
+    avatar_url?: string | null;
+    phone?: string | null;
+  } | null;
+}
+
+export interface UnifiedNotificationItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message?: string;
+  appointment_date?: string;
+  start_time?: string;
+  total_price?: number;
+  status?: string;
+  created_at: string;
+  link?: string;
   customer?: {
     full_name?: string | null;
     avatar_url?: string | null;
@@ -44,7 +87,7 @@ function getRelativeTime(dateString: string): string {
 export default function NotificationBell({ userId }: NotificationBellProps) {
   const router = useRouter();
   const supabase = createClient();
-  const [notifications, setNotifications] = useState<BookingNotification[]>([]);
+  const [notifications, setNotifications] = useState<UnifiedNotificationItem[]>([]);
   const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,23 +106,27 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     }
   }, [storageKey]);
 
-  const saveStoredReadIds = useCallback((ids: Set<string>) => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(Array.from(ids)));
-    } catch (e) {
-      console.error('Error saving read notifications:', e);
-    }
-  }, [storageKey]);
+  const saveStoredReadIds = useCallback(
+    (ids: Set<string>) => {
+      if (typeof window === 'undefined') return;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(ids)));
+      } catch (e) {
+        console.error('Error saving read notifications:', e);
+      }
+    },
+    [storageKey]
+  );
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
 
     if (userId.startsWith('demo-')) {
-      const mockData: BookingNotification[] = [
+      const mockBookings: UnifiedNotificationItem[] = [
         {
           id: 'bk-demo-1',
-          errand_title: 'พบแพทย์ตามนัดและช่วยพาเดิน แผนกอายุรกรรม',
+          type: 'booking',
+          title: 'พบแพทย์ตามนัดและช่วยพาเดิน แผนกอายุรกรรม',
           appointment_date: '2026-09-22',
           start_time: '09:00:00',
           total_price: 750,
@@ -93,7 +140,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         },
         {
           id: 'bk-demo-2',
-          errand_title: 'ติดต่อทำธุรกรรมและเปิดบัญชี ธนาคารกรุงไทย',
+          type: 'booking',
+          title: 'ติดต่อทำธุรกรรมและเปิดบัญชี ธนาคารกรุงไทย',
           appointment_date: '2026-09-23',
           start_time: '13:30:00',
           total_price: 500,
@@ -106,11 +154,29 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           },
         },
       ];
-      setNotifications(mockData);
+
+      // Also read any custom system notifications for demo user
+      const sysNotifs = getSystemNotifications(userId).map((s) => ({
+        id: s.id,
+        type: s.type,
+        title: s.title,
+        message: s.message,
+        created_at: s.created_at,
+        link: s.link || '/companion/dashboard',
+      }));
+
+      const combined = [...sysNotifs, ...mockBookings].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setNotifications(combined);
       const storedRead = getStoredReadIds();
       const pendingUnread = new Set<string>();
-      mockData.forEach((item) => {
-        if (!storedRead.has(item.id)) pendingUnread.add(item.id);
+      combined.forEach((item) => {
+        if (!storedRead.has(item.id)) {
+          if (item.type === 'booking' && item.status !== 'pending') return;
+          pendingUnread.add(item.id);
+        }
       });
       setUnreadIds(pendingUnread);
       setLoading(false);
@@ -118,7 +184,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     }
 
     try {
-      const { data, error } = await supabase
+      // 1. Fetch bookings for companion
+      const { data: bookingData, error: bookingErr } = await supabase
         .from('bookings')
         .select(`
           id,
@@ -134,20 +201,108 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (!error && data) {
-        const list = data as unknown as BookingNotification[];
-        setNotifications(list);
+      const items: UnifiedNotificationItem[] = [];
 
-        const storedRead = getStoredReadIds();
-        // Count unread: pending bookings whose ID is not yet in storedRead
-        const pendingUnread = new Set<string>();
-        list.forEach((item) => {
-          if (item.status === 'pending' && !storedRead.has(item.id)) {
-            pendingUnread.add(item.id);
-          }
+      if (!bookingErr && bookingData) {
+        bookingData.forEach((b: any) => {
+          items.push({
+            id: b.id,
+            type: 'booking',
+            title: b.errand_title,
+            appointment_date: b.appointment_date,
+            start_time: b.start_time,
+            total_price: b.total_price,
+            status: b.status,
+            created_at: b.created_at,
+            customer: b.customer,
+            link: '/companion/dashboard',
+          });
         });
-        setUnreadIds(pendingUnread);
       }
+
+      // 2. Fetch companion profile verification status
+      const { data: compProfile } = await supabase
+        .from('companion_profiles')
+        .select('id, verification_status, updated_at, is_suspended, suspension_reason')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (compProfile) {
+        const verifStatus = compProfile.verification_status;
+        const updatedAt = compProfile.updated_at || new Date().toISOString();
+
+        if (verifStatus === 'pending') {
+          items.push({
+            id: `comp-verif-pending-${userId}`,
+            type: 'verification_pending',
+            title: 'กรุณารอการอนุมัติ',
+            message:
+              'ระบบได้รับข้อมูลการสมัครเป็น Companion ของคุณแล้ว ขณะนี้อยู่ระหว่างการตรวจสอบจากผู้ดูแลระบบ กรุณารอการอนุมัติ',
+            created_at: updatedAt,
+            link: '/companion/dashboard',
+          });
+        } else if (verifStatus === 'verified') {
+          // Unique ID includes updated_at so companion is notified whenever newly approved
+          items.push({
+            id: `comp-verif-verified-${userId}-${updatedAt.slice(0, 19)}`,
+            type: 'verification_approved',
+            title: 'ยินดีด้วย! บัญชีได้รับการอนุมัติแล้ว 🎉',
+            message:
+              'บัญชี Companion ของคุณผ่านการตรวจสอบจากผู้ดูแลระบบเรียบร้อยแล้ว คุณสามารถเปิดรับงานและให้บริการลูกค้าได้ทันที',
+            created_at: updatedAt,
+            link: '/companion/dashboard',
+          });
+        } else if (verifStatus === 'rejected') {
+          items.push({
+            id: `comp-verif-rejected-${userId}-${updatedAt.slice(0, 19)}`,
+            type: 'verification_rejected',
+            title: 'ผลการตรวจสอบข้อมูลการสมัคร',
+            message:
+              'ข้อมูลการสมัคร Companion ของคุณไม่ผ่านการอนุมัติ กรุณาตรวจสอบข้อมูลและเอกสารในหน้าจัดการโปรไฟล์ และส่งข้อมูลใหม่อีกครั้ง',
+            created_at: updatedAt,
+            link: '/companion/profile',
+          });
+        }
+      }
+
+      // 3. Read custom system notifications from local storage helper
+      const localSys = getSystemNotifications(userId);
+      localSys.forEach((sys) => {
+        // Prevent duplicate IDs
+        if (!items.some((i) => i.id === sys.id)) {
+          items.push({
+            id: sys.id,
+            type: sys.type,
+            title: sys.title,
+            message: sys.message,
+            created_at: sys.created_at,
+            link: sys.link || '/companion/dashboard',
+          });
+        }
+      });
+
+      // Sort by latest created_at descending
+      items.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setNotifications(items);
+
+      // Determine unread items
+      const storedRead = getStoredReadIds();
+      const currentUnread = new Set<string>();
+      items.forEach((item) => {
+        if (!storedRead.has(item.id)) {
+          if (item.type === 'booking') {
+            if (item.status === 'pending') {
+              currentUnread.add(item.id);
+            }
+          } else {
+            currentUnread.add(item.id);
+          }
+        }
+      });
+      setUnreadIds(currentUnread);
     } catch (err) {
       console.error('Error fetching notifications:', err);
     } finally {
@@ -157,17 +312,24 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
 
   // Initial load and real-time subscription
   useEffect(() => {
-    async function init() {
-      await fetchNotifications();
-    }
-    init();
+    fetchNotifications();
+
+    // Listen for custom cross-tab or local window updates
+    const handleCustomUpdate = () => {
+      fetchNotifications();
+    };
+    window.addEventListener('carecompanion_notification_update', handleCustomUpdate);
+    window.addEventListener('storage', handleCustomUpdate);
 
     if (userId.startsWith('demo-')) {
-      return;
+      return () => {
+        window.removeEventListener('carecompanion_notification_update', handleCustomUpdate);
+        window.removeEventListener('storage', handleCustomUpdate);
+      };
     }
 
-    // Listen for new booking inserts or status changes with unique channel ID
-    const channelId = `companion-notif-${userId}-${Math.random().toString(36).substring(2, 7)}`;
+    // Listen for new booking inserts or status changes, and companion_profiles updates
+    const channelId = `notif-channel-${userId}-${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
       .channel(channelId)
       .on(
@@ -182,10 +344,24 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           fetchNotifications();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'companion_profiles',
+          filter: `id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('carecompanion_notification_update', handleCustomUpdate);
+      window.removeEventListener('storage', handleCustomUpdate);
     };
   }, [userId, supabase, fetchNotifications]);
 
@@ -209,21 +385,29 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     const currentStored = getStoredReadIds();
     notifications.forEach((item) => currentStored.add(item.id));
     saveStoredReadIds(currentStored);
+    markAllSystemNotificationsRead(userId);
     setUnreadIds(new Set());
   };
 
   // Click on a notification item
-  const handleItemClick = (item: BookingNotification) => {
+  const handleItemClick = (item: UnifiedNotificationItem) => {
     const currentStored = getStoredReadIds();
     currentStored.add(item.id);
     saveStoredReadIds(currentStored);
+    markSystemNotificationRead(userId, item.id);
+
     setUnreadIds((prev) => {
       const updated = new Set(prev);
       updated.delete(item.id);
       return updated;
     });
+
     setIsOpen(false);
-    router.push('/companion/dashboard');
+    if (item.link) {
+      router.push(item.link);
+    } else {
+      router.push('/companion/dashboard');
+    }
   };
 
   const unreadCount = unreadIds.size;
@@ -234,7 +418,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        aria-label="การแจ้งเตือนคำขอการจอง"
+        aria-label="การแจ้งเตือน"
         className={`relative p-2.5 rounded-2xl transition-all cursor-pointer ${
           isOpen
             ? 'bg-emerald-100 text-emerald-800'
@@ -262,13 +446,15 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
               </div>
               <div>
                 <h3 className="font-extrabold text-sm text-gray-900 leading-tight">
-                  การแจ้งเตือนคำขอ
+                  การแจ้งเตือน
                 </h3>
                 <p className="text-[11px] text-gray-500">
                   {unreadCount > 0 ? (
-                    <span className="text-emerald-700 font-bold">{unreadCount} คำขอใหม่ที่ต้องอ่าน</span>
+                    <span className="text-emerald-700 font-bold">
+                      {unreadCount} ข้อความใหม่ที่ยังไม่ได้อ่าน
+                    </span>
                   ) : (
-                    'คำขอการจองทั้งหมด'
+                    'การแจ้งเตือนทั้งหมด'
                   )}
                 </p>
               </div>
@@ -297,6 +483,140 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             ) : notifications.length > 0 ? (
               notifications.map((item) => {
                 const isUnread = unreadIds.has(item.id);
+
+                // Render Verification Pending Notification
+                if (item.type === 'verification_pending') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-amber-50/50 cursor-pointer ${
+                        isUnread ? 'bg-amber-50/30' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700">
+                          <Clock className="w-5 h-5 animate-pulse" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-amber-950 truncate flex items-center gap-1.5">
+                            <span>⏳</span> {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                          {item.message}
+                        </p>
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            รอการตรวจสอบจากแอดมิน
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Verification Approved Notification
+                if (item.type === 'verification_approved') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-emerald-50/60 cursor-pointer ${
+                        isUnread ? 'bg-emerald-50/30' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700">
+                          <Sparkles className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-emerald-950 truncate flex items-center gap-1.5">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                          {item.message}
+                        </p>
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            อนุมัติแล้ว (พร้อมรับงาน)
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Verification Rejected Notification
+                if (item.type === 'verification_rejected') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-rose-50/60 cursor-pointer ${
+                        isUnread ? 'bg-rose-50/30' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-700">
+                          <XCircle className="w-5 h-5 text-rose-600" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-rose-950 truncate">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                          {item.message}
+                        </p>
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            <ShieldAlert className="w-3 h-3 text-rose-600" />
+                            ไม่ผ่านการอนุมัติ (คลิกเพื่อแก้ไข)
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Booking Request Notification
                 return (
                   <button
                     key={item.id}
@@ -338,16 +658,17 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                       </div>
 
                       <p className="text-xs text-gray-700 font-semibold truncate">
-                        {item.errand_title}
+                        {item.title}
                       </p>
 
                       <div className="flex items-center justify-between pt-1 text-[11px]">
                         <span className="text-gray-500 flex items-center gap-1">
                           <Calendar className="w-3 h-3 text-gray-400" />
-                          {formatThaiDate(item.appointment_date)} {item.start_time?.slice(0, 5)} น.
+                          {formatThaiDate(item.appointment_date || '')}{' '}
+                          {item.start_time?.slice(0, 5)} น.
                         </span>
                         <span className="font-bold text-emerald-700">
-                          {formatPrice(item.total_price)}
+                          {formatPrice(item.total_price || 0)}
                         </span>
                       </div>
 
@@ -373,9 +694,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                 <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
                   <Bell className="w-6 h-6 text-emerald-500 opacity-60" />
                 </div>
-                <h4 className="font-bold text-sm text-gray-800">ยังไม่มีคำขอการจองใหม่</h4>
+                <h4 className="font-bold text-sm text-gray-800">ยังไม่มีการแจ้งเตือนใหม่</h4>
                 <p className="text-xs text-gray-400 max-w-[220px] mx-auto">
-                  เมื่อลูกค้าส่งคำขอจองบริการมาหาคุณ ระบบจะแจ้งเตือนให้ทราบที่นี่ทันที
+                  เมื่อมีคำขอจองบริการหรือการอัปเดตสถานะบัญชี ระบบจะแจ้งเตือนให้ทราบที่นี่ทันที
                 </p>
               </div>
             )}

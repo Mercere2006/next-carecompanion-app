@@ -6,8 +6,9 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { BookingDetailData, CompanionProfile } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
-import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play, CheckCheck, Star, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play, CheckCheck, Star, AlertTriangle, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import Swal from 'sweetalert2';
 
 export default function CompanionDashboard() {
   const supabase = createClient();
@@ -49,6 +50,49 @@ export default function CompanionDashboard() {
 
       if (compProfile) {
         setCompanionProfile(compProfile as CompanionProfile);
+
+        // Verification approval celebration check
+        if (typeof window !== 'undefined') {
+          const lastSeenKey = `carecompanion_last_status_${user.id}`;
+          const lastSeenStatus = localStorage.getItem(lastSeenKey);
+          const shownApprovalKey = `carecompanion_shown_approval_${user.id}`;
+          const alreadyShown = localStorage.getItem(shownApprovalKey);
+
+          if (
+            compProfile.verification_status === 'verified' &&
+            lastSeenStatus === 'pending' &&
+            !alreadyShown
+          ) {
+            localStorage.setItem(shownApprovalKey, 'true');
+            Swal.fire({
+              title: 'ยินดีด้วย! บัญชีได้รับการอนุมัติแล้ว 🎉',
+              html: `
+                <div class="text-left space-y-3 text-sm text-gray-600">
+                  <p class="font-medium text-gray-800">
+                    บัญชี Companion ของคุณได้รับการอนุมัติจากผู้ดูแลระบบเรียบร้อยแล้ว
+                  </p>
+                  <div class="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-900 text-xs leading-relaxed space-y-1">
+                    <div class="font-bold flex items-center gap-1.5 text-emerald-800">
+                      <span>✓</span> สถานะ: ได้รับการอนุมัติแล้ว (พร้อมรับงาน)
+                    </div>
+                    <p>
+                      ระบบได้เปิดสถานะพร้อมให้บริการให้คุณแล้ว คุณสามารถเริ่มรับงานและดูแลลูกค้าได้ทันที
+                    </p>
+                  </div>
+                </div>
+              `,
+              icon: 'success',
+              confirmButtonColor: '#059669',
+              confirmButtonText: 'เข้าสู่แดชบอร์ดงาน',
+              customClass: {
+                popup: 'rounded-3xl shadow-2xl font-sans',
+                confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+              },
+            });
+          }
+
+          localStorage.setItem(lastSeenKey, compProfile.verification_status || 'none');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -57,12 +101,70 @@ export default function CompanionDashboard() {
     }
   }, [supabase]);
 
+  // Check if user was redirected from application submission (?submitted=1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('submitted') === '1') {
+      Swal.fire({
+        title: 'กรุณารอการอนุมัติ',
+        html: `
+          <div class="text-left space-y-3 text-sm text-gray-600">
+            <p class="font-medium text-gray-800">
+              ระบบได้รับข้อมูลการสมัครเป็น Companion ของคุณเรียบร้อยแล้ว
+            </p>
+            <div class="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1">
+              <div class="font-bold flex items-center gap-1.5 text-amber-800">
+                <span>⏳</span> สถานะปัจจุบัน: รอการตรวจสอบจากผู้ดูแลระบบ
+              </div>
+              <p>
+                เจ้าหน้าที่แอดมินกำลังตรวจสอบข้อมูลและรูปถ่ายสแกนใบหน้าของคุณ เพื่อความปลอดภัยและรักษามาตรฐานการให้บริการ
+              </p>
+            </div>
+            <p class="text-xs text-gray-500">
+              เมื่อได้รับการอนุมัติจากแอดมินแล้ว ระบบจะส่งการแจ้งเตือนไปยังคุณ และเปิดสถานะพร้อมรับงานให้โดยอัตโนมัติครับ
+            </p>
+          </div>
+        `,
+        icon: 'info',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'รับทราบ',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
+      window.history.replaceState({}, '', '/companion/dashboard');
+    }
+  }, []);
+
   useEffect(() => {
     async function init() {
       await fetchCompanionBookings();
     }
     init();
-  }, [fetchCompanionBookings]);
+
+    // Listen for realtime companion_profiles updates (e.g. admin approval)
+    const channelId = `comp-dash-${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'companion_profiles',
+        },
+        () => {
+          fetchCompanionBookings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchCompanionBookings, supabase]);
 
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     if (companionProfile?.is_suspended && newStatus === 'accepted') {
@@ -117,6 +219,83 @@ export default function CompanionDashboard() {
             ⚙️ จัดการข้อมูลโปรไฟล์ผู้ช่วย
           </Link>
         </div>
+
+{/* Pending Verification Status Banner */}
+        {companionProfile?.verification_status === 'pending' && !companionProfile?.is_suspended && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 sm:p-6 mb-6 sm:mb-8 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+                  <Clock className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-black text-amber-950">
+                      ข้อมูลการสมัครของคุณอยู่ระหว่างการตรวจสอบ (กรุณารอการอนุมัติ)
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                      รออนุมัติ
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-amber-900/90 leading-relaxed">
+                    ระบบได้รับข้อมูลโปรไฟล์และหลักฐานยืนยันตัวตนของคุณเรียบร้อยแล้ว เจ้าหน้าที่แอดมินกำลังดำเนินการตรวจสอบความถูกต้อง เมื่อได้รับการอนุมัติแล้ว ระบบจะส่งการแจ้งเตือนและเปิดระบบรับงานให้คุณทันที
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/companion/profile"
+                className="shrink-0 px-4 py-2.5 rounded-xl bg-white border border-amber-300 text-amber-900 text-xs font-bold hover:bg-amber-100 transition shadow-2xs"
+              >
+                ดูข้อมูลโปรไฟล์
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Verified Status Banner */}
+        {companionProfile?.verification_status === 'verified' && !companionProfile?.is_suspended && (
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 mb-6 sm:mb-8 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-emerald-950">
+                  บัญชีของคุณได้รับการอนุมัติแล้ว (พร้อมรับงาน)
+                </p>
+                <p className="text-[11px] sm:text-xs text-emerald-700">
+                  คุณผ่านการตรวจสอบจากผู้ดูแลระบบเรียบร้อยแล้ว พร้อมให้บริการแก่ลูกค้า CareCompanion
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              ✓ อนุมัติแล้ว
+            </span>
+          </div>
+        )}
+
+        {/* Rejected Status Banner */}
+        {companionProfile?.verification_status === 'rejected' && !companionProfile?.is_suspended && (
+          <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 sm:p-5 mb-6 sm:mb-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-extrabold text-rose-950">
+                  ข้อมูลการสมัครของคุณไม่ผ่านการอนุมัติ
+                </p>
+                <p className="text-xs text-rose-800 mt-0.5">
+                  กรุณาตรวจสอบข้อมูลและรูปถ่ายในหน้าจัดการโปรไฟล์ และส่งข้อมูลใหม่อีกครั้ง
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/companion/profile"
+              className="shrink-0 px-4 py-2 rounded-xl bg-white border border-rose-300 text-rose-800 text-xs font-bold hover:bg-rose-100 transition shadow-2xs"
+            >
+              แก้ไขข้อมูลและส่งใหม่
+            </Link>
+          </div>
+        )}
 
         {/* Suspension Banner */}
         {companionProfile?.is_suspended && (

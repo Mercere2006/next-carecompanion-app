@@ -9,6 +9,7 @@ import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
 import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X, Clock, MapPin, Navigation, Car, Bike, FileText, ExternalLink, Star, Briefcase, Award, Shield, Sparkles } from 'lucide-react';
 import { extractCleanBio, parseVehiclesList } from '@/lib/vehicleUtils';
 import Swal from 'sweetalert2';
+import { addSystemNotification } from '@/lib/notifications';
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
@@ -173,7 +174,37 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      alert(`อัปเดตสถานะเป็น ${status === 'verified' ? 'อนุมัติและเปิดรับงานแล้ว' : 'ปฏิเสธ'} เรียบร้อย`);
+      // Add in-app notification for the companion
+      if (status === 'verified') {
+        addSystemNotification(companionId, {
+          id: `comp-verif-verified-${companionId}-${Date.now()}`,
+          type: 'verification_approved',
+          title: 'ยินดีด้วย! บัญชีได้รับการอนุมัติแล้ว 🎉',
+          message:
+            'บัญชี Companion ของคุณผ่านการตรวจสอบจากผู้ดูแลระบบเรียบร้อยแล้ว คุณสามารถเปิดรับงานและให้บริการลูกค้าได้ทันที',
+          link: '/companion/dashboard',
+        });
+      } else {
+        addSystemNotification(companionId, {
+          id: `comp-verif-rejected-${companionId}-${Date.now()}`,
+          type: 'verification_rejected',
+          title: 'ผลการตรวจสอบข้อมูลการสมัคร',
+          message:
+            'ข้อมูลการสมัคร Companion ของคุณไม่ผ่านการอนุมัติ กรุณาตรวจสอบข้อมูลและเอกสารในหน้าจัดการโปรไฟล์ และส่งข้อมูลใหม่อีกครั้ง',
+          link: '/companion/profile',
+        });
+      }
+
+      // Broadcast update event across tabs/windows
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('carecompanion_notification_update', {
+            detail: { companionId, status },
+          })
+        );
+      }
+
+      alert(`อัปเดตสถานะเป็น ${status === 'verified' ? 'อนุมัติและเปิดรับงานแล้ว' : 'ปฏิเสธ'} เรียบร้อย (ส่งแจ้งเตือนไปยังผู้สมัครแล้ว)`);
       fetchAdminData();
     } catch (err) {
       alert('เกิดข้อผิดพลาด: ' + (err as Error).message);

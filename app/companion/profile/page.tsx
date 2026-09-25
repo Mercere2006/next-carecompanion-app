@@ -26,6 +26,7 @@ import FaceScanStep from '@/components/companion/FaceScanStep';
 import PhoneOtpStep from '@/components/companion/PhoneOtpStep';
 import CompanionDetailsForm from '@/components/companion/CompanionDetailsForm';
 import LockedDetailsOverlay from '@/components/companion/LockedDetailsOverlay';
+import { addSystemNotification } from '@/lib/notifications';
 
 interface ProfileSnapshot {
   titlePrefix: 'นาย' | 'นาง' | 'นางสาว';
@@ -626,9 +627,17 @@ export default function CompanionProfilePage() {
           serviceAreasText,
         });
         isSavingRef.current = true;
+        addSystemNotification(userId, {
+          id: `comp-verif-pending-${userId}`,
+          type: 'verification_pending',
+          title: 'กรุณารอการอนุมัติ',
+          message:
+            'ระบบได้รับข้อมูลการสมัครเป็น Companion ของคุณแล้ว (โหมดทดลองใช้งาน) ขณะนี้อยู่ระหว่างการตรวจสอบจากผู้ดูแลระบบ กรุณารอการอนุมัติ',
+          link: '/companion/dashboard',
+        });
         await Swal.fire({
-          title: 'บันทึกสำเร็จ!',
-          text: 'บันทึกข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว (โหมดทดลองใช้งาน)',
+          title: 'ส่งข้อมูลเรียบร้อย!',
+          text: 'ระบบได้รับข้อมูลการสมัครแล้ว กำลังนำคุณกลับไปยังแดชบอร์ดงาน...',
           icon: 'success',
           confirmButtonColor: '#059669',
           confirmButtonText: 'ไปยังแดชบอร์ดทันที',
@@ -639,7 +648,7 @@ export default function CompanionProfilePage() {
             confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
           },
         });
-        router.push('/companion/dashboard');
+        router.push('/companion/dashboard?submitted=1');
         return;
       }
 
@@ -836,15 +845,26 @@ export default function CompanionProfilePage() {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('profileUpdated'));
       }
+      if (!isAlreadyVerified) {
+        addSystemNotification(userId, {
+          id: `comp-verif-pending-${userId}`,
+          type: 'verification_pending',
+          title: 'กรุณารอการอนุมัติ',
+          message:
+            'ระบบได้รับข้อมูลการสมัครเป็น Companion ของคุณแล้ว ขณะนี้อยู่ระหว่างการตรวจสอบจากผู้ดูแลระบบ กรุณารอการอนุมัติ',
+          link: '/companion/dashboard',
+        });
+      }
+
       await Swal.fire({
         title: isAlreadyVerified ? 'บันทึกสำเร็จ!' : 'ส่งข้อมูลเรียบร้อย!',
         text: isAlreadyVerified
           ? 'บันทึกการแก้ไขข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว'
-          : 'ส่งข้อมูลโปรไฟล์และหลักฐานให้แอดมินตรวจสอบเรียบร้อยแล้ว เมื่อได้รับการอนุมัติ โปรไฟล์ของคุณจะเปิดรับงานทันที',
+          : 'ส่งข้อมูลโปรไฟล์และหลักฐานให้แอดมินตรวจสอบเรียบร้อยแล้ว ระบบกำลังนำคุณกลับไปยังแดชบอร์ดงาน...',
         icon: 'success',
         confirmButtonColor: '#059669',
         confirmButtonText: 'ไปยังแดชบอร์ดงาน',
-        timer: 2500,
+        timer: 2000,
         timerProgressBar: true,
         customClass: {
           popup: 'rounded-3xl shadow-2xl font-sans',
@@ -852,7 +872,7 @@ export default function CompanionProfilePage() {
         },
       });
 
-      router.push('/companion/dashboard');
+      router.push(isAlreadyVerified ? '/companion/dashboard' : '/companion/dashboard?submitted=1');
     } catch (err: unknown) {
       isSavingRef.current = false;
       const postgrestErr = err as { message?: string; details?: string; hint?: string; code?: string };
