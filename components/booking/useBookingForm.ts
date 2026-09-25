@@ -3,7 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Swal from "sweetalert2";
 import { SERVICE_CATEGORIES } from "./constants";
-import { parseVehicleDetails, ParsedVehicleInfo } from "@/lib/vehicleUtils";
+import { parseVehicleDetails, ParsedVehicleInfo, cleanErrandDetails } from "@/lib/vehicleUtils";
 import { MOCK_COMPANIONS } from "@/components/companions/search/constants";
 import { CompanionProfile } from "@/types/database";
 import {
@@ -268,7 +268,7 @@ export function useBookingForm(companionId: string) {
           hadPrefill = true;
         }
         if (rebookPayload.errandDetails) {
-          setErrandDetails(rebookPayload.errandDetails);
+          setErrandDetails(cleanErrandDetails(rebookPayload.errandDetails));
           hadPrefill = true;
         }
         if (rebookPayload.originAddress) {
@@ -341,10 +341,22 @@ export function useBookingForm(companionId: string) {
         "pending_booking_requirements",
         JSON.stringify({
           companionId,
+          categoryId,
           category:
             categoryId === 99
               ? customCategory
               : SERVICE_CATEGORIES.find((c) => c.id === categoryId)?.name || "",
+          errandTitle,
+          errandDetails: cleanErrandDetails(errandDetails),
+          originAddress,
+          originLat,
+          originLng,
+          destinationAddress,
+          destinationLat,
+          destinationLng,
+          appointmentDate,
+          startTime,
+          specialNeeds,
           area: originAddress,
           need: specialNeeds,
         }),
@@ -472,11 +484,13 @@ export function useBookingForm(companionId: string) {
         ? `[ระยะทางรวม: ${totalDistanceKm} กม. (ค่าระยะทาง ฿${distanceFee} จากจุดเริ่มต้นผู้ช่วย: ${companionLocation?.name || "พิกัดผู้ช่วย"})]`
         : "";
 
+      const cleanCustomerNotes = cleanErrandDetails(errandDetails);
+
       const combinedDetails = [
         customCategory ? `[ประเภทธุระระบุเอง: ${customCategory}]` : "",
         vehicleNote,
         distanceSummaryNote,
-        errandDetails,
+        cleanCustomerNotes,
       ]
         .filter(Boolean)
         .join("\n\n")

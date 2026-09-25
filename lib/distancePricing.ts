@@ -14,13 +14,16 @@ export interface CompanionLocation {
 }
 
 // Known Bangkok district coordinate dictionary for automatic mapping
-const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number; name: string }> = {
+export const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number; name: string }> = {
   บางกอกน้อย: { lat: 13.7557, lng: 100.4853, name: "เขตบางกอกน้อย (ใกล้ รพ.ศิริราช)" },
   ศิริราช: { lat: 13.7589, lng: 100.4858, name: "ศิริราช (บางกอกน้อย)" },
+  วิชัยเวช: { lat: 13.7052, lng: 100.3582, name: "รพ.วิชัยเวช (หนองแขม)" },
   ปทุมวัน: { lat: 13.7462, lng: 100.5347, name: "เขตปทุมวัน (สยาม - จุฬาฯ)" },
   สยาม: { lat: 13.7462, lng: 100.5347, name: "สยาม (ปทุมวัน)" },
+  จุฬา: { lat: 13.7328, lng: 100.5312, name: "รพ.จุฬาลงกรณ์ (ปทุมวัน)" },
   พญาไท: { lat: 13.7651, lng: 100.5376, name: "เขตพญาไท (อนุสาวรีย์ชัยฯ)" },
   ราชวิถี: { lat: 13.7651, lng: 100.5376, name: "ราชวิถี (พญาไท)" },
+  รามา: { lat: 13.7667, lng: 100.5284, name: "รพ.รามาธิบดี (พญาไท)" },
   จตุจักร: { lat: 13.8036, lng: 100.5538, name: "เขตจตุจักร (เซ็นทรัลลาดพร้าว)" },
   ลาดพร้าว: { lat: 13.8036, lng: 100.5538, name: "เขตลาดพร้าว" },
   สีลม: { lat: 13.7234, lng: 100.5284, name: "สีลม (บางรัก)" },
@@ -37,7 +40,40 @@ const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number; name: str
   นนทบุรี: { lat: 13.8621, lng: 100.5144, name: "นนทบุรี (เมืองนนทบุรี)" },
   บางแค: { lat: 13.7125, lng: 100.4078, name: "เขตบางแค" },
   พระโขนง: { lat: 13.7022, lng: 100.5997, name: "เขตพระโขนง" },
+  บางกะปิ: { lat: 13.7660, lng: 100.6470, name: "เขตบางกะปิ" },
+  บางนา: { lat: 13.6680, lng: 100.6050, name: "เขตบางนา" },
+  หนองแขม: { lat: 13.7050, lng: 100.3490, name: "เขตหนองแขม" },
+  ตลิ่งชัน: { lat: 13.7760, lng: 100.4570, name: "เขตตลิ่งชัน" },
+  บางพลัด: { lat: 13.7850, lng: 100.5060, name: "เขตบางพลัด" },
 };
+
+/**
+ * Resolves coordinates from given lat/lng or maps from district/address text
+ */
+export function resolveAddressCoordinates(
+  address?: string | null,
+  lat?: number | null,
+  lng?: number | null
+): { lat: number; lng: number; name: string } | null {
+  if (lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng)) && Number(lat) !== 0) {
+    return {
+      lat: Number(lat),
+      lng: Number(lng),
+      name: address || "พิกัดที่ระบุ",
+    };
+  }
+
+  if (address && address.trim()) {
+    const cleanAddr = address.trim();
+    for (const [key, loc] of Object.entries(DISTRICT_COORDINATES)) {
+      if (cleanAddr.includes(key)) {
+        return loc;
+      }
+    }
+  }
+
+  return null;
+}
 
 /**
  * Resolves the companion's current location from profile data or service areas
@@ -190,16 +226,24 @@ export function calculateBookingPricing({
     vehicleBaseFee = 0; // ยังไม่เลือกพาหนะ
   }
 
-  // 2. Check if locations are provided
+  // 2. Check if locations are provided (using coordinates or resolving from district/address text)
+  const resolvedOrigin = resolveAddressCoordinates(originAddress, originLat, originLng);
+  const resolvedDest = resolveAddressCoordinates(destinationAddress, destinationLat, destinationLng);
+
+  const effectiveOriginLat = resolvedOrigin?.lat ?? originLat;
+  const effectiveOriginLng = resolvedOrigin?.lng ?? originLng;
+  const effectiveDestLat = resolvedDest?.lat ?? destinationLat;
+  const effectiveDestLng = resolvedDest?.lng ?? destinationLng;
+
   const hasDestination =
     Boolean(destinationAddress?.trim()) &&
-    destinationLat !== null &&
-    destinationLng !== null;
+    effectiveDestLat !== null &&
+    effectiveDestLng !== null;
 
   const hasOrigin =
     Boolean(originAddress?.trim()) &&
-    originLat !== null &&
-    originLng !== null;
+    effectiveOriginLat !== null &&
+    effectiveOriginLng !== null;
 
   let leg1Km = 0;
   let leg2Km = 0;
@@ -213,8 +257,8 @@ export function calculateBookingPricing({
       leg2Km = calculateDistanceKm(
         companionLoc.lat,
         companionLoc.lng,
-        destinationLat!,
-        destinationLng!
+        effectiveDestLat!,
+        effectiveDestLng!
       );
       totalDistanceKm = leg2Km;
       hasCalculatedDistance = true;
@@ -225,15 +269,15 @@ export function calculateBookingPricing({
       leg1Km = calculateDistanceKm(
         companionLoc.lat,
         companionLoc.lng,
-        originLat!,
-        originLng!
+        effectiveOriginLat!,
+        effectiveOriginLng!
       );
       // Leg 2: Journey from pickup point to destination
       leg2Km = calculateDistanceKm(
-        originLat!,
-        originLng!,
-        destinationLat!,
-        destinationLng!
+        effectiveOriginLat!,
+        effectiveOriginLng!,
+        effectiveDestLat!,
+        effectiveDestLng!
       );
       totalDistanceKm = Math.round((leg1Km + leg2Km) * 10) / 10;
       hasCalculatedDistance = true;

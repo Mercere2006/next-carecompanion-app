@@ -7,12 +7,19 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { BookingDetailData, CompanionCardData } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
-import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw, Flag, Sparkles } from 'lucide-react';
+import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw, Flag, Sparkles, Car } from 'lucide-react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
 import ReportCompanionModal from '@/components/customer/ReportCompanionModal';
 import { MOCK_COMPANIONS } from '@/components/companions/search/constants';
 import { isCompanionAvailableAt } from '@/lib/scheduleUtils';
+import { cleanErrandDetails, parseVehicleDetails } from '@/lib/vehicleUtils';
+import {
+  getCompanionLocation,
+  calculateDistanceKm,
+  resolveAddressCoordinates,
+  CompanionLocation,
+} from '@/lib/distancePricing';
 
 export default function CustomerDashboard() {
   const router = useRouter();
@@ -98,33 +105,78 @@ export default function CustomerDashboard() {
   }, [fetchBookings]);
 
   // Find recommended alternative companions available on that specific date and time (excluding the rejected companion)
+  // Sorted by proximity (closest to customer's pickup point first) to save travel distance & costs
   const getAlternativesForBooking = useCallback(
     (booking: BookingDetailData) => {
       const rejectedId = booking.companion_id;
       const date = booking.appointment_date;
       const time = booking.start_time;
 
-      return allCompanions
-        .filter((c) => {
-          // 1. MUST NOT be the companion who rejected!
-          if (c.id === rejectedId) return false;
-          if (c.is_suspended) return false;
-          // 2. Check schedule availability for date and time
-          return isCompanionAvailableAt(c.available_schedule, c.bio, date, time);
-        })
-        .sort((a, b) => {
-          // Priority 1: Service area matches booking origin address
-          const aAreaMatch = a.service_areas?.some((area) => booking.origin_address.includes(area)) ? 1 : 0;
-          const bAreaMatch = b.service_areas?.some((area) => booking.origin_address.includes(area)) ? 1 : 0;
-          if (bAreaMatch !== aAreaMatch) return bAreaMatch - aAreaMatch;
-          // Priority 2: Rating
-          return (b.rating_avg || 0) - (a.rating_avg || 0);
-        });
+      const pickupCoords = resolveAddressCoordinates(
+        booking.origin_address,
+        booking.origin_lat,
+        booking.origin_lng
+      ) || {
+        lat: 13.7563,
+        lng: 100.5018,
+        name: 'กรุงเทพมหานคร',
+      };
+
+      const availableCompanions = allCompanions.filter((c) => {
+        // 1. MUST NOT be the companion who rejected!
+        if (c.id === rejectedId) return false;
+        if (c.is_suspended) return false;
+        // 2. Check schedule availability for date and time
+        return isCompanionAvailableAt(c.available_schedule, c.bio, date, time);
+      });
+
+      const enriched = availableCompanions.map((c) => {
+        const compLoc = getCompanionLocation(c);
+        const distanceKm = calculateDistanceKm(
+          compLoc.lat,
+          compLoc.lng,
+          pickupCoords.lat,
+          pickupCoords.lng
+        );
+
+        const vParsed = parseVehicleDetails(
+          c.vehicle_type,
+          c.vehicle_model,
+          c.vehicle_plate,
+          c.hourly_rate,
+          c.bio
+        );
+
+        let vehicleSummary = '🚶 พบกันที่จุดหมาย';
+        if (vParsed.hasCar && vParsed.hasMotorcycle) {
+          vehicleSummary = '🚗 รถยนต์ / 🛵 มอเตอร์ไซค์';
+        } else if (vParsed.hasCar) {
+          vehicleSummary = `🚗 ${vParsed.car.model || 'มีรถยนต์ส่วนตัว'}`;
+        } else if (vParsed.hasMotorcycle) {
+          vehicleSummary = `🛵 ${vParsed.motorcycle.model || 'มีมอเตอร์ไซค์'}`;
+        }
+
+        return {
+          ...c,
+          distanceKm,
+          companionLocation: compLoc,
+          vehicleSummary,
+        };
+      });
+
+      // Priority 1: Distance to customer pickup point (closest first - saving travel fees!)
+      // Priority 2: Rating (highest first)
+      return enriched.sort((a, b) => {
+        if (a.distanceKm !== b.distanceKm) {
+          return a.distanceKm - b.distanceKm;
+        }
+        return (b.rating_avg || 0) - (a.rating_avg || 0);
+      });
     },
     [allCompanions]
   );
 
-  // Quick re-booking with chosen alternative companion, preserving original booking inputs
+  // Quick re-booking with chosen alternative companion, preserving original booking inputs with cleaned details
   const handleQuickRebook = (booking: BookingDetailData, targetCompanion: CompanionCardData) => {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(
@@ -134,7 +186,7 @@ export default function CustomerDashboard() {
           categoryId: booking.category_id,
           category: booking.category?.name || '',
           errandTitle: booking.errand_title,
-          errandDetails: booking.errand_details || '',
+          errandDetails: cleanErrandDetails(booking.errand_details),
           originAddress: booking.origin_address,
           originLat: booking.origin_lat,
           originLng: booking.origin_lng,
@@ -394,7 +446,7 @@ export default function CustomerDashboard() {
                                     categoryId: booking.category_id,
                                     category: booking.category?.name || '',
                                     errandTitle: booking.errand_title,
-                                    errandDetails: booking.errand_details || '',
+                                    errandDetails: cleanErrandDetails(booking.errand_details),
                                     originAddress: booking.origin_address,
                                     originLat: booking.origin_lat,
                                     originLng: booking.origin_lng,
@@ -422,7 +474,7 @@ export default function CustomerDashboard() {
                           <div className="pt-3 border-t border-amber-200/90">
                             <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5 mb-2.5">
                               <Sparkles className="w-4 h-4 text-amber-600" />
-                              ผู้ช่วยที่ว่างและพร้อมให้บริการในวันและเวลานี้:
+                              ผู้ช่วยที่ว่างและอยู่ใกล้จุดรับของคุณที่สุด (เรียงตามระยะทางใกล้สุด):
                             </span>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -431,28 +483,48 @@ export default function CustomerDashboard() {
                                   key={alt.id}
                                   className="bg-white rounded-2xl p-3.5 border border-amber-200/90 shadow-2xs flex flex-col justify-between hover:border-amber-400 hover:shadow-xs transition"
                                 >
-                                  <div className="flex items-start gap-2.5">
-                                    <div className="w-10 h-10 rounded-full bg-emerald-100 overflow-hidden shrink-0 flex items-center justify-center font-bold text-emerald-800 text-xs">
-                                      {alt.profile?.avatar_url ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={alt.profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                                      ) : (
-                                        <User className="w-5 h-5" />
-                                      )}
+                                  <div>
+                                    <div className="flex items-start gap-2.5">
+                                      <div className="w-10 h-10 rounded-full bg-emerald-100 overflow-hidden shrink-0 flex items-center justify-center font-bold text-emerald-800 text-xs">
+                                        {alt.profile?.avatar_url ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img src={alt.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                          <User className="w-5 h-5" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-1">
+                                          <strong className="text-xs font-bold text-gray-900 truncate block">
+                                            {alt.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
+                                          </strong>
+                                          <span className="inline-flex items-center text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md shrink-0">
+                                            ★ {alt.rating_avg ? alt.rating_avg.toFixed(1) : '5.0'}
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                                          <span className="truncate">{alt.available_schedule || 'พร้อมให้บริการ'}</span>
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center justify-between gap-1">
-                                        <strong className="text-xs font-bold text-gray-900 truncate block">
-                                          {alt.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
-                                        </strong>
-                                        <span className="inline-flex items-center text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md shrink-0">
-                                          ★ {alt.rating_avg ? alt.rating_avg.toFixed(1) : '5.0'}
+
+                                    {/* Location Proximity & Vehicle Badges */}
+                                    <div className="mt-2.5 space-y-1.5">
+                                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50/90 px-2.5 py-1 rounded-xl border border-emerald-200/60 font-medium">
+                                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        <span className="truncate">
+                                          เริ่มต้น: <strong>{alt.companionLocation.name.split(' (')[0]}</strong>
+                                        </span>
+                                        <span className="text-emerald-700 font-bold ml-auto shrink-0 bg-white/80 px-1.5 py-0.5 rounded-md border border-emerald-100">
+                                          ~{alt.distanceKm} กม.
                                         </span>
                                       </div>
-                                      <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
-                                        <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
-                                        <span className="truncate">{alt.available_schedule || 'พร้อมให้บริการ'}</span>
-                                      </p>
+
+                                      <div className="flex items-center gap-1.5 text-[11px] text-gray-600 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-100 font-medium">
+                                        <Car className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                        <span className="truncate">{alt.vehicleSummary}</span>
+                                      </div>
                                     </div>
                                   </div>
 

@@ -498,3 +498,21 @@ export function formatVehicleDetails(params: {
     primaryHourlyRate: fallbackRate,
   };
 }
+
+/**
+ * Strips out system-generated metadata tags from errand details:
+ * - [ยานพาหนะที่เลือก: ...]
+ * - [ระยะทางรวม: ...]
+ * - [ประเภทธุระระบุเอง: ...]
+ * - Any other bracketed system metadata
+ * Returns only the user's authentic notes/instructions.
+ */
+export function cleanErrandDetails(raw?: string | null): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\[ยานพาหนะที่เลือก:[^\]]*\]\s*/g, '')
+    .replace(/\[ระยะทางรวม:[^\]]*\]\s*/g, '')
+    .replace(/\[ประเภทธุระระบุเอง:[^\]]*\]\s*/g, '')
+    .replace(/\[(?:ยานพาหนะ|ระยะทาง|ประเภทธุระ)[^\]]*\]\s*/g, '')
+    .trim();
+}
