@@ -111,7 +111,7 @@ export default function SearchFilterBox({
               className="w-full pl-8 pr-14 py-2.5 rounded-xl border border-gray-300 text-xs sm:text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium bg-white"
             />
             <span className="absolute right-3.5 top-2.5 text-xs text-gray-400 font-medium pointer-events-none">
-              /ชม.
+              บาท
             </span>
           </div>
         </div>

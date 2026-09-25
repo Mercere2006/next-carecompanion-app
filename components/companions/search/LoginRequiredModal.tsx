@@ -61,7 +61,7 @@ export default function LoginRequiredModal({
               {companion.profile?.full_name}
             </p>
             <p className="text-xs text-emerald-700 font-bold">
-              ฿{companion.hourly_rate}/ชม.
+              ฿{companion.hourly_rate}
             </p>
           </div>
         </div>

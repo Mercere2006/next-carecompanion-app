@@ -120,7 +120,6 @@ export default function CompanionCard({
                 <span className="text-base sm:text-xl font-black text-emerald-700 block">
                   {formatPrice(companion.hourly_rate)}
                 </span>
-                <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">/ ชั่วโมง</span>
               </>
             )}
           </div>

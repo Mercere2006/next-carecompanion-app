@@ -1895,7 +1895,6 @@ export default function AdminDashboardPage() {
                       <strong className="text-xl font-black text-emerald-700">
                         {formatPrice(comp.hourly_rate)}
                       </strong>
-                      <span className="text-[11px] text-gray-400 block">/ ชั่วโมง</span>
                     </div>
                   </div>
                 </div>
@@ -1920,7 +1919,7 @@ export default function AdminDashboardPage() {
                               {v.type === 'car' ? 'รถยนต์' : 'รถจักรยานยนต์'}
                             </span>
                             <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                              ฿{v.rate} / ชม.
+                              ฿{v.rate}
                             </span>
                           </div>
                           <p className="text-xs text-gray-700 font-medium">{v.model || 'ไม่ระบุรุ่น'}</p>

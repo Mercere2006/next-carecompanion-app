@@ -671,7 +671,7 @@ export default function CompanionDetailsForm({
 
                   <div className="space-y-1">
                     <label className="block text-[11px] font-bold text-gray-700">
-                      อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท/ชม.)
+                      อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท)
                     </label>
                     <input
                       type="number"
@@ -691,7 +691,7 @@ export default function CompanionDetailsForm({
                 <div className="flex items-center gap-3 text-xs text-slate-600 font-semibold">
                   <span>ประสบการณ์: <strong className="text-slate-800">{experienceYears} ปี</strong></span>
                   <span>•</span>
-                  <span>เรตพื้นฐาน: <strong className="text-slate-800">฿{hourlyRate}/ชม.</strong></span>
+                  <span>เรตพื้นฐาน: <strong className="text-slate-800">฿{hourlyRate}</strong></span>
                 </div>
 
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-white/70 p-3 rounded-xl border border-slate-200/80">
@@ -732,7 +732,7 @@ export default function CompanionDetailsForm({
 
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-gray-700">
-                    อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท/ชม.) <span className="text-rose-500">*</span>
+                    อัตราค่าบริการพื้นฐาน / ขนส่งสาธารณะ (บาท) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"

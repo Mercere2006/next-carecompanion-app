@@ -577,7 +577,7 @@ export default function CompanionProfilePage() {
     }
 
     if (!hourlyRate || Number(hourlyRate) < 50) {
-      setErrorMsg('กรุณาระบุอัตราค่าบริการเริ่มต้นอย่างน้อย 50 บาท/ชั่วโมง');
+      setErrorMsg('กรุณาระบุอัตราค่าบริการเริ่มต้นอย่างน้อย 50 บาท');
       return;
     }
 

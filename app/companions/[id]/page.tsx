@@ -299,7 +299,7 @@ export default async function CompanionDetailPage({
                         เรทค่าบริการ:{' '}
                         {vehicleType === 'both'
                           ? `฿${parsedVehicles.motorcycle.rate} - ฿${parsedVehicles.car.rate}`
-                          : `${formatPrice(companion.hourly_rate)}/ชม.`}
+                          : formatPrice(companion.hourly_rate)}
                       </span>
                     </div>
                   )}
@@ -657,14 +657,13 @@ export default async function CompanionDetailPage({
                       <span className="text-2xl font-black text-emerald-700">
                         ฿{parsedVehicles.motorcycle.rate} - ฿{parsedVehicles.car.rate}
                       </span>
-                      <span className="text-[11px] text-gray-400 font-medium block">/ ชม. (ตามพาหนะที่เลือก)</span>
+                      <span className="text-[11px] text-gray-400 font-medium block">(ตามพาหนะที่เลือก)</span>
                     </div>
                   ) : (
                     <div>
                       <span className="text-3xl font-black text-emerald-700">
                         {formatPrice(companion.hourly_rate)}
                       </span>
-                      <span className="text-xs text-gray-400 font-medium ml-1">/ ชั่วโมง</span>
                     </div>
                   )}
                 </div>

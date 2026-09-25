@@ -88,7 +88,7 @@ export default function VehicleSelector({
             </div>
           </div>
           <div className="mt-3 text-xs font-bold text-emerald-700">
-            เรตทั่วไป: 200 - 250 บ./ชม.
+            เรตทั่วไป: 200 - 250 บาท
           </div>
         </button>
 
@@ -128,7 +128,7 @@ export default function VehicleSelector({
             </div>
           </div>
           <div className="mt-3 text-xs font-bold text-emerald-700">
-            เรตแนะนำ: 350 - 500+ บ./ชม.
+            เรตแนะนำ: 350 - 500+ บาท
           </div>
         </button>
 
@@ -168,7 +168,7 @@ export default function VehicleSelector({
             </div>
           </div>
           <div className="mt-3 text-xs font-bold text-teal-700">
-            เรตแนะนำ: 250 - 320 บ./ชม.
+            เรตแนะนำ: 250 - 320 บาท
           </div>
         </button>
       </div>
@@ -233,7 +233,7 @@ export default function VehicleSelector({
 
             <div className="space-y-1 sm:col-span-1">
               <label className="text-xs font-bold text-gray-700">
-                ค่าบริการรถยนต์ (บาท/ชม.) <span className="text-rose-500">*</span>
+                ค่าบริการรถยนต์ (บาท) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -298,7 +298,7 @@ export default function VehicleSelector({
 
             <div className="space-y-1 sm:col-span-1">
               <label className="text-xs font-bold text-gray-700">
-                ค่าบริการมอเตอร์ไซค์ (บาท/ชม.) <span className="text-rose-500">*</span>
+                ค่าบริการมอเตอร์ไซค์ (บาท) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"

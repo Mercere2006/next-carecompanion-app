@@ -48,7 +48,7 @@ export default function VehicleManagerModal({
     }
 
     if (!rate || rate < 50) {
-      setErrorMsg('กรุณาระบุอัตราค่าบริการที่ถูกต้อง (ขั้นต่ำ 50 บาท/ชม.)');
+      setErrorMsg('กรุณาระบุอัตราค่าบริการที่ถูกต้อง (ขั้นต่ำ 50 บาท)');
       return;
     }
 
@@ -169,9 +169,9 @@ export default function VehicleManagerModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-gray-700">
-                4. อัตราค่าบริการสำหรับยานพาหนะนี้ (บาท/ชม.) <span className="text-rose-500">*</span>
+                4. อัตราค่าบริการสำหรับยานพาหนะนี้ (บาท) <span className="text-rose-500">*</span>
               </label>
-              <span className="text-xs font-bold text-emerald-700">฿{rate} / ชั่วโมง</span>
+              <span className="text-xs font-bold text-emerald-700">฿{rate}</span>
             </div>
             <input
               type="number"
