@@ -95,27 +95,8 @@ export default function OnboardingPage() {
 
       if (profileError) throw profileError;
 
-      // 2. If role is companion, ensure a companion_profiles row exists (not available until verified and profile completed)
+      // 2. If role is companion, redirect to companion profile to complete details & submit
       if (role === 'companion') {
-        const { data: existingComp } = await supabase
-          .from('companion_profiles')
-          .select('id')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (!existingComp) {
-          const { error: compError } = await supabase
-            .from('companion_profiles')
-            .insert({
-              id: userId,
-              verification_status: 'pending',
-              is_available: false,
-              hourly_rate: 0,
-              updated_at: new Date().toISOString(),
-            });
-
-          if (compError) console.error('Companion profile init error:', compError);
-        }
         router.push('/companion/profile');
       } else {
         router.push('/customer/dashboard');

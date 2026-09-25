@@ -426,13 +426,29 @@ export default function AdminDashboardPage() {
   const isMock = (comp: CompanionCardData) =>
     Boolean(comp.profile?.email?.endsWith('@example.com'));
 
-  const pendingRealCount = companions.filter((c) => c.verification_status === 'pending' && !isMock(c)).length;
+  // เฉพาะ Companion ที่กดส่ง/บันทึกข้อมูลเรียบร้อยแล้วเท่านั้น (มี Bio และรายละเอียดครบถ้วน ไม่ใช่แค่กดสมัครแล้วยังไม่ได้กรอกข้อมูล)
+  const isProfileSubmitted = (comp: CompanionCardData) => {
+    const hasBio = Boolean(comp.bio && comp.bio.trim().length > 0);
+    const hasDetails = Boolean(
+      (comp.hourly_rate && Number(comp.hourly_rate) > 0) ||
+      (comp.id_card_image_url && comp.id_card_image_url.trim().length > 0)
+    );
+    return hasBio && hasDetails;
+  };
+
+  const pendingRealCount = companions.filter(
+    (c) => c.verification_status === 'pending' && !isMock(c) && isProfileSubmitted(c)
+  ).length;
   const verifiedRealCount = companions.filter((c) => c.verification_status === 'verified' && !isMock(c)).length;
-  const rejectedRealCount = companions.filter((c) => c.verification_status === 'rejected' && !isMock(c)).length;
+  const rejectedRealCount = companions.filter(
+    (c) => c.verification_status === 'rejected' && !isMock(c) && isProfileSubmitted(c)
+  ).length;
   const pendingReportsCount = reports.filter((r) => r.status === 'pending' || r.status === 'investigating').length;
 
   const filteredCompanions = companions.filter((comp) => {
     if (isMock(comp)) return false;
+    // กรองโปรไฟล์ร่างที่ยังไม่ได้กดส่ง/บันทึกข้อมูลออก เพื่อไม่ให้แสดงในรายการตรวจสอบ
+    if (!isProfileSubmitted(comp)) return false;
     if (statusFilter === 'all') return true;
     return comp.verification_status === statusFilter;
   });
@@ -472,7 +488,7 @@ export default function AdminDashboardPage() {
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
             <span className="text-xs font-bold text-gray-400 block mb-1">Companion ในระบบ</span>
             <span className="text-2xl sm:text-3xl font-black text-teal-700">
-              {companions.filter((c) => !isMock(c)).length} คน
+              {companions.filter((c) => !isMock(c) && isProfileSubmitted(c)).length} คน
             </span>
           </div>
 
@@ -821,7 +837,7 @@ export default function AdminDashboardPage() {
                 </p>
                 <p className="text-xs text-gray-400">
                   {statusFilter === 'pending'
-                    ? 'เมื่อมีผู้สมัครรายใหม่ที่สแกนใบหน้าและยืนยันเบอร์แล้ว รายการจะแสดงขึ้นที่นี่'
+                    ? 'เมื่อมีผู้สมัครรายใหม่กรอกข้อมูลครบถ้วนและกดส่งข้อมูลเข้ามา รายการจะแสดงขึ้นที่นี่'
                     : 'คุณสามารถเลือกฟิลเตอร์อื่นหรือเปิดแสดง Mock Data ด้านบนได้'}
                 </p>
               </div>

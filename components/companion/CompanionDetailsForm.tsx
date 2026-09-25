@@ -1134,7 +1134,7 @@ export default function CompanionDetailsForm({
                 ? hasUnsavedChanges
                   ? 'บันทึกการแก้ไขโปรไฟล์ (มีข้อมูลใหม่)'
                   : 'บันทึกการแก้ไขโปรไฟล์'
-                : 'บันทึก'}
+                : 'ส่งข้อมูล / บันทึกโปรไฟล์'}
             </span>
           </button>
         </div>

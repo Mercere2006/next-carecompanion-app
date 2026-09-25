@@ -76,24 +76,6 @@ export async function GET(request: Request) {
           });
 
         if (determinedRole === 'companion') {
-          // Check if companion profile already exists before inserting
-          const { data: existingComp } = await supabase
-            .from('companion_profiles')
-            .select('id')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (!existingComp) {
-            await supabase
-              .from('companion_profiles')
-              .insert({
-                id: user.id,
-                verification_status: 'pending',
-                is_available: false,
-                hourly_rate: 0,
-              });
-          }
-
           if (requestedRole === 'companion' && (!next || next === '/')) {
             return NextResponse.redirect(`${origin}/companion/profile`);
           }

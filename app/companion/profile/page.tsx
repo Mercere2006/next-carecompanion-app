@@ -529,26 +529,27 @@ export default function CompanionProfilePage() {
           updated_at: new Date().toISOString(),
         });
 
-        const compPayload: Record<string, unknown> = {
-          id: userId,
-          verification_status: 'verified',
-          id_card_image_url: avatarUrl || faceImageUrl,
-          is_available: false,
-          updated_at: new Date().toISOString(),
-        };
+        // หากมี record ใน companion_profiles อยู่แล้ว ให้อัปเดตสถานะเบอร์โทร (แต่ถ้ายังไม่มี จะไม่สร้างร่างเปล่าเพื่อไม่ให้ไปขึ้นที่แอดมินก่อนกดส่ง)
+        const { data: existingComp } = await supabase
+          .from('companion_profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
 
-        const { error: otpErr } = await supabase.from('companion_profiles').upsert({
-          ...compPayload,
-          phone_verified: true,
-        });
-
-        if (otpErr) {
-          await supabase.from('companion_profiles').upsert(compPayload);
+        if (existingComp) {
+          await supabase
+            .from('companion_profiles')
+            .update({
+              phone_verified: true,
+              id_card_image_url: avatarUrl || faceImageUrl,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId);
         }
       }
 
       setSuccessMsg(
-        '🎉 ยืนยันตัวตนสำเร็จ 100%! สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่านแล้ว กรุณากรอกข้อมูลด้านล่างเพื่อสมัครเป็นผู้ช่วย'
+        '🎉 ยืนยันตัวตนสำเร็จ! สแกนใบหน้าและยืนยันเบอร์โทรศัพท์ผ่านแล้ว กรุณากรอกข้อมูลและรายละเอียดด้านล่างให้ครบถ้วน จากนั้นกดบันทึกเพื่อส่งให้แอดมินตรวจสอบ'
       );
     } catch (e) {
       console.error('Failed to save verified state', e);
@@ -701,7 +702,9 @@ export default function CompanionProfilePage() {
         .eq('id', userId)
         .maybeSingle();
 
-      const currentStatus = existingComp?.verification_status || verificationStatus || 'pending';
+      const isAlreadyVerified = existingComp?.verification_status === 'verified';
+      const nextVerificationStatus = isAlreadyVerified ? 'verified' : 'pending';
+      const isAvailableFinal = isAlreadyVerified ? isAvailable : false;
 
       // 3. Fallback bio with embedded metadata (vehicles list & schedule)
       const enrichedBio = embedBioMetadata(bio, {
@@ -717,8 +720,8 @@ export default function CompanionProfilePage() {
         service_areas: areasArray,
         available_schedule: availableSchedule,
         hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
-        is_available: isAvailable,
-        verification_status: 'verified',
+        is_available: isAvailableFinal,
+        verification_status: nextVerificationStatus,
         phone_verified: true,
         vehicle_type: formattedVehicles.vehicle_type,
         vehicle_model: formattedVehicles.vehicle_model,
@@ -734,8 +737,8 @@ export default function CompanionProfilePage() {
         skills: skillsArray,
         service_areas: areasArray,
         hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
-        is_available: isAvailable,
-        verification_status: 'verified',
+        is_available: isAvailableFinal,
+        verification_status: nextVerificationStatus,
         phone_verified: true,
         id_card_image_url: avatarUrl || faceImageUrl,
         updated_at: new Date().toISOString(),
@@ -771,7 +774,6 @@ export default function CompanionProfilePage() {
         // Record does not exist -> INSERT
         const fullInsertData = {
           id: userId,
-          verification_status: currentStatus,
           ...fullUpdateData,
         };
 
@@ -788,7 +790,6 @@ export default function CompanionProfilePage() {
           if (isMissingCol) {
             const safeInsertData = {
               id: userId,
-              verification_status: currentStatus,
               ...safeUpdateData,
             };
 
@@ -815,7 +816,11 @@ export default function CompanionProfilePage() {
       }
 
       setIsProfileSaved(true);
-      setSuccessMsg('🎉 บันทึกข้อมูลโปรไฟล์และเปิดรับงานเรียบร้อยแล้ว! กำลังนำคุณไปยังแดชบอร์ด...');
+      setSuccessMsg(
+        isAlreadyVerified
+          ? '🎉 บันทึกการแก้ไขข้อมูลโปรไฟล์เรียบร้อยแล้ว!'
+          : '🎉 ส่งข้อมูลโปรไฟล์เรียบร้อยแล้ว! แอดมินจะดำเนินการตรวจสอบข้อมูลและอนุมัติเปิดรับงานให้คุณ'
+      );
       setInitialSnapshot({
         titlePrefix,
         rawName,
@@ -832,12 +837,14 @@ export default function CompanionProfilePage() {
         window.dispatchEvent(new Event('profileUpdated'));
       }
       await Swal.fire({
-        title: 'บันทึกสำเร็จ!',
-        text: 'บันทึกข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว กำลังนำคุณไปยังแดชบอร์ดงาน',
+        title: isAlreadyVerified ? 'บันทึกสำเร็จ!' : 'ส่งข้อมูลเรียบร้อย!',
+        text: isAlreadyVerified
+          ? 'บันทึกการแก้ไขข้อมูลโปรไฟล์และยานพาหนะเรียบร้อยแล้ว'
+          : 'ส่งข้อมูลโปรไฟล์และหลักฐานให้แอดมินตรวจสอบเรียบร้อยแล้ว เมื่อได้รับการอนุมัติ โปรไฟล์ของคุณจะเปิดรับงานทันที',
         icon: 'success',
         confirmButtonColor: '#059669',
-        confirmButtonText: 'ไปยังแดชบอร์ดทันที',
-        timer: 1800,
+        confirmButtonText: 'ไปยังแดชบอร์ดงาน',
+        timer: 2500,
         timerProgressBar: true,
         customClass: {
           popup: 'rounded-3xl shadow-2xl font-sans',
