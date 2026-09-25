@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { CompanionCardData } from "@/types/database";
+import { isCompanionAvailableAt } from "@/lib/scheduleUtils";
 
 export function useCompanionFilter(
   companions: CompanionCardData[]
@@ -11,13 +12,20 @@ export function useCompanionFilter(
   const [maxRate, setMaxRate] = useState<string>("");
   const [searchKeyword, setSearchKeyword] = useState<string>("");
   const [specialNeedFilter, setSpecialNeedFilter] = useState<string>("");
+  const [excludeId, setExcludeId] = useState<string>("");
+  const [appointmentDate, setAppointmentDate] = useState<string>("");
+  const [startTime, setStartTime] = useState<string>("");
+  const [onlyAvailableSchedule, setOnlyAvailableSchedule] = useState<boolean>(true);
 
   const hasActiveFilters = Boolean(
     selectedCategory ||
       searchArea ||
       specialNeedFilter ||
       searchKeyword ||
-      maxRate,
+      maxRate ||
+      excludeId ||
+      appointmentDate ||
+      startTime
   );
 
   const resetFilters = () => {
@@ -26,10 +34,18 @@ export function useCompanionFilter(
     setSpecialNeedFilter("");
     setSearchKeyword("");
     setMaxRate("");
+    setExcludeId("");
+    setAppointmentDate("");
+    setStartTime("");
   };
 
   const filteredCompanions = useMemo(() => {
-    return companions.filter((comp) => {
+    const list = companions.filter((comp) => {
+      // 1. Exclude rejecting companion ID
+      if (excludeId && comp.id === excludeId) {
+        return false;
+      }
+
       const nameMatch = comp.profile?.full_name
         ?.toLowerCase()
         .includes(searchKeyword.toLowerCase());
@@ -158,10 +174,37 @@ export function useCompanionFilter(
           return anyOneMatches ? matchesCustom : true;
         })();
 
+      // Schedule matching: if date/time specified and onlyAvailableSchedule is true, ensure available
+      const scheduleMatch =
+        !onlyAvailableSchedule ||
+        (!appointmentDate && !startTime) ||
+        isCompanionAvailableAt(
+          comp.available_schedule,
+          comp.bio,
+          appointmentDate,
+          startTime
+        );
+
       return (
-        keywordMatch && areaMatch && rateMatch && categoryMatch && needMatch
+        keywordMatch &&
+        areaMatch &&
+        rateMatch &&
+        categoryMatch &&
+        needMatch &&
+        scheduleMatch
       );
     });
+
+    // Sort available companions to the top if schedule is specified
+    if (appointmentDate || startTime) {
+      return [...list].sort((a, b) => {
+        const aAvail = isCompanionAvailableAt(a.available_schedule, a.bio, appointmentDate, startTime) ? 1 : 0;
+        const bAvail = isCompanionAvailableAt(b.available_schedule, b.bio, appointmentDate, startTime) ? 1 : 0;
+        return bAvail - aAvail;
+      });
+    }
+
+    return list;
   }, [
     companions,
     searchKeyword,
@@ -169,6 +212,10 @@ export function useCompanionFilter(
     maxRate,
     selectedCategory,
     specialNeedFilter,
+    excludeId,
+    appointmentDate,
+    startTime,
+    onlyAvailableSchedule,
   ]);
 
   return {
@@ -182,6 +229,14 @@ export function useCompanionFilter(
     setSearchKeyword,
     specialNeedFilter,
     setSpecialNeedFilter,
+    excludeId,
+    setExcludeId,
+    appointmentDate,
+    setAppointmentDate,
+    startTime,
+    setStartTime,
+    onlyAvailableSchedule,
+    setOnlyAvailableSchedule,
     filteredCompanions,
     hasActiveFilters,
     resetFilters,

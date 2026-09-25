@@ -208,11 +208,13 @@ export function useBookingForm(companionId: string) {
       let areaParam = searchParams.get("area");
       let needParam = searchParams.get("need");
 
+      let rebookPayload: any = null;
       if (typeof window !== "undefined") {
         try {
           const saved = sessionStorage.getItem("pending_booking_requirements");
           if (saved) {
             const parsed = JSON.parse(saved);
+            rebookPayload = parsed;
             if (!categoryParam && parsed.category)
               categoryParam = parsed.category;
             if (!areaParam && parsed.area) areaParam = parsed.area;
@@ -259,12 +261,62 @@ export function useBookingForm(companionId: string) {
         setSpecialNeeds(needParam);
       }
 
+      // Pre-fill rich rebooking data if coming from a rejected job
+      if (rebookPayload) {
+        if (rebookPayload.errandTitle) {
+          setErrandTitle(rebookPayload.errandTitle);
+          hadPrefill = true;
+        }
+        if (rebookPayload.errandDetails) {
+          setErrandDetails(rebookPayload.errandDetails);
+          hadPrefill = true;
+        }
+        if (rebookPayload.originAddress) {
+          setOriginAddress(rebookPayload.originAddress);
+          if (rebookPayload.originLat) setOriginLat(rebookPayload.originLat);
+          if (rebookPayload.originLng) setOriginLng(rebookPayload.originLng);
+          hadPrefill = true;
+        }
+        if (rebookPayload.destinationAddress) {
+          setDestinationAddress(rebookPayload.destinationAddress);
+          if (rebookPayload.destinationLat) setDestinationLat(rebookPayload.destinationLat);
+          if (rebookPayload.destinationLng) setDestinationLng(rebookPayload.destinationLng);
+          hadPrefill = true;
+        }
+        if (rebookPayload.appointmentDate) {
+          setAppointmentDate(rebookPayload.appointmentDate);
+          hadPrefill = true;
+        }
+        if (rebookPayload.startTime) {
+          setStartTime(rebookPayload.startTime.slice(0, 5));
+          hadPrefill = true;
+        }
+        if (rebookPayload.specialNeeds) {
+          setSpecialNeeds(rebookPayload.specialNeeds);
+          hadPrefill = true;
+        }
+      }
+
+      // Check URL date and time params as fallback
+      const dateParam = searchParams.get("date");
+      const timeParam = searchParams.get("time");
+      if (dateParam) {
+        setAppointmentDate(dateParam);
+        hadPrefill = true;
+      }
+      if (timeParam) {
+        setStartTime(timeParam.slice(0, 5));
+        hadPrefill = true;
+      }
+
       setIsPrefilled(hadPrefill);
 
-      // Default date to tomorrow
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      setAppointmentDate(tomorrow.toISOString().split("T")[0]);
+      // Default date to tomorrow only if not set from rebookPayload or URL
+      if (!rebookPayload?.appointmentDate && !dateParam) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setAppointmentDate(tomorrow.toISOString().split("T")[0]);
+      }
 
       setLoading(false);
     }

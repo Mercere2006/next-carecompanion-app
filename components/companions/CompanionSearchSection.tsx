@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, RefreshCw, AlertCircle } from "lucide-react";
 import CompanionCard from "@/components/companions/CompanionCard";
 import { CompanionCardData } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
+import { formatThaiDate } from "@/lib/utils";
 import { useCompanionFilter } from "./search/useCompanionFilter";
 import LoginRequiredModal from "./search/LoginRequiredModal";
 
@@ -34,6 +35,7 @@ export default function CompanionSearchSection({
   className = "",
 }: CompanionSearchSectionProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [companions, setCompanions] = useState<CompanionCardData[]>([]);
@@ -46,7 +48,7 @@ export default function CompanionSearchSection({
   const [selectedCompanionForBooking, setSelectedCompanionForBooking] =
     useState<CompanionCardData | null>(null);
 
-  // Hook for filtering & search states (exclude current user so "companion คนอื่น ๆ" are shown)
+  // Hook for filtering & search states
   const {
     selectedCategory,
     setSelectedCategory,
@@ -58,10 +60,44 @@ export default function CompanionSearchSection({
     setMaxRate,
     searchKeyword,
     setSearchKeyword,
+    excludeId,
+    setExcludeId,
+    appointmentDate,
+    setAppointmentDate,
+    startTime,
+    setStartTime,
+    onlyAvailableSchedule,
+    setOnlyAvailableSchedule,
     filteredCompanions,
     hasActiveFilters,
     resetFilters,
   } = useCompanionFilter(companions);
+
+  // Sync URL search parameters on mount / change
+  useEffect(() => {
+    if (!searchParams) return;
+    const excludeParam = searchParams.get('exclude');
+    const dateParam = searchParams.get('date');
+    const timeParam = searchParams.get('time');
+    const catParam = searchParams.get('category');
+    const areaParam = searchParams.get('area');
+    const needParam = searchParams.get('need');
+
+    if (excludeParam) setExcludeId(excludeParam);
+    if (dateParam) setAppointmentDate(dateParam);
+    if (timeParam) setStartTime(timeParam);
+    if (catParam) setSelectedCategory(catParam);
+    if (areaParam) setSearchArea(areaParam);
+    if (needParam) setSpecialNeedFilter(needParam);
+  }, [
+    searchParams,
+    setExcludeId,
+    setAppointmentDate,
+    setStartTime,
+    setSelectedCategory,
+    setSearchArea,
+    setSpecialNeedFilter,
+  ]);
 
   useEffect(() => {
     async function loadInitial() {
@@ -166,6 +202,8 @@ export default function CompanionSearchSection({
     if (selectedCategory) params.set("category", selectedCategory);
     if (searchArea) params.set("area", searchArea);
     if (specialNeedFilter) params.set("need", specialNeedFilter);
+    if (appointmentDate) params.set("date", appointmentDate);
+    if (startTime) params.set("time", startTime);
     const queryString = params.toString();
     return `/customer/book/${companionId}${queryString ? `?${queryString}` : ""}`;
   };
@@ -180,13 +218,22 @@ export default function CompanionSearchSection({
 
     // Save pending requirements to sessionStorage for extra reliability
     if (typeof window !== "undefined") {
+      let existingData: Record<string, unknown> = {};
+      try {
+        const stored = sessionStorage.getItem("pending_booking_requirements");
+        if (stored) existingData = JSON.parse(stored);
+      } catch {}
+
       sessionStorage.setItem(
         "pending_booking_requirements",
         JSON.stringify({
+          ...existingData,
           companionId: companion.id,
-          category: selectedCategory,
-          area: searchArea,
-          need: specialNeedFilter,
+          category: selectedCategory || (existingData.category as string) || "",
+          area: searchArea || (existingData.area as string) || "",
+          need: specialNeedFilter || (existingData.need as string) || "",
+          appointmentDate: appointmentDate || (existingData.appointmentDate as string) || "",
+          startTime: startTime || (existingData.startTime as string) || "",
         }),
       );
     }
@@ -254,6 +301,38 @@ export default function CompanionSearchSection({
             </span>
           </div>
         </div>
+
+        {/* Alternative Companion Banner (when filtered from rejected booking) */}
+        {excludeId && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <RefreshCw className="w-5 h-5 animate-spin-slow" />
+              </div>
+              <div>
+                <strong className="block text-sm sm:text-base font-extrabold text-amber-950">
+                  กำลังแนะนำผู้ช่วยท่านอื่นที่ว่างและพร้อมให้บริการแทน
+                </strong>
+                <p className="text-xs text-amber-900/80 mt-0.5">
+                  {appointmentDate ? `สำหรับวันที่ ${formatThaiDate(appointmentDate)}` : ''}
+                  {startTime ? ` เวลา ${startTime.slice(0, 5)} น.` : ''}
+                  {' '}(ระบบได้คัดกรองผู้ช่วยที่ปฏิเสธงานออกเรียบร้อยแล้ว)
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setExcludeId('');
+                setAppointmentDate('');
+                setStartTime('');
+              }}
+              className="px-4 py-2 rounded-xl bg-white border border-amber-300 text-amber-900 font-bold text-xs hover:bg-amber-100 transition shrink-0 cursor-pointer shadow-2xs active:scale-95"
+            >
+              แสดงผู้ช่วยทุกคน
+            </button>
+          </div>
+        )}
 
         {/* Results Grid */}
         {loading ? (

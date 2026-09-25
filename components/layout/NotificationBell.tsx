@@ -220,6 +220,48 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         });
       }
 
+      // 1.b Fetch customer bookings where customer_id = userId (status updates for customer)
+      const { data: customerBookings } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          errand_title,
+          appointment_date,
+          start_time,
+          total_price,
+          status,
+          updated_at,
+          created_at,
+          companion:profiles!bookings_companion_id_fkey(full_name, avatar_url, phone)
+        `)
+        .eq('customer_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(10);
+
+      if (customerBookings) {
+        customerBookings.forEach((b: any) => {
+          if (b.status === 'rejected') {
+            items.push({
+              id: `cust-booking-rejected-${b.id}`,
+              type: 'system',
+              title: `ผู้ช่วยไม่สะดวกรับงาน: ${b.errand_title}`,
+              message: `ผู้ช่วยไม่สะดวกรับงานในวันดังกล่าว ระบบได้เตรียมผู้ช่วยท่านอื่นที่ว่างแนะนำให้คุณแล้ว`,
+              created_at: b.updated_at || b.created_at,
+              link: '/customer/dashboard',
+            });
+          } else if (b.status === 'accepted') {
+            items.push({
+              id: `cust-booking-accepted-${b.id}`,
+              type: 'system',
+              title: `ผู้ช่วยตอบรับงานแล้ว! 🎉`,
+              message: `ผู้ช่วยตอบรับคำขอเดินทาง "${b.errand_title}" แล้ว คุณสามารถตรวจสอบเบอร์ติดต่อและสถานะได้ที่แดชบอร์ด`,
+              created_at: b.updated_at || b.created_at,
+              link: '/customer/dashboard',
+            });
+          }
+        });
+      }
+
       // 2. Fetch companion profile verification status
       const { data: compProfile } = await supabase
         .from('companion_profiles')
@@ -354,6 +396,18 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           schema: 'public',
           table: 'bookings',
           filter: `companion_id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `customer_id=eq.${userId}`,
         },
         () => {
           fetchNotifications();

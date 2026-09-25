@@ -1,19 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
-import { BookingDetailData } from '@/types/database';
+import { BookingDetailData, CompanionCardData } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
-import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw, Flag } from 'lucide-react';
+import { Calendar, MapPin, Navigation, Star, Plus, Phone, User, Clock, AlertCircle, ArrowRight, RefreshCw, Flag, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
 import ReportCompanionModal from '@/components/customer/ReportCompanionModal';
+import { MOCK_COMPANIONS } from '@/components/companions/search/constants';
+import { isCompanionAvailableAt } from '@/lib/scheduleUtils';
 
 export default function CustomerDashboard() {
+  const router = useRouter();
   const supabase = createClient();
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
+  const [allCompanions, setAllCompanions] = useState<CompanionCardData[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Review modal state
@@ -52,6 +57,32 @@ export default function CustomerDashboard() {
 
       if (error) throw error;
       setBookings((data as unknown as BookingDetailData[]) || []);
+
+      // Also fetch verified available companions to provide recommendations if any booking is rejected
+      try {
+        const { data: companionsData } = await supabase
+          .from('companion_profiles')
+          .select(`
+            *,
+            profile:profiles(full_name, avatar_url, phone, email)
+          `)
+          .eq('verification_status', 'verified')
+          .eq('is_available', true);
+
+        let compsList: CompanionCardData[] = [];
+        if (companionsData && companionsData.length > 0) {
+          compsList = (companionsData as unknown as CompanionCardData[]).filter((c) => !c.is_suspended);
+        }
+        MOCK_COMPANIONS.forEach((mock) => {
+          if (!compsList.some((c) => c.id === mock.id)) {
+            compsList.push(mock);
+          }
+        });
+        setAllCompanions(compsList);
+      } catch (cErr) {
+        console.warn('Failed to load companion list for recommendations:', cErr);
+        setAllCompanions(MOCK_COMPANIONS);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -65,6 +96,60 @@ export default function CustomerDashboard() {
     }
     init();
   }, [fetchBookings]);
+
+  // Find recommended alternative companions available on that specific date and time (excluding the rejected companion)
+  const getAlternativesForBooking = useCallback(
+    (booking: BookingDetailData) => {
+      const rejectedId = booking.companion_id;
+      const date = booking.appointment_date;
+      const time = booking.start_time;
+
+      return allCompanions
+        .filter((c) => {
+          // 1. MUST NOT be the companion who rejected!
+          if (c.id === rejectedId) return false;
+          if (c.is_suspended) return false;
+          // 2. Check schedule availability for date and time
+          return isCompanionAvailableAt(c.available_schedule, c.bio, date, time);
+        })
+        .sort((a, b) => {
+          // Priority 1: Service area matches booking origin address
+          const aAreaMatch = a.service_areas?.some((area) => booking.origin_address.includes(area)) ? 1 : 0;
+          const bAreaMatch = b.service_areas?.some((area) => booking.origin_address.includes(area)) ? 1 : 0;
+          if (bAreaMatch !== aAreaMatch) return bAreaMatch - aAreaMatch;
+          // Priority 2: Rating
+          return (b.rating_avg || 0) - (a.rating_avg || 0);
+        });
+    },
+    [allCompanions]
+  );
+
+  // Quick re-booking with chosen alternative companion, preserving original booking inputs
+  const handleQuickRebook = (booking: BookingDetailData, targetCompanion: CompanionCardData) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(
+        'pending_booking_requirements',
+        JSON.stringify({
+          companionId: targetCompanion.id,
+          categoryId: booking.category_id,
+          category: booking.category?.name || '',
+          errandTitle: booking.errand_title,
+          errandDetails: booking.errand_details || '',
+          originAddress: booking.origin_address,
+          originLat: booking.origin_lat,
+          originLng: booking.origin_lng,
+          destinationAddress: booking.destination_address,
+          destinationLat: booking.destination_lat,
+          destinationLng: booking.destination_lng,
+          appointmentDate: booking.appointment_date,
+          startTime: booking.start_time,
+          specialNeeds: booking.special_needs || '',
+          rebookedFromId: booking.id,
+        })
+      );
+    }
+    router.push(`/customer/book/${targetCompanion.id}`);
+  };
 
   const handleCancelBooking = async (bookingId: string) => {
     const result = await Swal.fire({
@@ -272,31 +357,131 @@ export default function CustomerDashboard() {
                     </div>
                   </div>
 
-                  {/* SMART FALLBACK BANNER (เมื่อ Companion ปฏิเสธหรือไม่ว่าง) */}
-                  {booking.status === 'rejected' && (
-                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm">
-                      <div className="flex items-center gap-2.5">
-                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                        <div>
-                          <strong className="block font-bold">
-                            ผู้ช่วยท่านนี้ไม่สะดวกรับงานในวันและเวลาดังกล่าว
-                          </strong>
-                          <span className="text-xs text-amber-700">
-                            ไม่ต้องกรอกข้อมูลใหม่! คุณสามารถเลือก Companion ท่านอื่นในละแวกนี้ได้ทันที
-                          </span>
-                        </div>
-                      </div>
+                  {/* SMART FALLBACK & RECOMMENDED ALTERNATIVE COMPANIONS */}
+                  {booking.status === 'rejected' && (() => {
+                    const alternatives = getAlternativesForBooking(booking);
+                    const topAlternatives = alternatives.slice(0, 3);
 
-                      <Link
-                        href={`/companions?category=${booking.category?.name || ''}&area=${encodeURIComponent(booking.origin_address.slice(0, 15))}`}
-                        className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs transition"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        เลือกผู้ช่วยท่านอื่นแทน
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
-                  )}
+                    return (
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-50/95 via-orange-50/80 to-amber-50/90 border-2 border-amber-300 text-amber-950 space-y-4 shadow-xs">
+                        {/* Banner Title & Explanation */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                              <AlertCircle className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <strong className="block text-sm sm:text-base font-extrabold text-amber-950">
+                                ผู้ช่วยท่านนี้ไม่สะดวกรับงานในวันและเวลาดังกล่าว
+                              </strong>
+                              <p className="text-xs sm:text-sm text-amber-900/85 mt-0.5 leading-relaxed">
+                                ระบบได้ค้นหาและแนะนำผู้ช่วยท่านอื่นที่ว่างในวันเดียวกัน (
+                                <span className="font-bold underline decoration-amber-400">
+                                  {formatThaiDate(booking.appointment_date)} เวลา {booking.start_time.slice(0, 5)} น.
+                                </span>
+                                ) ให้คุณเลือกจองต่อได้ทันทีโดยไม่ต้องกรอกข้อมูลใหม่
+                              </p>
+                            </div>
+                          </div>
+
+                          <Link
+                            href={`/companions?exclude=${booking.companion_id}&date=${booking.appointment_date}&time=${booking.start_time}&category=${encodeURIComponent(booking.category?.name || '')}&area=${encodeURIComponent(booking.origin_address.slice(0, 15))}`}
+                            onClick={() => {
+                              if (typeof window !== 'undefined') {
+                                sessionStorage.setItem(
+                                  'pending_booking_requirements',
+                                  JSON.stringify({
+                                    categoryId: booking.category_id,
+                                    category: booking.category?.name || '',
+                                    errandTitle: booking.errand_title,
+                                    errandDetails: booking.errand_details || '',
+                                    originAddress: booking.origin_address,
+                                    originLat: booking.origin_lat,
+                                    originLng: booking.origin_lng,
+                                    destinationAddress: booking.destination_address,
+                                    destinationLat: booking.destination_lat,
+                                    destinationLng: booking.destination_lng,
+                                    appointmentDate: booking.appointment_date,
+                                    startTime: booking.start_time,
+                                    specialNeeds: booking.special_needs || '',
+                                    rebookedFromId: booking.id,
+                                  })
+                                );
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs transition cursor-pointer self-start sm:self-center"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            ดูผู้ช่วยท่านอื่นทั้งหมด ({alternatives.length} ท่าน)
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+
+                        {/* Recommended Available Companions */}
+                        {topAlternatives.length > 0 ? (
+                          <div className="pt-3 border-t border-amber-200/90">
+                            <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5 mb-2.5">
+                              <Sparkles className="w-4 h-4 text-amber-600" />
+                              ผู้ช่วยที่ว่างและพร้อมให้บริการในวันและเวลานี้:
+                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              {topAlternatives.map((alt) => (
+                                <div
+                                  key={alt.id}
+                                  className="bg-white rounded-2xl p-3.5 border border-amber-200/90 shadow-2xs flex flex-col justify-between hover:border-amber-400 hover:shadow-xs transition"
+                                >
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="w-10 h-10 rounded-full bg-emerald-100 overflow-hidden shrink-0 flex items-center justify-center font-bold text-emerald-800 text-xs">
+                                      {alt.profile?.avatar_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={alt.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <User className="w-5 h-5" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <strong className="text-xs font-bold text-gray-900 truncate block">
+                                          {alt.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
+                                        </strong>
+                                        <span className="inline-flex items-center text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md shrink-0">
+                                          ★ {alt.rating_avg ? alt.rating_avg.toFixed(1) : '5.0'}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                                        <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span className="truncate">{alt.available_schedule || 'พร้อมให้บริการ'}</span>
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-3 border-t border-gray-100 mt-3 flex items-center justify-between gap-2">
+                                    <div>
+                                      <span className="text-[10px] text-gray-400 block">เริ่มต้น</span>
+                                      <span className="text-xs font-extrabold text-emerald-700">฿{alt.hourly_rate}</span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickRebook(booking, alt)}
+                                      className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition cursor-pointer active:scale-95"
+                                    >
+                                      ⚡ เลือกท่านนี้แทน
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-white/80 rounded-xl text-center text-xs text-amber-800 font-medium">
+                            ไม่พบผู้ช่วยที่มีตารางเวลาตรงกับช่วงเวลานี้พอดี คุณสามารถกดปุ่ม "ดูผู้ช่วยท่านอื่นทั้งหมด" เพื่อเลือกผู้ช่วยท่านอื่นได้ครับ
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Body: Journey & Companion Info */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
