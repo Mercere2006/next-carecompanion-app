@@ -18,6 +18,15 @@ export interface CompanionVehicleInfo {
   model?: string | null;
 }
 
+export interface BookingFormErrors {
+  errandTitle?: boolean;
+  originAddress?: boolean;
+  destinationAddress?: boolean;
+  selectedVehicle?: boolean;
+  appointmentDate?: boolean;
+  startTime?: boolean;
+}
+
 export function useBookingForm(companionId: string) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,6 +41,18 @@ export function useBookingForm(companionId: string) {
   const [companionLocation, setCompanionLocation] =
     useState<CompanionLocation | null>(null);
   const [isPrefilled, setIsPrefilled] = useState(false);
+
+  // Validation error states
+  const [fieldErrors, setFieldErrors] = useState<BookingFormErrors>({});
+
+  const clearFieldError = (field: keyof BookingFormErrors) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   // Vehicle states
   const [vehicleDetails, setVehicleDetails] =
@@ -105,6 +126,10 @@ export function useBookingForm(companionId: string) {
 
   const handleSelectVehicle = (v: "car" | "motorcycle" | "none") => {
     setSelectedVehicle(v);
+    clearFieldError("selectedVehicle");
+    if (v === "none") {
+      clearFieldError("originAddress");
+    }
     if (vehicleDetails) {
       let newRate = vehicleDetails.baseRate;
       if (v === "car" && vehicleDetails.hasCar) {
@@ -114,6 +139,31 @@ export function useBookingForm(companionId: string) {
       }
       setActiveHourlyRate(newRate);
     }
+  };
+
+  const handleTitleChange = (val: string) => {
+    setErrandTitle(val);
+    if (val.trim()) clearFieldError("errandTitle");
+  };
+
+  const handleOriginAddressChange = (val: string) => {
+    setOriginAddress(val);
+    if (val.trim()) clearFieldError("originAddress");
+  };
+
+  const handleDestinationAddressChange = (val: string) => {
+    setDestinationAddress(val);
+    if (val.trim()) clearFieldError("destinationAddress");
+  };
+
+  const handleAppointmentDateChange = (val: string) => {
+    setAppointmentDate(val);
+    if (val.trim()) clearFieldError("appointmentDate");
+  };
+
+  const handleStartTimeChange = (val: string) => {
+    setStartTime(val);
+    if (val.trim()) clearFieldError("startTime");
   };
 
   useEffect(() => {
@@ -443,24 +493,85 @@ export function useBookingForm(companionId: string) {
     }
 
     const isMeetAtDestination = selectedVehicle === 'none';
+    const errors: BookingFormErrors = {};
+    let firstInvalidId: string | null = null;
+    let firstErrorMsg = "";
 
+    // 1. หัวข้อธุระ (Section 2)
     if (!errandTitle.trim()) {
-      setErrorMsg("กรุณาระบุหัวข้อธุระ");
-      return;
+      errors.errandTitle = true;
+      if (!firstInvalidId) {
+        firstInvalidId = "errand-title-input";
+        firstErrorMsg = "กรุณาระบุหัวข้อธุระ";
+      }
     }
 
-    if (!selectedVehicle) {
-      setErrorMsg("กรุณาเลือกรูปแบบยานพาหนะในการร่วมเดินทาง (รถยนต์, มอเตอร์ไซค์ หรือพบกันที่จุดหมาย)");
-      return;
-    }
-
-    if (!destinationAddress.trim()) {
-      setErrorMsg("กรุณาระบุจุดหมายปลายทาง");
-      return;
-    }
-
+    // 2. จุดรับผู้เดินทาง (Section 3 - ถ้าไม่ใช่พบกันที่จุดหมาย)
     if (!isMeetAtDestination && !originAddress.trim()) {
-      setErrorMsg("กรุณาระบุจุดรับผู้เดินทาง หรือเลือกพบกันที่จุดหมาย");
+      errors.originAddress = true;
+      if (!firstInvalidId) {
+        firstInvalidId = "origin-address-input";
+        firstErrorMsg = "กรุณาระบุจุดรับผู้เดินทาง หรือเลือกพบกันที่จุดหมาย";
+      }
+    }
+
+    // 3. จุดหมายปลายทาง (Section 3)
+    if (!destinationAddress.trim()) {
+      errors.destinationAddress = true;
+      if (!firstInvalidId) {
+        firstInvalidId = "destination-address-input";
+        firstErrorMsg = "กรุณาระบุจุดหมายปลายทาง";
+      }
+    }
+
+    // 4. ยานพาหนะ (Section 4)
+    if (!selectedVehicle) {
+      errors.selectedVehicle = true;
+      if (!firstInvalidId) {
+        firstInvalidId = "section-vehicle";
+        firstErrorMsg = "กรุณาเลือกรูปแบบยานพาหนะในการร่วมเดินทาง (รถยนต์, มอเตอร์ไซค์ หรือพบกันที่จุดหมาย)";
+      }
+    }
+
+    // 5. วันที่นัดหมาย (Section 5)
+    if (!appointmentDate.trim()) {
+      errors.appointmentDate = true;
+      if (!firstInvalidId) {
+        firstInvalidId = "appointment-date-input";
+        firstErrorMsg = "กรุณาระบุวันที่นัดหมาย";
+      }
+    }
+
+    // 6. เวลาเริ่มนัดหมาย (Section 5)
+    if (!startTime.trim()) {
+      errors.startTime = true;
+      if (!firstInvalidId) {
+        firstInvalidId = "start-time-input";
+        firstErrorMsg = "กรุณาระบุเวลาเริ่มนัดหมาย";
+      }
+    }
+
+    if (firstInvalidId) {
+      setFieldErrors(errors);
+      setErrorMsg(firstErrorMsg);
+
+      setTimeout(() => {
+        const el = document.getElementById(firstInvalidId!);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (
+            el.tagName === "INPUT" ||
+            el.tagName === "TEXTAREA" ||
+            el.tagName === "BUTTON"
+          ) {
+            (el as HTMLElement).focus({ preventScroll: true });
+          } else {
+            const focusable = el.querySelector<HTMLElement>("button, input, [tabindex='0']");
+            if (focusable) focusable.focus({ preventScroll: true });
+          }
+        }
+      }, 80);
+
       return;
     }
 
@@ -579,28 +690,30 @@ export function useBookingForm(companionId: string) {
     hasCalculatedDistance,
     companionLocation,
     companionLocationName: companionLocation?.name || "",
+    fieldErrors,
+    clearFieldError,
     categoryId,
     customCategory,
     errandTitle,
-    setErrandTitle,
+    setErrandTitle: handleTitleChange,
     errandDetails,
     setErrandDetails,
     originAddress,
-    setOriginAddress,
+    setOriginAddress: handleOriginAddressChange,
     originLat,
     setOriginLat,
     originLng,
     setOriginLng,
     destinationAddress,
-    setDestinationAddress,
+    setDestinationAddress: handleDestinationAddressChange,
     destinationLat,
     setDestinationLat,
     destinationLng,
     setDestinationLng,
     appointmentDate,
-    setAppointmentDate,
+    setAppointmentDate: handleAppointmentDateChange,
     startTime,
-    setStartTime,
+    setStartTime: handleStartTimeChange,
     specialNeeds,
     setSpecialNeeds,
     errorMsg,

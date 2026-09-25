@@ -22,6 +22,8 @@ interface LocationSectionProps {
   leg1Km?: number;
   leg2Km?: number;
   hasCalculatedDistance?: boolean;
+  hasOriginError?: boolean;
+  hasDestinationError?: boolean;
 }
 
 export default function LocationSection({
@@ -42,6 +44,8 @@ export default function LocationSection({
   leg1Km,
   leg2Km,
   hasCalculatedDistance = false,
+  hasOriginError = false,
+  hasDestinationError = false,
 }: LocationSectionProps) {
   return (
     <div className="space-y-4">
@@ -58,6 +62,7 @@ export default function LocationSection({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <LocationPicker
+          id="origin-address-input"
           label="จุดรับผู้เดินทาง"
           pinColor="green"
           address={originAddress}
@@ -69,9 +74,12 @@ export default function LocationSection({
           allowCurrentLocation={!isMeetAtDestination}
           disabled={isMeetAtDestination}
           disabledNotice="พบกันที่จุดหมาย (ช่องนี้ปิดการใช้งาน ไม่จำเป็นต้องระบุจุดรับ)"
+          hasError={hasOriginError}
+          errorMessage="กรุณาระบุจุดรับผู้เดินทาง หรือเลือกพบกันที่จุดหมาย"
         />
 
         <LocationPicker
+          id="destination-address-input"
           label="จุดหมายปลายทาง"
           pinColor="red"
           address={destinationAddress}
@@ -81,6 +89,8 @@ export default function LocationSection({
           onCoordinatesChange={onDestinationCoordinatesChange}
           placeholder="เช่น มหาวิทยาลัยสยาม, โรงพยาบาลศิริราช"
           allowCurrentLocation={false}
+          hasError={hasDestinationError}
+          errorMessage="กรุณาระบุจุดหมายปลายทาง"
         />
       </div>
 

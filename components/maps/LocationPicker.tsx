@@ -6,6 +6,7 @@ import GoogleMapPinModal from './GoogleMapPinModal';
 import { searchThaiPlaces, POPULAR_THAI_PLACES, ThaiPlace } from '@/lib/thaiPlaces';
 
 interface LocationPickerProps {
+  id?: string;
   label: string;
   pinColor: 'green' | 'red';
   address: string;
@@ -17,9 +18,12 @@ interface LocationPickerProps {
   allowCurrentLocation?: boolean;
   disabled?: boolean;
   disabledNotice?: string;
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 export default function LocationPicker({
+  id,
   label,
   pinColor,
   address,
@@ -31,6 +35,8 @@ export default function LocationPicker({
   allowCurrentLocation = false,
   disabled = false,
   disabledNotice,
+  hasError = false,
+  errorMessage,
 }: LocationPickerProps) {
   const [showMapModal, setShowMapModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -202,6 +208,7 @@ export default function LocationPicker({
           }`}
         />
         <input
+          id={id}
           type="text"
           disabled={disabled}
           required={!disabled}
@@ -217,16 +224,18 @@ export default function LocationPicker({
                 ? 'กำลังค้นหาชื่อสถานที่จาก GPS...'
                 : placeholder
           }
-          className={`w-full pl-11 ${
+          className={`scroll-mt-24 w-full pl-11 ${
             !disabled && address ? 'pr-10' : 'pr-4'
-          } py-3 rounded-xl border ${
+          } py-3 rounded-xl border transition-all ${
             disabled
               ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-              : `border-gray-300 focus:outline-none focus:ring-2 ${
-                  pinColor === 'green'
-                    ? 'focus:ring-emerald-500 focus:border-emerald-500'
-                    : 'focus:ring-rose-500 focus:border-rose-500'
-                } bg-white text-gray-900`
+              : hasError
+                ? 'border-2 border-rose-500 ring-2 ring-rose-200 bg-rose-50/30 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-gray-900'
+                : `border-gray-300 focus:outline-none focus:ring-2 ${
+                    pinColor === 'green'
+                      ? 'focus:ring-emerald-500 focus:border-emerald-500'
+                      : 'focus:ring-rose-500 focus:border-rose-500'
+                  } bg-white text-gray-900`
           } text-sm`}
         />
         {!disabled && address && (
@@ -243,6 +252,12 @@ export default function LocationPicker({
           </button>
         )}
       </div>
+
+      {!disabled && hasError && (
+        <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-fadeIn">
+          <span>⚠️ {errorMessage || 'กรุณาระบุสถานที่'}</span>
+        </p>
+      )}
 
       {disabled && (
         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-800 text-xs">

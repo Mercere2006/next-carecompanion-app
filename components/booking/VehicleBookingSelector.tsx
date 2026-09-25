@@ -1,19 +1,21 @@
 'use client';
 
 import React from 'react';
-import { Car, Footprints, Check } from 'lucide-react';
+import { Car, Footprints, Check, AlertCircle } from 'lucide-react';
 import { ParsedVehicleInfo } from '@/lib/vehicleUtils';
 
 interface VehicleBookingSelectorProps {
   vehicleDetails: ParsedVehicleInfo | null;
   selectedVehicle: 'car' | 'motorcycle' | 'none' | null;
   onSelectVehicle: (v: 'car' | 'motorcycle' | 'none') => void;
+  hasError?: boolean;
 }
 
 export default function VehicleBookingSelector({
   vehicleDetails,
   selectedVehicle,
   onSelectVehicle,
+  hasError = false,
 }: VehicleBookingSelectorProps) {
   if (!vehicleDetails) return null;
 
@@ -22,10 +24,10 @@ export default function VehicleBookingSelector({
   // If companion has neither car nor motorcycle, don't show the complex selection, just a note
   if (!hasCar && !hasMotorcycle) {
     return (
-      <div className="space-y-2 p-4 rounded-2xl bg-slate-50 border border-gray-200">
+      <div id="section-vehicle" className="scroll-mt-24 space-y-2 p-4 rounded-2xl bg-slate-50 border border-gray-200">
         <label className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5">
           <Footprints className="w-4 h-4 text-emerald-700" />
-          <span>ยานพาหนะในการร่วมเดินทาง</span>
+          <span>4. ยานพาหนะในการร่วมเดินทาง</span>
         </label>
         <p className="text-xs text-gray-600">
           ผู้ช่วยท่านนี้ให้บริการด้วยระบบขนส่งสาธารณะ (BTS / MRT / แท็กซี่) หรือพบกัน ณ จุดนัดหมาย (คำนวณค่าบริการตามระยะทางเดินทางจริง)
@@ -35,17 +37,31 @@ export default function VehicleBookingSelector({
   }
 
   return (
-    <div className="space-y-3 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-50/80 border border-gray-200">
+    <div
+      id="section-vehicle"
+      className={`scroll-mt-24 space-y-3 p-4 sm:p-5 rounded-2xl sm:rounded-3xl transition-all duration-300 ${
+        hasError
+          ? 'border-2 border-rose-500 bg-rose-50/50 ring-4 ring-rose-200 shadow-lg shadow-rose-100/70'
+          : 'border border-gray-200 bg-slate-50/80'
+      }`}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
         <label className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5">
-          <Car className="w-4 h-4 text-emerald-700" />
-          <span>เลือกยานพาหนะสำหรับร่วมเดินทาง</span>
+          <Car className={`w-4 h-4 ${hasError ? 'text-rose-600' : 'text-emerald-700'}`} />
+          <span>4. เลือกยานพาหนะสำหรับร่วมเดินทาง</span>
           <span className="text-rose-500">*</span>
         </label>
         <span className="text-[11px] text-gray-500">
           เลือกประเภทพาหนะที่ต้องการ เพื่อคำนวณค่าบริการร่วมกับระยะทาง
         </span>
       </div>
+
+      {hasError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-100 border border-rose-300 text-rose-800 text-xs sm:text-sm font-bold animate-pulse">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span>กรุณาเลือกรูปแบบยานพาหนะในการร่วมเดินทางด้านล่างนี้</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Option 1: Car */}

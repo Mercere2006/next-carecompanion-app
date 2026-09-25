@@ -56,7 +56,7 @@ function BookingForm({ companionId }: { companionId: string }) {
             onGoogleLogin={form.handleGoogleLogin}
           />
 
-          <form onSubmit={form.handleSubmit} className="space-y-6">
+          <form onSubmit={form.handleSubmit} noValidate className="space-y-6">
             <CategorySelector
               categoryId={form.categoryId}
               customCategory={form.customCategory}
@@ -69,6 +69,7 @@ function BookingForm({ companionId }: { companionId: string }) {
               errandDetails={form.errandDetails}
               onTitleChange={form.setErrandTitle}
               onDetailsChange={form.setErrandDetails}
+              hasTitleError={form.fieldErrors.errandTitle}
             />
 
             <LocationSection
@@ -95,6 +96,8 @@ function BookingForm({ companionId }: { companionId: string }) {
               leg1Km={form.leg1Km}
               leg2Km={form.leg2Km}
               hasCalculatedDistance={form.hasCalculatedDistance}
+              hasOriginError={form.fieldErrors.originAddress}
+              hasDestinationError={form.fieldErrors.destinationAddress}
             />
 
             {/* Vehicle Selection for Booking */}
@@ -102,6 +105,7 @@ function BookingForm({ companionId }: { companionId: string }) {
               vehicleDetails={form.vehicleDetails}
               selectedVehicle={form.selectedVehicle}
               onSelectVehicle={form.handleSelectVehicle}
+              hasError={form.fieldErrors.selectedVehicle}
             />
 
             <SchedulePicker
@@ -109,6 +113,8 @@ function BookingForm({ companionId }: { companionId: string }) {
               startTime={form.startTime}
               onAppointmentDateChange={form.setAppointmentDate}
               onStartTimeChange={form.setStartTime}
+              hasDateError={form.fieldErrors.appointmentDate}
+              hasTimeError={form.fieldErrors.startTime}
             />
 
             <SpecialNeedsFields
