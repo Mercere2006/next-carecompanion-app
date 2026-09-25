@@ -89,6 +89,8 @@ export default function CompanionDashboard() {
                 confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
               },
             });
+          } else if (compProfile.verification_status === 'pending') {
+            localStorage.removeItem(shownApprovalKey);
           }
 
           localStorage.setItem(lastSeenKey, compProfile.verification_status || 'none');

@@ -227,9 +227,14 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         .eq('id', userId)
         .maybeSingle();
 
+      // 3. Read custom system notifications from local storage helper
+      const localSys = getSystemNotifications(userId);
+
       if (compProfile) {
         const verifStatus = compProfile.verification_status;
         const updatedAt = compProfile.updated_at || new Date().toISOString();
+        const lastStatusKey = `carecompanion_known_status_${userId}`;
+        const prevStatus = typeof window !== 'undefined' ? localStorage.getItem(lastStatusKey) : null;
 
         if (verifStatus === 'pending') {
           items.push({
@@ -241,20 +246,30 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             created_at: updatedAt,
             link: '/companion/dashboard',
           });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(lastStatusKey, 'pending');
+          }
         } else if (verifStatus === 'verified') {
-          // Unique ID includes updated_at so companion is notified whenever newly approved
-          items.push({
-            id: `comp-verif-verified-${userId}-${updatedAt.slice(0, 19)}`,
-            type: 'verification_approved',
-            title: 'ยินดีด้วย! บัญชีได้รับการอนุมัติแล้ว 🎉',
-            message:
-              'บัญชี Companion ของคุณผ่านการตรวจสอบจากผู้ดูแลระบบเรียบร้อยแล้ว คุณสามารถเปิดรับงานและให้บริการลูกค้าได้ทันที',
-            created_at: updatedAt,
-            link: '/companion/dashboard',
-          });
+          // Only add verification_approved if companion was pending and just got verified,
+          // and not already in localSys
+          const hasSysApproval = localSys.some((s) => s.type === 'verification_approved');
+          if (prevStatus === 'pending' && !hasSysApproval) {
+            items.push({
+              id: `comp-verif-approved-${userId}`,
+              type: 'verification_approved',
+              title: 'ยินดีด้วย! บัญชีได้รับการอนุมัติแล้ว 🎉',
+              message:
+                'บัญชี Companion ของคุณผ่านการตรวจสอบจากผู้ดูแลระบบเรียบร้อยแล้ว คุณสามารถเปิดรับงานและให้บริการลูกค้าได้ทันที',
+              created_at: updatedAt,
+              link: '/companion/dashboard',
+            });
+          }
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(lastStatusKey, 'verified');
+          }
         } else if (verifStatus === 'rejected') {
           items.push({
-            id: `comp-verif-rejected-${userId}-${updatedAt.slice(0, 19)}`,
+            id: `comp-verif-rejected-${userId}`,
             type: 'verification_rejected',
             title: 'ผลการตรวจสอบข้อมูลการสมัคร',
             message:
@@ -262,11 +277,11 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             created_at: updatedAt,
             link: '/companion/profile',
           });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(lastStatusKey, 'rejected');
+          }
         }
       }
-
-      // 3. Read custom system notifications from local storage helper
-      const localSys = getSystemNotifications(userId);
       localSys.forEach((sys) => {
         // Prevent duplicate IDs
         if (!items.some((i) => i.id === sys.id)) {

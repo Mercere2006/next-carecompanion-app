@@ -241,9 +241,9 @@ export default function CompanionProfilePage() {
         );
         setVehicles(parsedVehicles);
 
-        // Check if companion profile is already completed and saved
+        // Check if companion profile is already completed and saved as verified
         if (
-          (data.verification_status === 'verified' || data.phone_verified) &&
+          data.verification_status === 'verified' &&
           Boolean(cleanBio && cleanBio.trim().length > 0)
         ) {
           setIsProfileSaved(true);
@@ -512,7 +512,7 @@ export default function CompanionProfilePage() {
   // Step 1.2: OTP verification success callback
   const handleVerifyOtpSuccess = async () => {
     setPhoneVerified(true);
-    setVerificationStatus('verified');
+    // Phone OTP verifies phone ownership, not admin approval (which remains pending)
 
     try {
       if (userId) {
@@ -1040,6 +1040,64 @@ export default function CompanionProfilePage() {
     }
   };
 
+  // Allow companion to reset status to pending for testing or re-verification
+  const handleResetToPending = async () => {
+    if (!userId) return;
+    const confirm = await Swal.fire({
+      title: 'ต้องการส่งข้อมูลให้แอดมินตรวจสอบใหม่?',
+      text: 'ระบบจะเปลี่ยนสถานะบัญชีของคุณเป็น "รอการอนุมัติ" เพื่อให้คุณสามารถทดสอบขั้นตอนรออนุมัติและการอนุมัติจากแอดมินได้',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#d97706',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'ยืนยัน ปรับเป็นรออนุมัติ',
+      cancelButtonText: 'ยกเลิก',
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl font-sans',
+        confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+        cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+      },
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setSaving(true);
+      if (userId !== 'demo-companion-preview') {
+        await supabase
+          .from('companion_profiles')
+          .update({
+            verification_status: 'pending',
+            is_available: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+      }
+
+      setVerificationStatus('pending');
+      setIsProfileSaved(false);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`carecompanion_known_status_${userId}`, 'pending');
+        localStorage.removeItem(`carecompanion_shown_approval_${userId}`);
+      }
+
+      addSystemNotification(userId, {
+        id: `comp-verif-pending-${userId}`,
+        type: 'verification_pending',
+        title: 'กรุณารอการอนุมัติ',
+        message:
+          'ระบบได้รับข้อมูลการสมัครเป็น Companion ของคุณแล้ว ขณะนี้อยู่ระหว่างการตรวจสอบจากผู้ดูแลระบบ กรุณารอการอนุมัติ',
+        link: '/companion/dashboard',
+      });
+
+      router.push('/companion/dashboard?submitted=1');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1218,6 +1276,33 @@ export default function CompanionProfilePage() {
                 onVerifySuccess={handleVerifyOtpSuccess}
               />
             </div>
+          </div>
+        )}
+
+        {/* If Companion is already verified, show active banner with option to reset to pending for testing */}
+        {verificationStatus === 'verified' && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-extrabold text-emerald-950">
+                  บัญชีของคุณได้รับการอนุมัติแล้ว (พร้อมรับงาน)
+                </p>
+                <p className="text-[11px] sm:text-xs text-emerald-700">
+                  คุณสามารถแก้ไขข้อมูลโปรไฟล์ด้านล่างได้ตลอดเวลา หรือปรับสถานะเป็นรออนุมัติหากต้องการทดสอบการสมัครใหม่
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetToPending}
+              disabled={saving}
+              className="shrink-0 px-4 py-2 rounded-xl bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              🔄 ปรับเป็นรออนุมัติ (เพื่อทดสอบส่งตรวจใหม่)
+            </button>
           </div>
         )}
 
