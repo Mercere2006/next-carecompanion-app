@@ -831,14 +831,6 @@ export default function AdminDashboardPage() {
                                   <>
                                     <button
                                       disabled={isProcessing}
-                                      onClick={() => handleVerifyCompanion(comp.id, 'pending')}
-                                      className="px-2.5 py-1 rounded-lg text-amber-800 bg-amber-50 hover:bg-amber-100 font-bold text-xs border border-amber-300 transition cursor-pointer"
-                                      title="เปลี่ยนสถานะกลับเป็นรอตรวจสอบ เพื่อทดสอบการอนุมัติใหม่"
-                                    >
-                                      🔄 ปรับเป็นรอตรวจสอบ
-                                    </button>
-                                    <button
-                                      disabled={isProcessing}
                                       onClick={() => handleToggleCompanionSuspension(comp)}
                                       className={`px-2.5 py-1 rounded-lg font-bold text-xs border transition cursor-pointer ${
                                         comp.is_suspended
@@ -866,14 +858,6 @@ export default function AdminDashboardPage() {
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
                                   ✕ ปฏิเสธแล้ว
                                 </span>
-                                <button
-                                  disabled={isProcessing}
-                                  onClick={() => handleVerifyCompanion(comp.id, 'pending')}
-                                  className="px-2.5 py-1 rounded-lg text-amber-800 bg-amber-50 hover:bg-amber-100 font-bold text-xs border border-amber-300 transition cursor-pointer"
-                                  title="เปลี่ยนสถานะกลับเป็นรอตรวจสอบ"
-                                >
-                                  🔄 ปรับเป็นรอตรวจสอบ
-                                </button>
                                 <button
                                   disabled={isProcessing}
                                   onClick={() => handleVerifyCompanion(comp.id, 'verified')}
@@ -2096,17 +2080,6 @@ export default function AdminDashboardPage() {
                           type="button"
                           disabled={isProcessing}
                           onClick={async () => {
-                            await handleVerifyCompanion(comp.id, 'pending');
-                            setSelectedCompanionForDetails(null);
-                          }}
-                          className="px-4 py-2.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs border border-amber-300 transition cursor-pointer"
-                        >
-                          🔄 ปรับเป็นรอตรวจสอบ
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isProcessing}
-                          onClick={async () => {
                             await handleToggleCompanionSuspension(comp);
                             setSelectedCompanionForDetails(null);
                           }}
@@ -2133,30 +2106,17 @@ export default function AdminDashboardPage() {
                     )}
 
                     {comp.verification_status === 'rejected' && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={isProcessing}
-                          onClick={async () => {
-                            await handleVerifyCompanion(comp.id, 'pending');
-                            setSelectedCompanionForDetails(null);
-                          }}
-                          className="px-4 py-2.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs border border-amber-300 transition cursor-pointer"
-                        >
-                          🔄 ปรับเป็นรอตรวจสอบ
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isProcessing}
-                          onClick={async () => {
-                            await handleVerifyCompanion(comp.id, 'verified');
-                            setSelectedCompanionForDetails(null);
-                          }}
-                          className="px-4 py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800 disabled:opacity-50 transition cursor-pointer shadow-xs"
-                        >
-                          อนุมัติใหม่
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={async () => {
+                          await handleVerifyCompanion(comp.id, 'verified');
+                          setSelectedCompanionForDetails(null);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800 disabled:opacity-50 transition cursor-pointer shadow-xs"
+                      >
+                        อนุมัติใหม่
+                      </button>
                     )}
                   </div>
                 </div>

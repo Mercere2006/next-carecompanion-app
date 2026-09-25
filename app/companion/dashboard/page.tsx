@@ -225,31 +225,23 @@ export default function CompanionDashboard() {
 {/* Pending Verification Status Banner */}
         {companionProfile?.verification_status === 'pending' && !companionProfile?.is_suspended && (
           <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 sm:p-6 mb-6 sm:mb-8 shadow-xs">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
-                  <Clock className="w-6 h-6 animate-pulse" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-black text-amber-950">
-                      ข้อมูลการสมัครของคุณอยู่ระหว่างการตรวจสอบ (กรุณารอการอนุมัติ)
-                    </h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 border border-amber-300">
-                      รออนุมัติ
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-amber-900/90 leading-relaxed">
-                    ระบบได้รับข้อมูลโปรไฟล์และหลักฐานยืนยันตัวตนของคุณเรียบร้อยแล้ว เจ้าหน้าที่แอดมินกำลังดำเนินการตรวจสอบความถูกต้อง เมื่อได้รับการอนุมัติแล้ว ระบบจะส่งการแจ้งเตือนและเปิดระบบรับงานให้คุณทันที
-                  </p>
-                </div>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+                <Clock className="w-6 h-6 animate-pulse" />
               </div>
-              <Link
-                href="/companion/profile"
-                className="shrink-0 px-4 py-2.5 rounded-xl bg-white border border-amber-300 text-amber-900 text-xs font-bold hover:bg-amber-100 transition shadow-2xs"
-              >
-                ดูข้อมูลโปรไฟล์
-              </Link>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-black text-amber-950">
+                    ข้อมูลการสมัครของคุณอยู่ระหว่างการตรวจสอบ (กรุณารอการอนุมัติ)
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                    รออนุมัติ
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-amber-900/90 leading-relaxed">
+                  ระบบได้รับข้อมูลโปรไฟล์และหลักฐานยืนยันตัวตนของคุณเรียบร้อยแล้ว เจ้าหน้าที่แอดมินกำลังดำเนินการตรวจสอบความถูกต้อง เมื่อได้รับการอนุมัติแล้ว ระบบจะส่งการแจ้งเตือนและเปิดระบบรับงานให้คุณทันที
+                </p>
+              </div>
             </div>
           </div>
         )}
