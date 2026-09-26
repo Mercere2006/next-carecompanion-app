@@ -1128,30 +1128,16 @@ export default function AdminDashboardPage() {
                           {u.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right space-x-2">
-                        {u.role !== 'admin' && (
+                      <td className="px-6 py-4 text-right">
+                        {u.role !== 'admin' ? (
                           <button
                             onClick={() => handleChangeRole(u.id, 'admin')}
-                            className="text-xs font-bold text-amber-700 hover:underline"
+                            className="text-xs font-bold text-amber-700 hover:text-amber-800 hover:underline cursor-pointer"
                           >
                             ตั้งเป็น Admin
                           </button>
-                        )}
-                        {u.role !== 'companion' && (
-                          <button
-                            onClick={() => handleChangeRole(u.id, 'companion')}
-                            className="text-xs font-bold text-teal-700 hover:underline"
-                          >
-                            ตั้งเป็น Companion
-                          </button>
-                        )}
-                        {u.role !== 'customer' && (
-                          <button
-                            onClick={() => handleChangeRole(u.id, 'customer')}
-                            className="text-xs font-bold text-emerald-700 hover:underline"
-                          >
-                            ตั้งเป็น Customer
-                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400 font-medium">-</span>
                         )}
                       </td>
                     </tr>
