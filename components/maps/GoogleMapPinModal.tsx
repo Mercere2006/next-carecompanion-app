@@ -114,7 +114,7 @@ export default function GoogleMapPinModal({
       setIsReverseGeocoding(false);
     }
 
-    setSelectedName(`พิกัดที่ปักหมุด (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+    setSelectedName('ตำแหน่งที่ปักหมุด');
   };
 
   // Initialize interactive Leaflet map with draggable pin
@@ -338,7 +338,7 @@ export default function GoogleMapPinModal({
             </div>
             <div>
               <p className="font-bold text-xs sm:text-sm">
-                🖐️ คุณสามารถคลิกหรือลากหมุดบนแผนที่เพื่อเปลี่ยนตำแหน่งได้ทันที!
+                คุณสามารถคลิกหรือลากหมุดบนแผนที่เพื่อเปลี่ยนตำแหน่งได้ทันที
               </p>
               <p className="text-[11px] opacity-80 mt-0.5">
                 แตะจุดใดก็ได้บนแผนที่ หรือลากตัวหมุดไปยังหน้าบ้าน/จุดนัดพบที่ต้องการ ระบบจะค้นหาชื่อที่อยู่ให้อัตโนมัติ
@@ -462,9 +462,6 @@ export default function GoogleMapPinModal({
                       </span>
                     )}
                   </span>
-                  <span className="text-[10px] font-mono bg-white/80 px-2 py-0.5 rounded-md border border-gray-200 text-gray-600">
-                    {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
-                  </span>
                 </div>
                 <input
                   type="text"
@@ -474,7 +471,7 @@ export default function GoogleMapPinModal({
                   className="mt-1 w-full bg-white px-2.5 py-1.5 rounded-xl border border-gray-300 text-xs sm:text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  💡 คุณสามารถพิมพ์แก้ไขรายละเอียดเพิ่มเติม เช่น ประตูทางเข้า, อาคาร หรือจุดรอพบได้
+                  คุณสามารถพิมพ์แก้ไขรายละเอียดเพิ่มเติม เช่น ประตูทางเข้า, อาคาร หรือจุดรอพบได้
                 </p>
               </div>
             </div>
@@ -493,7 +490,7 @@ export default function GoogleMapPinModal({
                   }`}
                 />
                 <span className="text-xs font-bold text-gray-800 truncate">
-                  📍 {selectedName}
+                  {selectedName}
                 </span>
               </div>
             )}

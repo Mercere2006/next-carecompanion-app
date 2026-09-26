@@ -125,7 +125,7 @@ export default function LocationPicker({
         }
 
         // Fallback if reverse geocoding didn't return
-        onAddressChange(`พิกัดปัจจุบัน (${latitude}, ${longitude})`);
+        onAddressChange('ตำแหน่งปัจจุบัน');
       },
       (error) => {
         console.warn('Geolocation error:', error);
