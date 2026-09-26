@@ -10,6 +10,7 @@ import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play
 import Link from 'next/link';
 import Swal from 'sweetalert2';
 import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
+import { addSystemNotification } from '@/lib/notifications';
 
 export default function CompanionDashboard() {
   const supabase = createClient();
@@ -186,7 +187,31 @@ export default function CompanionDashboard() {
       )
       .subscribe();
 
+    // Active polling interval every 4s so dashboard stays updated without refresh
+    const pollingTimer = setInterval(() => {
+      fetchCompanionBookings();
+    }, 4000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCompanionBookings();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    const handleCustomUpdate = () => {
+      fetchCompanionBookings();
+    };
+    window.addEventListener('carecompanion_notification_update', handleCustomUpdate);
+    window.addEventListener('storage', handleCustomUpdate);
+
     return () => {
+      clearInterval(pollingTimer);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('carecompanion_notification_update', handleCustomUpdate);
+      window.removeEventListener('storage', handleCustomUpdate);
       supabase.removeChannel(channel);
     };
   }, [fetchCompanionBookings, supabase]);
@@ -208,6 +233,33 @@ export default function CompanionDashboard() {
         .eq('id', bookingId);
 
       if (error) throw error;
+
+      // Dispatch real-time notification to the customer
+      const target = bookings.find((b) => b.id === bookingId);
+      if (target?.customer_id) {
+        let notifTitle = 'อัปเดตสถานะงาน';
+        let notifMsg = `คำขอ "${target.errand_title}" ได้รับการเปลี่ยนสถานะเป็น ${newStatus}`;
+        if (newStatus === 'accepted') {
+          notifTitle = 'ผู้ช่วยตอบรับงานแล้ว! 🎉';
+          notifMsg = `ผู้ช่วยตอบรับคำขอเดินทาง "${target.errand_title}" แล้ว คุณสามารถตรวจสอบเบอร์ติดต่อและสถานะได้ที่แดชบอร์ด`;
+        } else if (newStatus === 'rejected') {
+          notifTitle = `ผู้ช่วยไม่สะดวกรับงาน: ${target.errand_title}`;
+          notifMsg = `ผู้ช่วยไม่สะดวกรับงานในวันดังกล่าว ระบบได้เตรียมผู้ช่วยท่านอื่นที่ว่างแนะนำให้คุณแล้ว`;
+        } else if (newStatus === 'in_progress') {
+          notifTitle = 'ผู้ช่วยกำลังเดินทางไปยังจุดรับ 🚗';
+          notifMsg = `ผู้ช่วยเริ่มออกเดินทางสำหรับงาน "${target.errand_title}" แล้ว`;
+        } else if (newStatus === 'completed') {
+          notifTitle = 'ภารกิจเสร็จสิ้นแล้ว! ✨';
+          notifMsg = `การเดินทางสำหรับ "${target.errand_title}" เสร็จสิ้นแล้ว กรุณาช่วยให้คะแนนและเขียนรีวิวผู้ช่วยของคุณ`;
+        }
+        addSystemNotification(target.customer_id, {
+          type: 'system',
+          title: notifTitle,
+          message: notifMsg,
+          link: '/customer/dashboard',
+        });
+      }
+
       fetchCompanionBookings();
     } catch (err) {
       alert('ไม่สามารถอัปเดตสถานะได้: ' + (err as Error).message);

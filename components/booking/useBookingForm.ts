@@ -12,6 +12,7 @@ import {
   CompanionLocation,
   BookingPricingResult,
 } from "@/lib/distancePricing";
+import { addSystemNotification } from "@/lib/notifications";
 
 export interface CompanionVehicleInfo {
   type: string;
@@ -607,29 +608,44 @@ export function useBookingForm(companionId: string) {
         .trim();
 
       // Create Booking in Supabase
-      const { error } = await supabase.from("bookings").insert({
-        customer_id: user.id,
-        companion_id: companionId,
-        category_id: categoryId,
-        errand_title: errandTitle,
-        errand_details: combinedDetails,
-        origin_address: isMeetAtDestination
-          ? (originAddress.trim() || `พบกันที่จุดหมาย: ${destinationAddress.trim()}`)
-          : originAddress.trim(),
-        origin_lat: isMeetAtDestination ? (originLat || destinationLat) : originLat,
-        origin_lng: isMeetAtDestination ? (originLng || destinationLng) : originLng,
-        destination_address: destinationAddress.trim(),
-        destination_lat: destinationLat,
-        destination_lng: destinationLng,
-        appointment_date: appointmentDate,
-        start_time: startTime,
-        duration_hours: 1,
-        special_needs: specialNeeds,
-        total_price: totalPrice,
-        status: "pending",
-      });
+      const { data: insertedBooking, error } = await supabase
+        .from("bookings")
+        .insert({
+          customer_id: user.id,
+          companion_id: companionId,
+          category_id: categoryId,
+          errand_title: errandTitle,
+          errand_details: combinedDetails,
+          origin_address: isMeetAtDestination
+            ? (originAddress.trim() || `พบกันที่จุดหมาย: ${destinationAddress.trim()}`)
+            : originAddress.trim(),
+          origin_lat: isMeetAtDestination ? (originLat || destinationLat) : originLat,
+          origin_lng: isMeetAtDestination ? (originLng || destinationLng) : originLng,
+          destination_address: destinationAddress.trim(),
+          destination_lat: destinationLat,
+          destination_lng: destinationLng,
+          appointment_date: appointmentDate,
+          start_time: startTime,
+          duration_hours: 1,
+          special_needs: specialNeeds,
+          total_price: totalPrice,
+          status: "pending",
+        })
+        .select()
+        .maybeSingle();
 
       if (error) throw error;
+
+      // Send real-time notification to the companion
+      if (companionId) {
+        addSystemNotification(companionId, {
+          id: `bk-notif-${insertedBooking?.id || Date.now()}`,
+          type: "booking",
+          title: "มีคำขอจองบริการใหม่เข้ามา! 🔔",
+          message: `ลูกค้าได้ส่งคำขอจอง "${errandTitle}" สำหรับวันที่ ${appointmentDate} เวลา ${startTime?.slice(0, 5)} น. (฿${totalPrice.toLocaleString()})`,
+          link: "/companion/dashboard",
+        });
+      }
 
       // Clear pending storage
       if (typeof window !== "undefined") {

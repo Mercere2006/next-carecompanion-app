@@ -103,7 +103,54 @@ export default function CustomerDashboard() {
       await fetchBookings();
     }
     init();
-  }, [fetchBookings]);
+
+    // 1. Real-time subscription for booking changes
+    const channelId = `cust-dash-${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+        },
+        () => {
+          fetchBookings();
+        }
+      )
+      .subscribe();
+
+    // 2. Active polling interval every 4s for zero-refresh updates
+    const pollingTimer = setInterval(() => {
+      fetchBookings();
+    }, 4000);
+
+    // 3. Tab visibility & focus re-check
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchBookings();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    // 4. Custom notification & storage events
+    const handleCustomUpdate = () => {
+      fetchBookings();
+    };
+    window.addEventListener('carecompanion_notification_update', handleCustomUpdate);
+    window.addEventListener('storage', handleCustomUpdate);
+
+    return () => {
+      clearInterval(pollingTimer);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('carecompanion_notification_update', handleCustomUpdate);
+      window.removeEventListener('storage', handleCustomUpdate);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchBookings, supabase]);
 
   // Find recommended alternative companions available on that specific date and time (excluding the rejected companion)
   // Sorted by proximity (closest to customer's pickup point first) to save travel distance & costs

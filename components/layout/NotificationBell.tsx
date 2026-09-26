@@ -14,12 +14,14 @@ import {
   Sparkles,
   ShieldAlert,
   Heart,
+  X,
 } from 'lucide-react';
 import { formatPrice, formatThaiDate } from '@/lib/utils';
 import {
   getSystemNotifications,
   markSystemNotificationRead,
   markAllSystemNotificationsRead,
+  playNotificationSound,
   SystemNotification,
 } from '@/lib/notifications';
 
@@ -93,7 +95,11 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeToast, setActiveToast] = useState<UnifiedNotificationItem | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const isInitialMount = useRef<boolean>(true);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Storage key for read IDs
   const storageKey = `carecompanion_read_bookings_${userId}`;
@@ -158,7 +164,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       ];
 
       // Also read any custom system notifications for demo user
-      const sysNotifs = getSystemNotifications(userId).map((s) => ({
+      const sysNotifs: UnifiedNotificationItem[] = getSystemNotifications(userId).map((s) => ({
         id: s.id,
         type: s.type,
         title: s.title,
@@ -167,7 +173,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         link: s.link || '/companion/dashboard',
       }));
 
-      const combined = [...sysNotifs, ...mockBookings].sort(
+      const combined: UnifiedNotificationItem[] = [...sysNotifs, ...mockBookings].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -405,6 +411,24 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         }
       });
       setUnreadIds(currentUnread);
+
+      // Detect incoming new unread notifications without page refresh
+      if (!isInitialMount.current) {
+        const brandNew = items.filter(
+          (item) => !knownIdsRef.current.has(item.id) && currentUnread.has(item.id)
+        );
+        if (brandNew.length > 0) {
+          const newest = brandNew[0];
+          setActiveToast(newest);
+          playNotificationSound();
+          if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+          toastTimeoutRef.current = setTimeout(() => {
+            setActiveToast(null);
+          }, 6000);
+        }
+      }
+      knownIdsRef.current = new Set(items.map((i) => i.id));
+      isInitialMount.current = false;
     } catch (err) {
       console.error('Error fetching notifications:', err);
     } finally {
@@ -412,7 +436,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     }
   }, [userId, supabase, getStoredReadIds]);
 
-  // Initial load and real-time subscription
+  // Initial load, real-time subscriptions, and background polling
   useEffect(() => {
     fetchNotifications();
 
@@ -423,14 +447,31 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     window.addEventListener('carecompanion_notification_update', handleCustomUpdate);
     window.addEventListener('storage', handleCustomUpdate);
 
+    // 1. High-frequency polling interval (every 4 seconds) so notifications arrive with zero refresh
+    const pollingTimer = setInterval(() => {
+      fetchNotifications();
+    }, 4000);
+
+    // 2. Active tab visibility / focus refresh
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
     if (userId.startsWith('demo-')) {
       return () => {
+        clearInterval(pollingTimer);
+        window.removeEventListener('visibilitychange', handleVisibility);
+        window.removeEventListener('focus', handleVisibility);
         window.removeEventListener('carecompanion_notification_update', handleCustomUpdate);
         window.removeEventListener('storage', handleCustomUpdate);
       };
     }
 
-    // Listen for new booking inserts or status changes, and companion_profiles updates
+    // 3. Supabase Realtime Postgres Changes
     const channelId = `notif-channel-${userId}-${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
       .channel(channelId)
@@ -440,19 +481,6 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           event: '*',
           schema: 'public',
           table: 'bookings',
-          filter: `companion_id=eq.${userId}`,
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bookings',
-          filter: `customer_id=eq.${userId}`,
         },
         () => {
           fetchNotifications();
@@ -464,7 +492,6 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           event: '*',
           schema: 'public',
           table: 'companion_profiles',
-          filter: `id=eq.${userId}`,
         },
         () => {
           fetchNotifications();
@@ -476,7 +503,6 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           event: '*',
           schema: 'public',
           table: 'reviews',
-          filter: `companion_id=eq.${userId}`,
         },
         () => {
           fetchNotifications();
@@ -484,8 +510,30 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       )
       .subscribe();
 
+    // 4. Supabase Realtime Broadcast Channel (instant sub-second cross-browser delivery)
+    const broadcastChannel = supabase
+      .channel(`carecompanion_broadcast_${userId}`)
+      .on('broadcast', { event: 'live_notification' }, (payload: any) => {
+        if (payload?.payload?.item) {
+          const item = payload.payload.item as UnifiedNotificationItem;
+          setActiveToast(item);
+          playNotificationSound();
+          if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+          toastTimeoutRef.current = setTimeout(() => {
+            setActiveToast(null);
+          }, 6000);
+        }
+        fetchNotifications();
+      })
+      .subscribe();
+
     return () => {
+      clearInterval(pollingTimer);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
       supabase.removeChannel(channel);
+      supabase.removeChannel(broadcastChannel);
       window.removeEventListener('carecompanion_notification_update', handleCustomUpdate);
       window.removeEventListener('storage', handleCustomUpdate);
     };
@@ -937,6 +985,50 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             >
               ดูคำขอของฉัน (Customer)
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Floating Alert Toast Banner (Pops up automatically with sound without refreshing!) */}
+      {activeToast && (
+        <div
+          onClick={() => handleItemClick(activeToast)}
+          className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-[calc(100%-2rem)] bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-emerald-400 text-gray-900 cursor-pointer animate-in fade-in slide-in-from-top-3 duration-300"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+              {activeToast.type === 'review_received' ? (
+                <Heart className="w-5 h-5 fill-white text-white" />
+              ) : (
+                <Bell className="w-5 h-5 animate-bounce" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <div className="flex items-center justify-between gap-1">
+                <span className="font-extrabold text-xs text-gray-950 truncate">
+                  {activeToast.title}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveToast(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-0.5 rounded-lg cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {activeToast.message && (
+                <p className="text-xs text-gray-600 font-medium line-clamp-2 leading-relaxed">
+                  {activeToast.message}
+                </p>
+              )}
+              <div className="pt-1 flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                <span>แตะเพื่อเปิดดูรายละเอียด</span>
+                <ArrowRight className="w-3 h-3" />
+              </div>
+            </div>
           </div>
         </div>
       )}
