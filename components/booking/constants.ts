@@ -14,7 +14,6 @@ export const SERVICE_CATEGORIES: ServiceCategoryOption[] = [
 export const QUICK_SPECIAL_NEEDS = [
   "ช่วยพยุงเดิน",
   "ใช้วีลแชร์ / เข็นรถ",
-  "มีรถยนต์ส่วนตัว",
   "สื่อสารภาษาอังกฤษ",
 ];
 

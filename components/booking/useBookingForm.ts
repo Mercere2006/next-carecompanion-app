@@ -598,7 +598,6 @@ export function useBookingForm(companionId: string) {
       const cleanCustomerNotes = cleanErrandDetails(errandDetails);
 
       const combinedDetails = [
-        customCategory ? `[ประเภทธุระระบุเอง: ${customCategory}]` : "",
         vehicleNote,
         distanceSummaryNote,
         cleanCustomerNotes,
@@ -611,7 +610,7 @@ export function useBookingForm(companionId: string) {
       const { error } = await supabase.from("bookings").insert({
         customer_id: user.id,
         companion_id: companionId,
-        category_id: categoryId === 99 ? 5 : categoryId,
+        category_id: categoryId,
         errand_title: errandTitle,
         errand_details: combinedDetails,
         origin_address: isMeetAtDestination

@@ -21,14 +21,14 @@ export default function SpecialNeedsFields({
           6. ความช่วยเหลือพิเศษ (ถ้ามี)
         </label>
         <span className="text-xs text-gray-500">
-          เลือกตัวเลือกด้านล่าง หรือพิมพ์ระบุเองได้
+          เลือกตัวเลือกด้านล่าง หรือพิมพ์เพิ่มเติมได้
         </span>
       </div>
       <input
         type="text"
         value={specialNeeds}
         onChange={(e) => onSpecialNeedsChange(e.target.value)}
-        placeholder="เช่น ใช้วีลแชร์ของตนเอง, เดินช้าต้องช่วยพยุง, ต้องการคนมีรถยนต์ส่วนตัว"
+        placeholder="เช่น ใช้วีลแชร์ของตนเอง, เดินช้าต้องช่วยพยุง, มีโรคประจำตัว"
         className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-gray-900"
       />
       <div className="flex flex-wrap items-center gap-1.5 pt-1">
