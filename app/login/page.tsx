@@ -4,7 +4,8 @@ import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { HeartHandshake, ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
@@ -50,8 +51,15 @@ function LoginContent() {
 
         {/* Logo & Header */}
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 rounded-3xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-200 mx-auto">
-            <HeartHandshake className="w-7 h-7" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-white border border-emerald-100 shadow-xl shadow-emerald-100/60 flex items-center justify-center p-2.5 mx-auto">
+            <Image
+              src="/images/logo-icon.png"
+              alt="Care Companion Logo"
+              width={64}
+              height={64}
+              priority
+              className="w-full h-full object-contain"
+            />
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-gray-950 tracking-tight">
             เข้าสู่ระบบ Care Companion

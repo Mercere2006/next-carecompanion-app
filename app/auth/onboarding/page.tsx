@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import Image from 'next/image';
 import { UserRole } from '@/types/database';
-import { HeartHandshake, UserCheck, Shield, CheckCircle2, ArrowRight } from 'lucide-react';
+import { UserCheck, Shield, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -124,8 +125,15 @@ export default function OnboardingPage() {
       <div className="max-w-xl w-full bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-10 shadow-xl border border-gray-100 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
-            <HeartHandshake className="w-7 h-7 sm:w-8 sm:h-8" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-white border border-emerald-100 shadow-md shadow-emerald-100/60 flex items-center justify-center p-2 mx-auto">
+            <Image
+              src="/images/logo-icon.png"
+              alt="Care Companion Logo"
+              width={56}
+              height={56}
+              priority
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-xl sm:text-3xl font-extrabold text-gray-950 break-words">
             ยินดีต้อนรับสู่ Care Companion

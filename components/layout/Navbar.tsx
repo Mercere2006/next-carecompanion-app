@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/types/database';
-import { HeartHandshake, User, LogOut, Menu, X, Shield, Search, ChevronDown } from 'lucide-react';
+import { User, LogOut, Menu, X, Shield, Search, ChevronDown } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import BrandLogo from '@/components/ui/BrandLogo';
 
 export default function Navbar() {
   const router = useRouter();
@@ -204,19 +205,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group min-w-0 shrink-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-200 transition group-hover:scale-105 shrink-0">
-              <HeartHandshake className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-lg sm:text-2xl font-black text-gray-950 tracking-tight flex items-center gap-1 sm:gap-1.5 truncate">
-                Care Companion
-                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                  TH
-                </span>
-              </span>
-              <p className="text-[10px] sm:text-[11px] text-gray-500 font-medium truncate">เพื่อนร่วมทางที่คุณอุ่นใจ</p>
-            </div>
+          <Link href="/" className="group min-w-0 shrink-0">
+            <BrandLogo size="md" priority />
           </Link>
 
           {/* Right Navigation & Action Controls */}

@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: "Care Companion",
   description: "เว็บแอปพลิเคชันช่วยเหลือและอำนวยความสะดวกในการเดินทางและการทำธุระ",
   keywords: ["Help, Companion, Travel, Business, Application, ช่วยเหลือ, เพื่อน, ท่องเที่ยว, ธุระ, แอปพลิเคชัน"],
+  icons: {
+    icon: "/images/favicon-96.png",
+    apple: "/images/logo-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

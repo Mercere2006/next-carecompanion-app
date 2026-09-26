@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { HeartHandshake, ShieldAlert, PhoneCall } from 'lucide-react';
+import { ShieldAlert, PhoneCall } from 'lucide-react';
+import BrandLogo from '@/components/ui/BrandLogo';
 
 export default function Footer() {
   return (
@@ -25,12 +26,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 sm:gap-10 mb-12">
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shrink-0">
-                <HeartHandshake className="w-6 h-6" />
-              </div>
-              <span className="text-xl font-bold text-white tracking-tight">Care Companion</span>
-            </div>
+            <BrandLogo
+              size="md"
+              textClassName="text-white"
+              subTextClassName="text-slate-400"
+              badgeClassName="bg-emerald-950 text-emerald-400 border-emerald-700"
+            />
             <p className="text-slate-400 text-sm max-w-md leading-relaxed">
               แพลตฟอร์มกลางเชื่อมโยงระหว่างผู้ที่ต้องการเพื่อนร่วมเดินทางสำหรับผู้สูงอายุและผู้ที่ต้องการความช่วยเหลือ กับผู้ช่วยร่วมเดินทางมืออาชีพที่ผ่านการตรวจสอบตัวตน อุ่นใจทุกก้าวที่ไปทำธุระ
             </p>
