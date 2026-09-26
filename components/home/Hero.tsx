@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, Shield } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 import Image from 'next/image';
@@ -102,13 +102,23 @@ export default function Hero() {
           </Link>
 
           {isLoggedIn ? (
-            <Link
-              href="/customer/dashboard"
-              className="w-full py-4 px-8 rounded-2xl bg-white text-emerald-800 border-2 border-emerald-200 text-base sm:text-lg font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95"
-            >
-              <Calendar className="w-5 h-5 text-emerald-600" />
-              ไปยังคำขอของฉัน
-            </Link>
+            isAdmin ? (
+              <Link
+                href="/admin"
+                className="w-full py-4 px-8 rounded-2xl bg-white text-emerald-800 border-2 border-emerald-200 text-base sm:text-lg font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95"
+              >
+                <Shield className="w-5 h-5 text-emerald-600" />
+                ภาพรวมผู้ดูแลระบบ
+              </Link>
+            ) : (
+              <Link
+                href="/customer/dashboard"
+                className="w-full py-4 px-8 rounded-2xl bg-white text-emerald-800 border-2 border-emerald-200 text-base sm:text-lg font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95"
+              >
+                <Calendar className="w-5 h-5 text-emerald-600" />
+                ไปยังคำขอของฉัน
+              </Link>
+            )
           ) : (
             <button
               onClick={handleGoogleLogin}
