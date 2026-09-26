@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Navigation,
   Loader2,
-  Sparkles,
   Info,
   Move,
 } from 'lucide-react';
@@ -26,65 +25,6 @@ interface GoogleMapPinModalProps {
   title?: string;
   pinColor?: 'green' | 'red';
 }
-
-const QUICK_LANDMARKS = [
-  {
-    label: '🏥 รพ.ศิริราช',
-    name: 'โรงพยาบาลศิริราช',
-    address: '2 ถนนวังหลัง แขวงศิริราช เขตบางกอกน้อย กรุงเทพมหานคร 10700',
-    lat: 13.7588,
-    lng: 100.4857,
-  },
-  {
-    label: '🏥 รพ.จุฬาฯ',
-    name: 'โรงพยาบาลจุฬาลงกรณ์ สภากาชาดไทย',
-    address: '1874 ถนนพระราม 4 แขวงปทุมวัน เขตปทุมวัน กรุงเทพมหานคร 10330',
-    lat: 13.7323,
-    lng: 100.5348,
-  },
-  {
-    label: '🏥 รพ.รามาธิบดี',
-    name: 'โรงพยาบาลรามาธิบดี',
-    address: '270 ถนนพระราม 6 แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพมหานคร 10400',
-    lat: 13.7663,
-    lng: 100.5283,
-  },
-  {
-    label: '🛍️ สยามพารากอน',
-    name: 'สยามพารากอน (Siam Paragon)',
-    address: '991 ถนนพระราม 1 แขวงปทุมวัน เขตปทุมวัน กรุงเทพมหานคร 10330',
-    lat: 13.7460,
-    lng: 100.5348,
-  },
-  {
-    label: '🛍️ ไอคอนสยาม',
-    name: 'ไอคอนสยาม (ICONSIAM)',
-    address: '299 ถนนเจริญนคร แขวงคลองต้นไทร เขตคลองสาน กรุงเทพมหานคร 10600',
-    lat: 13.7267,
-    lng: 100.5104,
-  },
-  {
-    label: '🚆 สถานีกลางฯ',
-    name: 'สถานีกลางกรุงเทพอภิวัฒน์ (บางซื่อ)',
-    address: 'ถนนเทอดดำริ แขวงจตุจักร เขตจตุจักร กรุงเทพมหานคร 10900',
-    lat: 13.8037,
-    lng: 100.5404,
-  },
-  {
-    label: '✈️ สนามบินดอนเมือง',
-    name: 'ท่าอากาศยานดอนเมือง (DMK)',
-    address: '222 ถนนวิภาวดีรังสิต แขวงสนามบิน เขตดอนเมือง กรุงเทพมหานคร 10210',
-    lat: 13.9126,
-    lng: 100.6067,
-  },
-  {
-    label: '✈️ สนามบินสุวรรณภูมิ',
-    name: 'ท่าอากาศยานสุวรรณภูมิ (BKK)',
-    address: '999 หมู่ 1 หนองปรือ อำเภอบางพลี จังหวัดสมุทรปราการ 10540',
-    lat: 13.6900,
-    lng: 100.7501,
-  },
-];
 
 export default function GoogleMapPinModal({
   isOpen,
@@ -415,7 +355,7 @@ export default function GoogleMapPinModal({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ค้นหาชื่อสถานที่ เช่น รพ.ศิริราช, สยามพารากอน, ซอยสุขุมวิท..."
+                  placeholder="ค้นหาสถานที่ เช่น รพ.ศิริราช, รพ.จุฬาฯ, สยามพารากอน, ซอยสุขุมวิท..."
                   className={`w-full pl-10 pr-9 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 text-sm bg-white text-gray-900 ${
                     isGreen
                       ? 'focus:ring-emerald-500 focus:border-emerald-500'
@@ -493,26 +433,6 @@ export default function GoogleMapPinModal({
                   </>
                 )}
               </button>
-            </div>
-
-            {/* Quick Landmark Chips */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>สถานที่ยอดนิยม (คลิกเพื่อเลื่อนหมุดไปทันที):</span>
-              </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {QUICK_LANDMARKS.map((landmark, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectPlace(landmark)}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-gray-700 px-2.5 py-1 rounded-lg shrink-0 transition cursor-pointer border border-slate-200/70 hover:border-slate-300"
-                  >
-                    {landmark.label}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
