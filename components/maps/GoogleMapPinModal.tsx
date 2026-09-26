@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MapPin,
   Search,
@@ -11,8 +11,10 @@ import {
   Loader2,
   Sparkles,
   Info,
+  Move,
 } from 'lucide-react';
 import { searchThaiPlaces, ThaiPlace } from '@/lib/thaiPlaces';
+import 'leaflet/dist/leaflet.css';
 
 interface GoogleMapPinModalProps {
   isOpen: boolean;
@@ -106,17 +108,25 @@ export default function GoogleMapPinModal({
   const [suggestions, setSuggestions] = useState<ThaiPlace[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
 
   useEffect(() => {
     if (isOpen) {
+      const initLat = initialLat || DEFAULT_LAT;
+      const initLng = initialLng || DEFAULT_LNG;
       setSelectedName(initialAddress || '');
-      setSelectedLat(initialLat || DEFAULT_LAT);
-      setSelectedLng(initialLng || DEFAULT_LNG);
+      setSelectedLat(initLat);
+      setSelectedLng(initLng);
       setSearchQuery('');
       setSuggestions([]);
     }
   }, [isOpen, initialAddress, initialLat, initialLng]);
 
+  // Autocomplete search
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSuggestions([]);
@@ -146,6 +156,129 @@ export default function GoogleMapPinModal({
     }
   }, [searchQuery]);
 
+  // Reverse geocode when pin moves (via drag or map click)
+  const reverseGeocode = async (lat: number, lng: number) => {
+    setIsReverseGeocoding(true);
+    try {
+      const res = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.address) {
+          setSelectedName(data.address);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Modal reverse geocoding error:', err);
+    } finally {
+      setIsReverseGeocoding(false);
+    }
+
+    setSelectedName(`พิกัดที่ปักหมุด (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+  };
+
+  // Initialize interactive Leaflet map with draggable pin
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+
+    const setupMap = async () => {
+      // Dynamic import to ensure Leaflet only runs in browser
+      const L = (await import('leaflet')).default || (await import('leaflet'));
+
+      if (!isMounted || !mapContainerRef.current) return;
+
+      // Clean up previous map instance
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+
+      const targetLat = initialLat || DEFAULT_LAT;
+      const targetLng = initialLng || DEFAULT_LNG;
+
+      const map = L.map(mapContainerRef.current, {
+        center: [targetLat, targetLng],
+        zoom: 16,
+        zoomControl: true,
+      });
+
+      // OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map);
+
+      const pinColorHex = isGreen ? '#10b981' : '#f43f5e';
+      const pinFillHex = isGreen ? '#059669' : '#e11d48';
+
+      // Custom animated SVG pin with pulsing shadow
+      const customPinIcon = L.divIcon({
+        className: 'care-draggable-pin',
+        html: `
+          <div style="position: relative; width: 42px; height: 52px; transform: translate(-21px, -52px); cursor: grab;" title="ลากเพื่อย้ายหมุด">
+            <svg viewBox="0 0 384 512" width="42" height="52" style="filter: drop-shadow(0 6px 8px rgba(0,0,0,0.4));">
+              <path fill="${pinFillHex}" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+              <circle cx="192" cy="192" r="70" fill="#ffffff" />
+              <circle cx="192" cy="192" r="42" fill="${pinColorHex}" />
+            </svg>
+            <div style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; border-radius: 50%; background: ${pinFillHex}; opacity: 0.8; box-shadow: 0 0 10px ${pinColorHex};"></div>
+          </div>
+        `,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+
+      // Draggable marker
+      const marker = L.marker([targetLat, targetLng], {
+        draggable: true,
+        icon: customPinIcon,
+        autoPan: true,
+      }).addTo(map);
+
+      // Handle marker drag
+      marker.on('dragend', async () => {
+        const pos = marker.getLatLng();
+        const lat = Number(pos.lat.toFixed(5));
+        const lng = Number(pos.lng.toFixed(5));
+        setSelectedLat(lat);
+        setSelectedLng(lng);
+        await reverseGeocode(lat, lng);
+      });
+
+      // Handle clicking anywhere on map to move pin
+      map.on('click', async (e: any) => {
+        const lat = Number(e.latlng.lat.toFixed(5));
+        const lng = Number(e.latlng.lng.toFixed(5));
+        marker.setLatLng([lat, lng]);
+        setSelectedLat(lat);
+        setSelectedLng(lng);
+        await reverseGeocode(lat, lng);
+      });
+
+      mapInstanceRef.current = map;
+      markerRef.current = marker;
+
+      // Invalidate size to properly render tiles inside modal
+      setTimeout(() => {
+        if (isMounted && mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 250);
+    };
+
+    setupMap();
+
+    return () => {
+      isMounted = false;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSelectPlace = (place: { name: string; lat: number; lng: number; address?: string }) => {
@@ -154,6 +287,11 @@ export default function GoogleMapPinModal({
     setSelectedLng(place.lng);
     setSearchQuery('');
     setSuggestions([]);
+
+    if (mapInstanceRef.current && markerRef.current) {
+      mapInstanceRef.current.flyTo([place.lat, place.lng], 16, { duration: 1.2 });
+      markerRef.current.setLatLng([place.lat, place.lng]);
+    }
   };
 
   const handleUseCurrentLocation = () => {
@@ -170,23 +308,13 @@ export default function GoogleMapPinModal({
         setSelectedLat(latitude);
         setSelectedLng(longitude);
 
-        try {
-          const res = await fetch(`/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.address) {
-              setSelectedName(data.address);
-              setIsLocating(false);
-              return;
-            }
-          }
-        } catch (err) {
-          console.warn('Modal reverse geocoding error:', err);
-        } finally {
-          setIsLocating(false);
+        if (mapInstanceRef.current && markerRef.current) {
+          mapInstanceRef.current.flyTo([latitude, longitude], 16, { duration: 1.2 });
+          markerRef.current.setLatLng([latitude, longitude]);
         }
 
-        setSelectedName(`ตำแหน่งปัจจุบัน (${latitude}, ${longitude})`);
+        await reverseGeocode(latitude, longitude);
+        setIsLocating(false);
       },
       (error) => {
         console.warn('Geolocation error:', error);
@@ -211,7 +339,6 @@ export default function GoogleMapPinModal({
   };
 
   const googleMapsExternalUrl = `https://www.google.com/maps/search/?api=1&query=${selectedLat},${selectedLng}`;
-  const googleMapsEmbedUrl = `https://maps.google.com/maps?q=${selectedLat},${selectedLng}&hl=th&z=16&output=embed`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -235,7 +362,7 @@ export default function GoogleMapPinModal({
             </div>
             <div>
               <h3 className="font-bold text-base text-gray-900 flex items-center gap-2">
-                ปักหมุดบนแผนที่ Google Maps
+                ปักหมุดและเลื่อนตำแหน่งบนแผนที่
                 <span
                   className={`text-[11px] font-semibold border px-2 py-0.5 rounded-full ${
                     isGreen
@@ -247,7 +374,7 @@ export default function GoogleMapPinModal({
                 </span>
               </h3>
               <p className="text-xs text-gray-500">
-                เลือกสถานที่ หรือระบุตำแหน่งพิกัด แล้วกดยืนยันเพื่อปักหมุดลงในแบบฟอร์ม
+                สามารถคลิกหรือลากหมุดบนแผนที่ได้อย่างอิสระ แล้วกดยืนยันปักหมุด
               </p>
             </div>
           </div>
@@ -262,21 +389,20 @@ export default function GoogleMapPinModal({
 
         {/* Modal Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5">
-          {/* 3-Step Simple Guide */}
-          <div className="bg-slate-50/90 border border-slate-200/80 rounded-2xl p-3 text-xs text-gray-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="w-4.5 h-4.5 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-[11px] shrink-0">1</span>
-              <span><strong>ค้นหา</strong> หรือกดเลือกปุ่มด่วนด้านล่าง</span>
+          {/* Quick Notice: Interactive Drag & Move Pin */}
+          <div className={`rounded-2xl p-3 text-xs flex items-center gap-2.5 border ${
+            isGreen ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900' : 'bg-rose-50/80 border-rose-200 text-rose-900'
+          }`}>
+            <div className={`p-1.5 rounded-xl shrink-0 ${isGreen ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+              <Move className="w-4 h-4" />
             </div>
-            <span className="hidden sm:inline text-gray-300">→</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-4.5 h-4.5 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-[11px] shrink-0">2</span>
-              <span><strong>ตรวจดูหมุด</strong> บนแผนที่ด้านล่าง</span>
-            </div>
-            <span className="hidden sm:inline text-gray-300">→</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-[11px] shrink-0">3</span>
-              <span><strong>กดยืนยันปักหมุด</strong> ด้านล่างเพื่อนำไปใช้</span>
+            <div>
+              <p className="font-bold text-xs sm:text-sm">
+                🖐️ คุณสามารถคลิกหรือลากหมุดบนแผนที่เพื่อเปลี่ยนตำแหน่งได้ทันที!
+              </p>
+              <p className="text-[11px] opacity-80 mt-0.5">
+                แตะจุดใดก็ได้บนแผนที่ หรือลากตัวหมุดไปยังหน้าบ้าน/จุดนัดพบที่ต้องการ ระบบจะค้นหาชื่อที่อยู่ให้อัตโนมัติ
+              </p>
             </div>
           </div>
 
@@ -308,7 +434,7 @@ export default function GoogleMapPinModal({
 
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 z-30 max-h-60 overflow-y-auto space-y-1">
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 z-[1000] max-h-60 overflow-y-auto space-y-1">
                     <p className="px-2 py-1 text-gray-400 font-bold uppercase text-[10px]">
                       ผลการค้นหา ({suggestions.length}):
                     </p>
@@ -373,7 +499,7 @@ export default function GoogleMapPinModal({
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
                 <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>สถานที่ยอดนิยมที่พบบ่อย (แตะเพื่อปักหมุดทันที):</span>
+                <span>สถานที่ยอดนิยม (คลิกเพื่อเลื่อนหมุดไปทันที):</span>
               </div>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 {QUICK_LANDMARKS.map((landmark, idx) => (
@@ -408,8 +534,13 @@ export default function GoogleMapPinModal({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                    ตำแหน่งที่ปักหมุดอยู่ขณะนี้:
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                    ตำแหน่งหมุดปัจจุบัน:
+                    {isReverseGeocoding && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 font-normal">
+                        <Loader2 className="w-3 h-3 animate-spin" /> กำลังค้นหาชื่อสถานที่...
+                      </span>
+                    )}
                   </span>
                   <span className="text-[10px] font-mono bg-white/80 px-2 py-0.5 rounded-md border border-gray-200 text-gray-600">
                     {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
@@ -429,19 +560,13 @@ export default function GoogleMapPinModal({
             </div>
           </div>
 
-          {/* Embedded Google Map Preview */}
+          {/* Interactive Leaflet Map Container */}
           <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-inner bg-slate-100 h-64 sm:h-80">
-            <iframe
-              src={googleMapsEmbedUrl}
-              title="Google Map Pin Preview"
-              className="w-full h-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+            <div ref={mapContainerRef} className="w-full h-full z-10" />
 
             {/* Overlay Pin Indicator */}
             {selectedName && (
-              <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 pointer-events-none max-w-[70%]">
+              <div className="absolute top-3 left-12 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 pointer-events-none max-w-[65%] z-20">
                 <span
                   className={`w-2.5 h-2.5 rounded-full animate-ping shrink-0 ${
                     isGreen ? 'bg-emerald-500' : 'bg-rose-500'
@@ -458,7 +583,7 @@ export default function GoogleMapPinModal({
               href={googleMapsExternalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={`absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 shadow-md flex items-center gap-1.5 transition ${
+              className={`absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 shadow-md flex items-center gap-1.5 transition z-20 ${
                 isGreen ? 'hover:text-emerald-700' : 'hover:text-rose-700'
               }`}
             >
@@ -471,7 +596,7 @@ export default function GoogleMapPinModal({
           <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/60">
             <Info className="w-4 h-4 text-gray-400 shrink-0" />
             <span>
-              แผนที่ด้านบนแสดงจุดพิกัดจริงตามสถานที่ที่คุณเลือก เมื่อถูกต้องแล้วให้กดปุ่ม <strong>&quot;ยืนยันปักหมุดตำแหน่งนี้&quot;</strong>
+              <strong>คลิกบนแผนที่</strong> เพื่อย้ายหมุด หรือ <strong>กดค้างที่หมุดแล้วลาก</strong> ไปยังจุดที่ต้องการ จากนั้นกดปุ่ม <strong>&quot;ยืนยันปักหมุดตำแหน่งนี้&quot;</strong>
             </span>
           </div>
         </div>
