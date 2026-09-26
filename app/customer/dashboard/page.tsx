@@ -20,6 +20,7 @@ import {
   resolveAddressCoordinates,
   CompanionLocation,
 } from '@/lib/distancePricing';
+import { addSystemNotification } from '@/lib/notifications';
 
 export default function CustomerDashboard() {
   const router = useRouter();
@@ -267,15 +268,37 @@ export default function CustomerDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.from('reviews').insert({
-        booking_id: selectedBookingForReview.id,
-        customer_id: user.id,
-        companion_id: selectedBookingForReview.companion_id,
-        rating,
-        comment,
-      });
+      const { data: insertedReview, error } = await supabase
+        .from('reviews')
+        .insert({
+          booking_id: selectedBookingForReview.id,
+          customer_id: user.id,
+          companion_id: selectedBookingForReview.companion_id,
+          rating,
+          comment,
+        })
+        .select()
+        .maybeSingle();
 
       if (error) throw error;
+
+      // Dispatch notification to the companion
+      if (selectedBookingForReview.companion_id) {
+        const customerName =
+          user.user_metadata?.full_name ||
+          user.email?.split('@')[0] ||
+          'ลูกค้า';
+        const ratingStars = '⭐'.repeat(Math.min(5, Math.max(1, rating)));
+        addSystemNotification(selectedBookingForReview.companion_id, {
+          id: `rev-notif-${insertedReview?.id || Date.now()}`,
+          type: 'review_received',
+          title: `ได้รับรีวิวใหม่ ${ratingStars} จากคุณ${customerName}`,
+          message: comment
+            ? `"${comment.length > 80 ? comment.slice(0, 80) + '...' : comment}"`
+            : `ลูกค้าได้ให้คะแนนประเมิน ${rating} ดาวสำหรับบริการของคุณ`,
+          link: '/companion/dashboard',
+        });
+      }
 
       // Recalculate & update companion_profiles.rating_avg & rating_count as safety fallback
       try {

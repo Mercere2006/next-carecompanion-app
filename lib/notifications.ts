@@ -4,6 +4,7 @@ export type SystemNotificationType =
   | 'verification_pending'
   | 'verification_approved'
   | 'verification_rejected'
+  | 'review_received'
   | 'system';
 
 export interface SystemNotification {

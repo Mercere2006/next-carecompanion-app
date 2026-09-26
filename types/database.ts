@@ -88,6 +88,7 @@ export interface Review {
   companion_id: string;
   rating: number; // 1 - 5
   comment: string | null;
+  liked_by_companion?: boolean;
   created_at: string;
 }
 

@@ -9,6 +9,7 @@ import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
 import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play, CheckCheck, Star, AlertTriangle, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
+import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
 
 export default function CompanionDashboard() {
   const supabase = createClient();
@@ -156,6 +157,28 @@ export default function CompanionDashboard() {
           event: '*',
           schema: 'public',
           table: 'companion_profiles',
+        },
+        () => {
+          fetchCompanionBookings();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+        },
+        () => {
+          fetchCompanionBookings();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reviews',
         },
         () => {
           fetchCompanionBookings();
@@ -548,9 +571,19 @@ export default function CompanionDashboard() {
                       )}
 
                       {booking.status === 'completed' && booking.review && (
-                        <div className="w-full sm:w-auto flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                          ลูกค้าให้ {booking.review.rating} ดาว: &quot;{booking.review.comment}&quot;
+                        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                          <div className="flex items-center gap-1.5 text-xs text-amber-900 bg-amber-50 px-3.5 py-2 rounded-xl border border-amber-200">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                            <span className="font-bold text-amber-800">{booking.review.rating} ดาว:</span>
+                            <span className="italic truncate max-w-[260px]">
+                              &quot;{booking.review.comment || 'ไม่มีข้อความ'}&quot;
+                            </span>
+                          </div>
+                          <ReviewHeartButton
+                            reviewId={booking.review.id}
+                            initialLiked={booking.review.liked_by_companion}
+                            canLike={true}
+                          />
                         </div>
                       )}
                     </div>

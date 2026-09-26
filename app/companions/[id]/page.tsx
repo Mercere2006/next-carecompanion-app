@@ -30,6 +30,7 @@ import ReportCompanionButton from '@/components/customer/ReportCompanionButton';
 import {
   MOCK_COMPANIONS,
 } from '@/components/companions/search/constants';
+import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
 
 function maskPhoneNumber(phone?: string | null) {
   if (!phone) return '08x-***-****';
@@ -623,6 +624,14 @@ export default async function CompanionDetailPage({
                       <p className="text-xs sm:text-sm text-gray-700 leading-relaxed bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
                         {rev.comment}
                       </p>
+
+                      <div className="flex items-center justify-between pt-0.5">
+                        <ReviewHeartButton
+                          reviewId={rev.id}
+                          initialLiked={rev.liked_by_companion}
+                          canLike={currentUser?.id === companion.id}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>

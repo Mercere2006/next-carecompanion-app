@@ -13,6 +13,7 @@ import {
   XCircle,
   Sparkles,
   ShieldAlert,
+  Heart,
 } from 'lucide-react';
 import { formatPrice, formatThaiDate } from '@/lib/utils';
 import {
@@ -27,6 +28,7 @@ export type NotificationType =
   | 'verification_pending'
   | 'verification_approved'
   | 'verification_rejected'
+  | 'review_received'
   | 'system';
 
 export interface BookingNotification {
@@ -324,9 +326,52 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           }
         }
       }
+
+      // 2.b Fetch reviews received by companion
+      try {
+        const { data: compReviews } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            rating,
+            comment,
+            created_at,
+            customer:profiles!customer_id(full_name, avatar_url)
+          `)
+          .eq('companion_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (compReviews) {
+          compReviews.forEach((r: any) => {
+            const ratingVal = Number(r.rating) || 5;
+            const stars = '⭐'.repeat(Math.min(5, Math.max(1, ratingVal)));
+            const custName = r.customer?.full_name || 'ลูกค้า';
+            items.push({
+              id: `rev-${r.id}`,
+              type: 'review_received',
+              title: `ได้รับรีวิวใหม่ ${stars} จากคุณ${custName}`,
+              message: r.comment ? `"${r.comment}"` : `ลูกค้าได้ให้คะแนนประเมิน ${ratingVal} ดาวสำหรับบริการของคุณ`,
+              created_at: r.created_at,
+              customer: r.customer,
+              link: '/companion/dashboard',
+            });
+          });
+        }
+      } catch (revErr) {
+        console.warn('Error fetching companion reviews for bell:', revErr);
+      }
+
       localSys.forEach((sys) => {
-        // Prevent duplicate IDs
-        if (!items.some((i) => i.id === sys.id)) {
+        // Prevent duplicate IDs or duplicate review notifications
+        const isDuplicateReview =
+          sys.type === 'review_received' &&
+          items.some(
+            (i) =>
+              i.type === 'review_received' &&
+              (i.id === sys.id || i.created_at === sys.created_at)
+          );
+        if (!items.some((i) => i.id === sys.id) && !isDuplicateReview) {
           items.push({
             id: sys.id,
             type: sys.type,
@@ -420,6 +465,18 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           schema: 'public',
           table: 'companion_profiles',
           filter: `id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reviews',
+          filter: `companion_id=eq.${userId}`,
         },
         () => {
           fetchNotifications();
@@ -680,6 +737,92 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                             ไม่ผ่านการอนุมัติ (คลิกเพื่อแก้ไข)
                           </span>
                         </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Review Received Notification
+                if (item.type === 'review_received') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-rose-50/50 cursor-pointer ${
+                        isUnread ? 'bg-rose-50/30' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600 shadow-2xs">
+                          <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-rose-950 truncate flex items-center gap-1">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        {item.message && (
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed line-clamp-2">
+                            {item.message}
+                          </p>
+                        )}
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
+                            แตะเพื่อดูและส่งหัวใจขอบคุณ
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Generic System Notification
+                if (item.type === 'system') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-slate-50 cursor-pointer ${
+                        isUnread ? 'bg-emerald-50/20' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-teal-100 border border-teal-300 flex items-center justify-center text-teal-700 shadow-2xs">
+                          <Sparkles className="w-5 h-5 text-teal-700" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-gray-900 truncate">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        {item.message && (
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                            {item.message}
+                          </p>
+                        )}
                       </div>
                     </button>
                   );
