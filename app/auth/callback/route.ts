@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
         const { data: compProfile } = await supabase
           .from('companion_profiles')
-          .select('id_card_image_url')
+          .select('id_card_image_url, verification_status')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -43,13 +43,18 @@ export async function GET(request: Request) {
             null;
         }
 
-        // Determine user role: prioritize existing admin, requestedRole, fallback to existing or 'customer'
-        const determinedRole =
-          profile?.role === 'admin'
-            ? 'admin'
-            : requestedRole === 'companion'
-            ? 'companion'
-            : profile?.role || 'customer';
+        // Determine user role:
+        // 1. Admin remains admin
+        // 2. Verified companion remains companion
+        // 3. All other users (new sign-ins, unverified/pending/rejected companions) are strictly 'customer'
+        let determinedRole: 'admin' | 'companion' | 'customer' = 'customer';
+        if (profile?.role === 'admin') {
+          determinedRole = 'admin';
+        } else if (compProfile?.verification_status === 'verified') {
+          determinedRole = 'companion';
+        } else {
+          determinedRole = 'customer';
+        }
 
         // Preserve customized full_name if available; Admin account name is strictly 'Admin'
         let finalFullName: string | null = null;

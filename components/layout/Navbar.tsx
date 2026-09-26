@@ -63,10 +63,10 @@ export default function Navbar() {
             .eq('id', user.id)
             .maybeSingle();
 
-          // Check if user has companion profile and fetch uploaded avatar / id_card_image_url
+          // Check if user has companion profile and fetch uploaded avatar / id_card_image_url / verification_status
           const { data: comp } = await supabase
             .from('companion_profiles')
-            .select('id, id_card_image_url')
+            .select('id, id_card_image_url, verification_status')
             .eq('id', user.id)
             .maybeSingle();
 
@@ -109,7 +109,7 @@ export default function Navbar() {
               avatar_url: resolvedAvatar,
               phone: user.user_metadata?.phone || null,
               emergency_phone: null,
-              role: comp ? 'companion' : 'customer',
+              role: comp?.verification_status === 'verified' ? 'companion' : 'customer',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
@@ -140,7 +140,7 @@ export default function Navbar() {
           }
 
           setProfile(data);
-          setIsCompanion(!!comp || data?.role === 'companion');
+          setIsCompanion(comp?.verification_status === 'verified' || data?.role === 'companion');
         } else {
           setProfile(null);
           setIsCompanion(false);

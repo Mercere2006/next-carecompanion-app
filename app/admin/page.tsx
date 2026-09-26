@@ -83,7 +83,29 @@ export default function AdminDashboardPage() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (userData) setUsers(userData as Profile[]);
+      if (userData) {
+        // Collect set of IDs with verified companion profiles
+        const verifiedCompanionIds = new Set(
+          (compData || [])
+            .filter((c: unknown) => (c as CompanionCardData).verification_status === 'verified')
+            .map((c: unknown) => (c as CompanionCardData).id)
+        );
+
+        // Reconcile user roles: only approved/verified companions retain 'companion' role
+        const cleanedUsers = (userData as Profile[]).map((u) => {
+          if (u.role === 'companion' && !verifiedCompanionIds.has(u.id)) {
+            supabase
+              .from('profiles')
+              .update({ role: 'customer', updated_at: new Date().toISOString() })
+              .eq('id', u.id)
+              .then(() => {});
+            return { ...u, role: 'customer' as const };
+          }
+          return u;
+        });
+
+        setUsers(cleanedUsers);
+      }
 
       // 3. Fetch all bookings
       const { data: bookingData } = await supabase
@@ -172,6 +194,27 @@ export default function AdminDashboardPage() {
           'คำเตือน: บันทึกข้อมูลไม่สำเร็จเนื่องจากสิทธิ์ความปลอดภัย (RLS) ของ Supabase จำกัดไว้เฉพาะเจ้าของบัญชี\nกรุณารัน SQL ปลดล็อคสิทธิ์ Admin ใน Supabase SQL Editor เพื่อเปิดสิทธิ์การอนุมัติ'
         );
         return;
+      }
+
+      // Sync profiles.role: grant 'companion' role only if approved/verified, otherwise revert to 'customer'
+      if (status === 'verified') {
+        await supabase
+          .from('profiles')
+          .update({ role: 'companion', updated_at: new Date().toISOString() })
+          .eq('id', companionId);
+      } else {
+        const { data: targetProf } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', companionId)
+          .maybeSingle();
+
+        if (targetProf?.role !== 'admin') {
+          await supabase
+            .from('profiles')
+            .update({ role: 'customer', updated_at: new Date().toISOString() })
+            .eq('id', companionId);
+        }
       }
 
       // Add in-app notification for the companion

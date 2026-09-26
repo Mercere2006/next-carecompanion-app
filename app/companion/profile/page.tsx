@@ -203,7 +203,7 @@ export default function CompanionProfilePage() {
           id: user.id,
           email: user.email || '',
           full_name: initialName || null,
-          role: 'companion',
+          role: 'customer',
           avatar_url: chosenAvatar,
           updated_at: new Date().toISOString(),
         });
@@ -520,22 +520,35 @@ export default function CompanionProfilePage() {
           data: { user: currentUser },
         } = await supabase.auth.getUser();
 
+        const { data: curProf } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+
+        // หากมี record ใน companion_profiles อยู่แล้ว ให้อัปเดตสถานะเบอร์โทร (แต่ถ้ายังไม่มี จะไม่สร้างร่างเปล่าเพื่อไม่ให้ไปขึ้นที่แอดมินก่อนกดส่ง)
+        const { data: existingComp } = await supabase
+          .from('companion_profiles')
+          .select('id, verification_status')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const currentRole =
+          curProf?.role === 'admin'
+            ? 'admin'
+            : existingComp?.verification_status === 'verified'
+            ? 'companion'
+            : 'customer';
+
         await supabase.from('profiles').upsert({
           id: userId,
           email: currentUser?.email || '',
           full_name: fullName.trim() || null,
           phone: phone.trim(),
-          role: 'companion',
+          role: currentRole,
           avatar_url: avatarUrl || faceImageUrl || null,
           updated_at: new Date().toISOString(),
         });
-
-        // หากมี record ใน companion_profiles อยู่แล้ว ให้อัปเดตสถานะเบอร์โทร (แต่ถ้ายังไม่มี จะไม่สร้างร่างเปล่าเพื่อไม่ให้ไปขึ้นที่แอดมินก่อนกดส่ง)
-        const { data: existingComp } = await supabase
-          .from('companion_profiles')
-          .select('id')
-          .eq('id', userId)
-          .maybeSingle();
 
         if (existingComp) {
           await supabase

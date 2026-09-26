@@ -90,7 +90,7 @@ export default function OnboardingPage() {
           email,
           full_name: fullName,
           phone,
-          role,
+          role: role === 'admin' ? 'admin' : 'customer',
           updated_at: new Date().toISOString(),
         });
 
