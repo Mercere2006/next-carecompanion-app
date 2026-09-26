@@ -602,7 +602,7 @@ export default async function CompanionDetailPage({
                               </span>
                               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-0.5">
                                 <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                                ผู้ใช้บริการจริง
+                                ผู้ใช้บริการ
                               </span>
                             </div>
                             <span className="text-[11px] text-gray-400 block mt-0.5">
