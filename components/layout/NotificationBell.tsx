@@ -508,6 +508,17 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           fetchNotifications();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reports',
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
       .subscribe();
 
     // 4. Supabase Realtime Broadcast Channel (instant sub-second cross-browser delivery)

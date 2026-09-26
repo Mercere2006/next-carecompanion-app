@@ -120,18 +120,54 @@ export default function AdminDashboardPage() {
 
       if (bookingData) setBookings(bookingData as unknown as BookingDetailData[]);
 
-      // 4. Fetch all reports
-      const { data: reportData } = await supabase
+      // 4. Fetch all reports with safe joins and fallback
+      const { data: reportData, error: reportErr } = await supabase
         .from('reports')
         .select(`
           *,
           customer:profiles!reports_customer_id_fkey(full_name, phone, email, avatar_url),
           companion:profiles!reports_companion_id_fkey(full_name, phone, email, avatar_url),
-          booking:bookings!reports_booking_id_fkey(id, appointment_date, errand_title, total_price, status)
+          booking:bookings(id, appointment_date, errand_title, total_price, status)
         `)
         .order('created_at', { ascending: false });
 
-      if (reportData) setReports(reportData as unknown as ReportDetailData[]);
+      if (reportErr) {
+        console.warn('Reports join fetch failed, trying direct select fallback:', reportErr);
+        const { data: rawReports, error: rawErr } = await supabase
+          .from('reports')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (rawReports) {
+          const stitched = rawReports.map((r) => {
+            const cust = (userData as Profile[])?.find((u) => u.id === r.customer_id);
+            const compUser = (userData as Profile[])?.find((u) => u.id === r.companion_id);
+            const bk = (bookingData as BookingDetailData[])?.find((b) => b.id === r.booking_id);
+            return {
+              ...r,
+              customer: cust ? { full_name: cust.full_name, phone: cust.phone, email: cust.email, avatar_url: cust.avatar_url } : undefined,
+              companion: compUser ? { full_name: compUser.full_name, phone: compUser.phone, email: compUser.email, avatar_url: compUser.avatar_url } : undefined,
+              booking: bk,
+            };
+          });
+          setReports(stitched as unknown as ReportDetailData[]);
+        } else if (rawErr) {
+          console.error('Reports direct fallback failed:', rawErr);
+        }
+      } else if (reportData) {
+        const enriched = (reportData as ReportDetailData[]).map((r) => {
+          if (!r.customer) {
+            const cust = (userData as Profile[])?.find((u) => u.id === r.customer_id);
+            if (cust) r.customer = { full_name: cust.full_name, phone: cust.phone, email: cust.email, avatar_url: cust.avatar_url };
+          }
+          if (!r.companion) {
+            const compUser = (userData as Profile[])?.find((u) => u.id === r.companion_id);
+            if (compUser) r.companion = { full_name: compUser.full_name, phone: compUser.phone, email: compUser.email, avatar_url: compUser.avatar_url };
+          }
+          return r;
+        });
+        setReports(enriched);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -144,7 +180,44 @@ export default function AdminDashboardPage() {
       await fetchAdminData();
     }
     init();
-  }, [fetchAdminData]);
+
+    // Realtime channel for instant admin dashboard updates
+    const channel = supabase
+      .channel('admin_dashboard_realtime_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reports' },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'companion_profiles' },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAdminData, supabase]);
 
   const handleVerifyCompanion = async (companionId: string, status: 'verified' | 'rejected' | 'pending') => {
     setProcessingId(companionId);
@@ -624,7 +697,10 @@ export default function AdminDashboardPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab('reports')}
+            onClick={() => {
+              setActiveTab('reports');
+              fetchAdminData();
+            }}
             className={`px-4 sm:px-5 py-3 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'reports'
                 ? 'border-rose-600 text-rose-700'

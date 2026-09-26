@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { addSystemNotification } from '@/lib/notifications';
 import { AlertTriangle, X, ShieldAlert, CheckCircle2, User } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -92,16 +93,47 @@ export default function ReportCompanionModal({
         return;
       }
 
-      const { error } = await supabase.from('reports').insert({
+      const reportPayload = {
         customer_id: user.id,
         companion_id: companionId,
-        booking_id: bookingId,
+        booking_id: bookingId ? bookingId : null,
         reason,
         details: details.trim() || null,
-        status: 'pending',
-      });
+        status: 'pending' as const,
+      };
 
-      if (error) throw error;
+      const { data: insertedReport, error } = await supabase
+        .from('reports')
+        .insert(reportPayload)
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error('Report submission insert error:', error);
+        throw error;
+      }
+
+      // Notify all admin users of the new incoming report
+      try {
+        const { data: adminUsers } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin');
+
+        if (adminUsers && adminUsers.length > 0) {
+          adminUsers.forEach((adm) => {
+            addSystemNotification(adm.id, {
+              id: `rep-notif-${insertedReport?.id || Date.now()}`,
+              type: 'system',
+              title: 'มีรายงานข้อร้องเรียนใหม่เข้ามา! ⚠️',
+              message: `มีรายงานผู้ช่วย "${companionName}" ในหัวข้อ "${reason}" กรุณาตรวจสอบในแดชบอร์ด`,
+              link: '/admin',
+            });
+          });
+        }
+      } catch (notifErr) {
+        console.warn('Admin notification dispatch error:', notifErr);
+      }
 
       await Swal.fire({
         title: 'ส่งรายงานเรียบร้อยแล้ว',

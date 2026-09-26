@@ -9,6 +9,7 @@ interface ReportCompanionButtonProps {
   companionName: string;
   companionAvatar?: string | null;
   className?: string;
+  onSuccess?: () => void;
 }
 
 export default function ReportCompanionButton({
@@ -16,6 +17,7 @@ export default function ReportCompanionButton({
   companionName,
   companionAvatar,
   className = '',
+  onSuccess,
 }: ReportCompanionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -35,6 +37,7 @@ export default function ReportCompanionButton({
         companionId={companionId}
         companionName={companionName}
         companionAvatar={companionAvatar}
+        onSuccess={onSuccess}
       />
     </>
   );
