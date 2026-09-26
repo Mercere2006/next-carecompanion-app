@@ -76,6 +76,8 @@ export default function CompanionProfilePage() {
   const [availableSchedule, setAvailableSchedule] = useState('');
   const [hourlyRate, setHourlyRate] = useState(250);
   const [isAvailable, setIsAvailable] = useState(true);
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
 
   const [isProfileSaved, setIsProfileSaved] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -221,7 +223,10 @@ export default function CompanionProfilePage() {
         } else if (embeddedSchedule) {
           setAvailableSchedule(embeddedSchedule);
         }
-        setIsAvailable(data.is_available ?? true);
+        const suspended = Boolean(data.is_suspended);
+        setIsSuspended(suspended);
+        setSuspensionReason(data.suspension_reason || null);
+        setIsAvailable(suspended ? false : (data.is_available ?? true));
         if (data.id_card_image_url) {
           setFaceImageUrl(data.id_card_image_url);
           setFaceScanned(true);
@@ -720,13 +725,14 @@ export default function CompanionProfilePage() {
       // 2. Check if companion_profiles row exists
       const { data: existingComp } = await supabase
         .from('companion_profiles')
-        .select('id, verification_status')
+        .select('id, verification_status, is_suspended, suspension_reason')
         .eq('id', userId)
         .maybeSingle();
 
       const isAlreadyVerified = existingComp?.verification_status === 'verified';
+      const isCurrentlySuspended = Boolean(existingComp?.is_suspended || isSuspended);
       const nextVerificationStatus = isAlreadyVerified ? 'verified' : 'pending';
-      const isAvailableFinal = isAlreadyVerified ? isAvailable : false;
+      const isAvailableFinal = (isAlreadyVerified && !isCurrentlySuspended) ? isAvailable : false;
 
       // 3. Fallback bio with embedded metadata (vehicles list & schedule)
       const enrichedBio = embedBioMetadata(bio, {
@@ -743,6 +749,8 @@ export default function CompanionProfilePage() {
         available_schedule: availableSchedule,
         hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailableFinal,
+        is_suspended: isCurrentlySuspended,
+        suspension_reason: isCurrentlySuspended ? (existingComp?.suspension_reason || suspensionReason) : null,
         verification_status: nextVerificationStatus,
         phone_verified: true,
         vehicle_type: formattedVehicles.vehicle_type,
@@ -760,6 +768,8 @@ export default function CompanionProfilePage() {
         service_areas: areasArray,
         hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailableFinal,
+        is_suspended: isCurrentlySuspended,
+        suspension_reason: isCurrentlySuspended ? (existingComp?.suspension_reason || suspensionReason) : null,
         verification_status: nextVerificationStatus,
         phone_verified: true,
         id_card_image_url: avatarUrl || faceImageUrl,
@@ -1162,7 +1172,33 @@ export default function CompanionProfilePage() {
           )}
         </div>
 
-        {/* Alerts */}
+        {/* Alerts & Suspension Banner */}
+        {isSuspended && (
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-rose-500/10 via-rose-50 to-red-50 border-2 border-rose-400 shadow-xs space-y-3">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-black text-rose-950">
+                    บัญชีของคุณถูกระงับการให้บริการชั่วคราว (Account Suspended)
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white shadow-2xs">
+                    ระงับการทำงาน
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-rose-900 leading-relaxed">
+                  <strong>สาเหตุ:</strong> {suspensionReason || 'คะแนนความพึงพอใจเฉลี่ยต่ำกว่า 2.5 ดาว หรืออยู่ระหว่างตรวจสอบข้อร้องเรียน'}
+                </p>
+                <div className="text-xs text-rose-800 bg-white/90 p-3.5 rounded-xl border border-rose-200 mt-2 leading-relaxed">
+                  ⚠️ <strong>ข้อกำหนด:</strong> ในระหว่างนี้ระบบได้ปิดสถานะ &quot;พร้อมรับงาน&quot; โดยอัตโนมัติ และไม่อนุญาตให้เปิดรับงานใหม่ ผู้ช่วยจะไม่สามารถทำอะไรได้จนกว่าทีมงานผู้ดูแลระบบ (Admin Care Companion) จะตรวจสอบและติดต่อพูดคุยกับคุณก่อนเท่านั้น หลังจากนั้นแอดมินจะเป็นผู้ตัดสินใจสถานะบัญชีของคุณครับ
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {successMsg && (
           <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">

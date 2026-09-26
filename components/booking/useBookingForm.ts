@@ -77,6 +77,7 @@ export function useBookingForm(companionId: string) {
   const [startTime, setStartTime] = useState("09:00");
   const [specialNeeds, setSpecialNeeds] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSuspended, setIsSuspended] = useState(false);
 
   const [companionVehicle, setCompanionVehicle] =
     useState<CompanionVehicleInfo | null>(null);
@@ -200,7 +201,12 @@ export function useBookingForm(companionId: string) {
       }
 
       if (compData) {
-        if (
+        setIsSuspended(Boolean(compData.is_suspended));
+        if (compData.is_suspended) {
+          setErrorMsg(
+            'ผู้ช่วยท่านนี้อยู่ระหว่างการตรวจสอบและถูกระงับการให้บริการชั่วคราว จึงไม่สามารถรับการจองได้'
+          );
+        } else if (
           compData.verification_status !== 'verified' ||
           !compData.hourly_rate ||
           Number(compData.hourly_rate) <= 0
@@ -489,6 +495,21 @@ export function useBookingForm(companionId: string) {
         if (res.isConfirmed) {
           handleGoogleLogin();
         }
+      });
+      return;
+    }
+
+    if (isSuspended) {
+      Swal.fire({
+        title: "ไม่สามารถส่งคำขอจองได้",
+        text: "ผู้ช่วยท่านนี้อยู่ระหว่างการตรวจสอบและถูกระงับการให้บริการชั่วคราว จึงไม่สามารถรับการจองได้ในขณะนี้",
+        icon: "error",
+        confirmButtonColor: "#e11d48",
+        confirmButtonText: "รับทราบ",
+        customClass: {
+          popup: "rounded-3xl shadow-2xl font-sans",
+          confirmButton: "rounded-xl px-6 py-2.5 font-bold",
+        },
       });
       return;
     }

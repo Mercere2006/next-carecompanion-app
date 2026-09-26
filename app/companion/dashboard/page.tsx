@@ -217,8 +217,27 @@ export default function CompanionDashboard() {
   }, [fetchCompanionBookings, supabase]);
 
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
-    if (companionProfile?.is_suspended && newStatus === 'accepted') {
-      alert('ไม่สามารถตอบรับงานใหม่ได้: บัญชีของคุณอยู่ระหว่างการถูกระงับการให้บริการชั่วคราว กรุณารอการติดต่อจากผู้ดูแลระบบ');
+    if (companionProfile?.is_suspended) {
+      await Swal.fire({
+        title: 'บัญชีถูกระงับการให้บริการชั่วคราว',
+        html: `
+          <div class="text-left space-y-2 text-sm text-gray-700">
+            <p class="font-bold text-rose-700">⚠️ คุณไม่สามารถรับงานหรือดำเนินการใดๆ ได้ในขณะนี้</p>
+            <p>เนื่องจากบัญชีของคุณถูกระงับการให้บริการชั่วคราว (คะแนนความพึงพอใจเฉลี่ยต่ำกว่า 2.5 ดาว หรือมีข้อร้องเรียนที่อยู่ระหว่างการตรวจสอบ)</p>
+            <div class="text-xs text-rose-900 bg-rose-50 p-3 rounded-xl border border-rose-200 leading-relaxed space-y-1">
+              <strong>ข้อกำหนดของระบบ:</strong>
+              <p>ผู้ช่วยจะไม่สามารถทำอะไรได้ในระหว่างนี้ ต้องรอให้ทีมงานผู้ดูแลระบบ (Admin Care Companion) ตรวจสอบและติดต่อพูดคุยกับคุณก่อนเท่านั้น หลังจากนั้นแอดมินจะเป็นผู้ตัดสินใจสถานะบัญชีของคุณครับ</p>
+            </div>
+          </div>
+        `,
+        icon: 'error',
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'รับทราบ',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
       return;
     }
 
@@ -368,22 +387,37 @@ export default function CompanionDashboard() {
 
         {/* Suspension Banner */}
         {companionProfile?.is_suspended && (
-          <div className="bg-rose-50 border-2 border-rose-300 rounded-3xl p-5 sm:p-6 mb-6 sm:mb-8 shadow-xs">
+          <div className="bg-gradient-to-r from-rose-500/10 via-rose-50 to-red-50 border-2 border-rose-400 rounded-3xl p-5 sm:p-7 mb-6 sm:mb-8 shadow-sm space-y-4">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-6 h-6" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-rose-200">
+                <AlertTriangle className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
               <div className="space-y-1.5 flex-1 min-w-0">
-                <h2 className="text-base sm:text-lg font-extrabold text-rose-950">
-                  บัญชีของคุณถูกระงับการให้บริการชั่วคราว
-                </h2>
-                <p className="text-xs sm:text-sm text-rose-800">
-                  <strong>สาเหตุ:</strong> {companionProfile.suspension_reason || 'อยู่ระหว่างการตรวจสอบข้อร้องเรียนและการให้บริการ'}
-                </p>
-                <div className="pt-2 text-xs text-rose-700 bg-white/80 p-3 rounded-xl border border-rose-200 leading-relaxed">
-                  ℹ️ <strong>สิ่งที่ต้องทำ:</strong> ในระหว่างนี้ระบบได้พักการรับงานของคุณชั่วคราว ผู้ดูแลระบบ (Admin) จะติดต่อหาคุณทางโทรศัพท์เพื่อสอบถามข้อเท็จจริง หากพูดคุยทำความเข้าใจและตกลงร่วมกันเรียบร้อยแล้ว แอดมินจะทำการปลดการระงับบัญชีให้คุณสามารถกลับมารับงานได้ตามปกติครับ
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base sm:text-xl font-black text-rose-950">
+                    บัญชีของคุณถูกระงับการให้บริการชั่วคราว (Account Suspended)
+                  </h2>
+                  <span className="px-3 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white shadow-2xs">
+                    ระงับการทำงาน
+                  </span>
                 </div>
+                <p className="text-xs sm:text-sm text-rose-900 leading-relaxed">
+                  <strong>สาเหตุ:</strong> {companionProfile.suspension_reason || 'คะแนนความพึงพอใจเฉลี่ยต่ำกว่า 2.5 ดาว หรืออยู่ระหว่างการตรวจสอบข้อร้องเรียน'}
+                </p>
               </div>
+            </div>
+
+            <div className="bg-white/95 rounded-2xl p-4 sm:p-5 border border-rose-200 space-y-2 text-xs sm:text-sm text-gray-800">
+              <div className="font-bold text-rose-800 flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>ข้อกำหนดและสิ่งที่ต้องทำในระหว่างการระงับบัญชี:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1.5 text-gray-700 pl-1">
+                <li>ระบบได้ปิดสถานะพร้อมรับงานของคุณ และระงับการรับงานใหม่โดยอัตโนมัติ</li>
+                <li>ผู้ช่วยจะไม่สามารถตอบรับงาน หรือเปลี่ยนสถานะงานในระบบได้ในระหว่างนี้</li>
+                <li><strong>ต้องรอให้ทีมงานผู้ดูแลระบบ (Admin Care Companion) ตรวจสอบข้อมูลและติดต่อพูดคุยกับคุณก่อนเท่านั้น</strong> (ทางโทรศัพท์หรืออีเมล)</li>
+                <li>หลังจากแอดมินได้พูดคุยสอบถามข้อเท็จจริงเรียบร้อยแล้ว แอดมินจะเป็นผู้ตัดสินใจว่าจะตักเตือน ปลดการระงับบัญชี หรือดำเนินการอย่างไรต่อไป</li>
+              </ul>
             </div>
           </div>
         )}
@@ -569,25 +603,25 @@ export default function CompanionDashboard() {
                     {/* Companion State Controls */}
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {booking.status === 'pending' && (
-                        <>
+                        companionProfile?.is_suspended ? (
                           <button
-                            disabled={isUpdating}
-                            onClick={() => handleUpdateStatus(booking.id, 'rejected')}
-                            className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition flex items-center justify-center gap-1 cursor-pointer"
+                            disabled
+                            title="ไม่สามารถรับงานหรือดำเนินการได้เนื่องจากบัญชีถูกระงับการให้บริการชั่วคราว"
+                            className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed flex items-center justify-center gap-1.5"
                           >
-                            <XCircle className="w-3.5 h-3.5" />
-                            ปฏิเสธงาน
+                            <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+                            ไม่สามารถดำเนินการได้ (บัญชีถูกระงับชั่วคราว)
                           </button>
-                          {companionProfile?.is_suspended ? (
+                        ) : (
+                          <>
                             <button
-                              disabled
-                              title="ไม่สามารถรับงานได้เนื่องจากบัญชีถูกระงับชั่วคราว"
-                              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed flex items-center justify-center gap-1.5"
+                              disabled={isUpdating}
+                              onClick={() => handleUpdateStatus(booking.id, 'rejected')}
+                              className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition flex items-center justify-center gap-1 cursor-pointer"
                             >
-                              <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
-                              ไม่สามารถรับงานได้ (ถูกระงับ)
+                              <XCircle className="w-3.5 h-3.5" />
+                              ปฏิเสธงาน
                             </button>
-                          ) : (
                             <button
                               disabled={isUpdating}
                               onClick={() => handleUpdateStatus(booking.id, 'accepted')}
@@ -596,30 +630,50 @@ export default function CompanionDashboard() {
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               ตอบรับงานนี้
                             </button>
-                          )}
-                        </>
+                          </>
+                        )
                       )}
 
                       {booking.status === 'accepted' && (
-                        <button
-                          disabled={isUpdating}
-                          onClick={() => handleUpdateStatus(booking.id, 'in_progress')}
-                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                          เริ่มออกเดินทาง / ถึงจุดรับ
-                        </button>
+                        companionProfile?.is_suspended ? (
+                          <button
+                            disabled
+                            className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-gray-200 text-gray-400 border border-gray-300 cursor-not-allowed flex items-center justify-center gap-1.5"
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+                            ไม่สามารถเริ่มงานได้ (บัญชีถูกระงับชั่วคราว)
+                          </button>
+                        ) : (
+                          <button
+                            disabled={isUpdating}
+                            onClick={() => handleUpdateStatus(booking.id, 'in_progress')}
+                            className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                            เริ่มออกเดินทาง / ถึงจุดรับ
+                          </button>
+                        )
                       )}
 
                       {booking.status === 'in_progress' && (
-                        <button
-                          disabled={isUpdating}
-                          onClick={() => handleUpdateStatus(booking.id, 'completed')}
-                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition flex items-center justify-center gap-1.5 animate-bounce cursor-pointer"
-                        >
-                          <CheckCheck className="w-4 h-4" />
-                          เสร็จสิ้นภารกิจ (จบงาน)
-                        </button>
+                        companionProfile?.is_suspended ? (
+                          <button
+                            disabled
+                            className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-gray-200 text-gray-400 border border-gray-300 cursor-not-allowed flex items-center justify-center gap-1.5"
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+                            ไม่สามารถจบงานได้ (บัญชีถูกระงับชั่วคราว)
+                          </button>
+                        ) : (
+                          <button
+                            disabled={isUpdating}
+                            onClick={() => handleUpdateStatus(booking.id, 'completed')}
+                            className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition flex items-center justify-center gap-1.5 animate-bounce cursor-pointer"
+                          >
+                            <CheckCheck className="w-4 h-4" />
+                            เสร็จสิ้นภารกิจ (จบงาน)
+                          </button>
+                        )
                       )}
 
                       {booking.status === 'completed' && booking.review && (

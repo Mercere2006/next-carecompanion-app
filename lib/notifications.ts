@@ -7,6 +7,7 @@ export type SystemNotificationType =
   | 'verification_approved'
   | 'verification_rejected'
   | 'review_received'
+  | 'account_suspended'
   | 'system';
 
 export interface SystemNotification {

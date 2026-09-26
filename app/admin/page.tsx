@@ -74,6 +74,30 @@ export default function AdminDashboardPage() {
         const validCompanions = (compData as unknown as CompanionCardData[]).filter(
           (c) => c.profile?.role !== 'admin'
         );
+
+        // Auto-suspend check: if rating_count > 0 and rating_avg < 2.5 and !is_suspended
+        for (const c of validCompanions) {
+          if (
+            (c.rating_count ?? 0) > 0 &&
+            Number(c.rating_avg) < 2.5 &&
+            !c.is_suspended
+          ) {
+            console.log(`Auto-suspending companion ${c.id} due to rating < 2.5 (${c.rating_avg})`);
+            await supabase
+              .from('companion_profiles')
+              .update({
+                is_suspended: true,
+                is_available: false,
+                suspension_reason: `บัญชีถูกระงับอัตโนมัติ เนื่องจากคะแนนดาวเฉลี่ย (${Number(c.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', c.id);
+            c.is_suspended = true;
+            c.is_available = false;
+            c.suspension_reason = `บัญชีถูกระงับอัตโนมัติ เนื่องจากคะแนนดาวเฉลี่ย (${Number(c.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`;
+          }
+        }
+
         setCompanions(validCompanions);
       }
 
@@ -393,6 +417,74 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleOpenEmailComposer = (report: ReportDetailData) => {
+    const compEmail = report.companion?.email || '';
+    if (!compEmail) {
+      Swal.fire({
+        title: 'ไม่พบที่อยู่อีเมล',
+        text: 'ผู้ช่วยท่านนี้ยังไม่มีข้อมูลอีเมลในระบบ กรุณาติดต่อทางหมายเลขโทรศัพท์',
+        icon: 'warning',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+        },
+      });
+      return;
+    }
+
+    const compName = report.companion?.full_name || 'ผู้ช่วยร่วมเดินทาง';
+    const reportCode = report.id.slice(0, 8);
+    const reportDate = formatThaiDate(report.created_at);
+    const errandInfo = report.booking
+      ? `\n- รหัสงานที่เกี่ยวข้อง: #${report.booking.id.slice(0, 8)} (${report.booking.errand_title})`
+      : '';
+    const detailInfo = report.details ? `\n- รายละเอียดข้อร้องเรียน: ${report.details}` : '';
+
+    const subject = `[Admin Care Companion] แจ้งเรื่องข้อร้องเรียนการให้บริการ (รหัสรายงาน: #${reportCode})`;
+    const body = `เรียน คุณ${compName},
+
+ทีมงานผู้ดูแลระบบ Care Companion (Admin Care Companion) ขอเรียนแจ้งให้ทราบว่า เราได้รับรายงานข้อร้องเรียนเกี่ยวกับการให้บริการของคุณ ดังนี้:
+
+- รหัสรายงาน: #${reportCode}
+- หัวข้อข้อร้องเรียน: ${report.reason}
+- วันที่ได้รับแจ้ง: ${reportDate}${errandInfo}${detailInfo}
+
+เนื่องจากความปลอดภัยและความพึงพอใจของผู้ใช้บริการเป็นสิ่งสำคัญยิ่ง ทางทีมงานแอดมินจำเป็นต้องตรวจสอบและติดต่อพูดคุยข้อเท็จจริงกับคุณโดยตรง
+
+ขอความกรุณาตอบกลับอีเมลฉบับนี้ หรือติดต่อกลับทีมงาน Admin Care Companion โดยเร็วที่สุด เพื่อประกอบการพิจารณาสถานะบัญชีของคุณ
+
+ด้วยความเคารพอย่างสูง,
+ทีมงานผู้ดูแลระบบ Admin Care Companion
+อีเมล: carecompanion.contact@gmail.com
+แอปพลิเคชัน Care Companion`;
+
+    const encodedTo = encodeURIComponent(compEmail);
+    const encodedSubject = encodeURIComponent(subject);
+    const encodedBody = encodeURIComponent(body);
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodedTo}&su=${encodedSubject}&body=${encodedBody}`;
+    const mailtoUrl = `mailto:${encodedTo}?subject=${encodedSubject}&body=${encodedBody}`;
+
+    // Open Gmail composer in a new tab first, fallback to mailto if blocked
+    const newWin = window.open(gmailUrl, '_blank');
+    if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+      window.location.href = mailtoUrl;
+    }
+
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: 'เปิดหน้าเขียนอีเมลแล้ว',
+      text: `ส่งถึง ${compEmail} ในนาม Admin Care Companion`,
+      showConfirmButton: false,
+      timer: 3500,
+      timerProgressBar: true,
+    });
+  };
+
   const handleResolveReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedReportForAction) return;
@@ -419,6 +511,14 @@ export default function AdminDashboardPage() {
           })
           .eq('id', selectedReportForAction.id);
         if (repErr) throw repErr;
+
+        addSystemNotification(companionId, {
+          id: `rep-warn-${Date.now()}`,
+          type: 'system',
+          title: '⚠️ บันทึกการตักเตือนจากผู้ดูแลระบบ',
+          message: `แอดมินได้พูดคุยและตักเตือนเกี่ยวกับข้อร้องเรียน #${selectedReportForAction.id.slice(0, 8)}: "${adminNoteInput.trim() || 'กรุณารักษามาตรฐานการให้บริการ'}"`,
+          link: '/companion/dashboard',
+        });
       } else if (actionDecision === 'suspend') {
         const { error: compErr } = await supabase
           .from('companion_profiles')
@@ -440,15 +540,29 @@ export default function AdminDashboardPage() {
           })
           .eq('id', selectedReportForAction.id);
         if (repErr) throw repErr;
+
+        addSystemNotification(companionId, {
+          id: `rep-susp-${Date.now()}`,
+          type: 'account_suspended',
+          title: '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว',
+          message: `ผู้ดูแลระบบได้ระงับการให้บริการบัญชีของคุณ สาเหตุ: "${suspensionReasonInput.trim() || adminNoteInput.trim() || 'อยู่ระหว่างตรวจสอบข้อร้องเรียน'}" กรุณารอแอดมินติดต่อพูดคุย`,
+          link: '/companion/dashboard',
+        });
       } else if (actionDecision === 'reactivate') {
+        const updatePayload: Record<string, unknown> = {
+          is_suspended: false,
+          is_available: true,
+          suspension_reason: null,
+          updated_at: new Date().toISOString(),
+        };
+        // If companion's rating was < 2.5 (the cause of auto-suspension), reset/grant 3.0 probation rating
+        if (comp && Number(comp.rating_avg) < 2.5) {
+          updatePayload.rating_avg = 3.0;
+        }
+
         const { error: compErr } = await supabase
           .from('companion_profiles')
-          .update({
-            is_suspended: false,
-            is_available: true,
-            suspension_reason: null,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updatePayload)
           .eq('id', companionId);
         if (compErr) throw compErr;
 
@@ -461,6 +575,14 @@ export default function AdminDashboardPage() {
           })
           .eq('id', selectedReportForAction.id);
         if (repErr) throw repErr;
+
+        addSystemNotification(companionId, {
+          id: `rep-react-${Date.now()}`,
+          type: 'verification_approved',
+          title: '✅ บัญชีของคุณได้รับการปลดระงับแล้ว',
+          message: 'ผู้ดูแลระบบ (Admin) ได้ตรวจสอบและพูดคุยเรียบร้อยแล้ว ได้ทำการปลดระงับบัญชีให้คุณสามารถกลับมารับงานได้ตามปกติ',
+          link: '/companion/dashboard',
+        });
       } else if (actionDecision === 'dismiss') {
         const { error: repErr } = await supabase
           .from('reports')
@@ -528,17 +650,32 @@ export default function AdminDashboardPage() {
     if (!result.isConfirmed) return;
 
     try {
+      const updatePayload: Record<string, unknown> = {
+        is_suspended: !isCurrentlySuspended,
+        is_available: isCurrentlySuspended,
+        suspension_reason: !isCurrentlySuspended ? 'ถูกระงับการให้บริการชั่วคราวโดยผู้ดูแลระบบ' : null,
+        updated_at: new Date().toISOString(),
+      };
+      if (isCurrentlySuspended && Number(companion.rating_avg) < 2.5) {
+        updatePayload.rating_avg = 3.0;
+      }
+
       const { error } = await supabase
         .from('companion_profiles')
-        .update({
-          is_suspended: !isCurrentlySuspended,
-          is_available: isCurrentlySuspended,
-          suspension_reason: !isCurrentlySuspended ? 'ถูกระงับการให้บริการชั่วคราวโดยผู้ดูแลระบบ' : null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', companion.id);
 
       if (error) throw error;
+
+      addSystemNotification(companion.id, {
+        id: `susp-toggle-${Date.now()}`,
+        type: isCurrentlySuspended ? 'verification_approved' : 'account_suspended',
+        title: isCurrentlySuspended ? '✅ บัญชีของคุณได้รับการปลดระงับแล้ว' : '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว',
+        message: isCurrentlySuspended
+          ? 'ผู้ดูแลระบบได้ทำการปลดระงับบัญชีให้คุณแล้ว สามารถกลับมารับงานได้ตามปกติ'
+          : 'ผู้ดูแลระบบได้ทำการระงับบัญชีของคุณชั่วคราว กรุณารอการติดต่อพูดคุยจากแอดมิน',
+        link: '/companion/dashboard',
+      });
 
       await Swal.fire({
         title: `${actionText}สำเร็จ`,
@@ -1171,14 +1308,18 @@ export default function AdminDashboardPage() {
                             <span className="text-xs text-gray-400">ไม่มีเบอร์โทร</span>
                           )}
 
-                          {report.companion?.email && (
-                            <a
-                              href={`mailto:${report.companion.email}?subject=ข้อร้องเรียนการให้บริการ CareCompanion`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold border border-gray-200 transition"
+                          {report.companion?.email ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEmailComposer(report)}
+                              title="เปิดหน้าต่างเขียนอีเมลถึงผู้ช่วยในนาม Admin Care Companion"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200 transition cursor-pointer shadow-2xs"
                             >
-                              <Mail className="w-3.5 h-3.5" />
-                              ส่งอีเมล
-                            </a>
+                              <Mail className="w-3.5 h-3.5 text-teal-600" />
+                              ส่งอีเมล (Admin)
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">ไม่มีอีเมล</span>
                           )}
                         </div>
 
@@ -1432,6 +1573,36 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
+              {/* Quick Communication Bar with Companion */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-gray-200/80 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 font-semibold">ช่องทางติดต่อผู้ช่วย:</span>
+                  {selectedReportForAction.companion?.phone ? (
+                    <a
+                      href={`tel:${selectedReportForAction.companion.phone}`}
+                      className="font-bold text-teal-700 hover:underline flex items-center gap-1"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-teal-600" />
+                      {selectedReportForAction.companion.phone}
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 italic">ไม่มีเบอร์โทร</span>
+                  )}
+                </div>
+                {selectedReportForAction.companion?.email ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEmailComposer(selectedReportForAction)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 transition cursor-pointer shadow-2xs"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                    เขียนอีเมลหาผู้ช่วย (ส่งจาก Admin Care Companion)
+                  </button>
+                ) : (
+                  <span className="text-gray-400 italic">ไม่มีอีเมล</span>
+                )}
+              </div>
+
               {/* Form */}
               <form onSubmit={handleResolveReportSubmit} className="space-y-4">
                 {/* Decision Option */}
@@ -1505,6 +1676,22 @@ export default function AdminDashboardPage() {
                     </label>
                   </div>
                 </div>
+
+                {/* Reactivation Notice if companion had low rating */}
+                {actionDecision === 'reactivate' && (() => {
+                  const comp = companions.find((c) => c.id === selectedReportForAction.companion_id);
+                  return comp && Number(comp.rating_avg) < 2.5 ? (
+                    <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 leading-relaxed space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                        <span>💡</span>
+                        <span>ให้โอกาสปรับปรุงตัว (ปรับคะแนนเริ่มต้นเป็น 3.0 ดาว)</span>
+                      </div>
+                      <p>
+                        ผู้ช่วยท่านนี้มีคะแนนดาวเฉลี่ยเดิมอยู่ที่ <strong>{Number(comp.rating_avg).toFixed(1)} ดาว</strong> (ต่ำกว่าเกณฑ์ 2.5 ดาว) เมื่อบันทึกการปลดระงับ ระบบจะปรับคะแนนความประพฤติให้โอกาสใหม่เป็น <strong>3.0 ดาว</strong> เพื่อให้สามารถกลับมารับงานและสะสมคะแนนใหม่ได้โดยไม่ถูกตัดระงับซ้ำทันที
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
 
                 {/* Suspension Reason (if suspend selected) */}
                 {actionDecision === 'suspend' && (

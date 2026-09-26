@@ -131,9 +131,44 @@ export default function ReportCompanionModal({
             });
           });
         }
-      } catch (notifErr) {
-        console.warn('Admin notification dispatch error:', notifErr);
+      // Check if companion's rating is below 2.5 and auto-suspend upon report
+      try {
+        const { data: compProfile } = await supabase
+          .from('companion_profiles')
+          .select('rating_avg, rating_count, is_suspended')
+          .eq('id', companionId)
+          .maybeSingle();
+
+        if (
+          compProfile &&
+          (compProfile.rating_count ?? 0) > 0 &&
+          Number(compProfile.rating_avg) < 2.5 &&
+          !compProfile.is_suspended
+        ) {
+          await supabase
+            .from('companion_profiles')
+            .update({
+              is_suspended: true,
+              is_available: false,
+              suspension_reason: `บัญชีถูกระงับอัตโนมัติ เนื่องจากได้รับรายงานข้อร้องเรียนและคะแนนดาวเฉลี่ย (${Number(compProfile.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', companionId);
+
+          addSystemNotification(companionId, {
+            id: `auto-susp-${Date.now()}`,
+            type: 'account_suspended',
+            title: '🚫 บัญชีผู้ช่วยของคุณถูกระงับการให้บริการชั่วคราว',
+            message: `เนื่องจากมีรายงานข้อร้องเรียนและคะแนนความพึงพอใจเฉลี่ยของคุณอยู่ที่ ${Number(compProfile.rating_avg).toFixed(1)} ดาว (ต่ำกว่าเกณฑ์ 2.5 ดาว) ระบบได้ระงับการทำงานชั่วคราว กรุณารอทีมงานผู้ดูแลระบบ (Admin) ตรวจสอบและติดต่อพูดคุยเพื่อตัดสินใจ`,
+            link: '/companion/dashboard',
+          });
+        }
+      } catch (checkErr) {
+        console.warn('Report rating auto-suspension check notice:', checkErr);
       }
+    } catch (notifErr) {
+      console.warn('Admin notification dispatch error:', notifErr);
+    }
 
       await Swal.fire({
         title: 'ส่งรายงานเรียบร้อยแล้ว',

@@ -13,6 +13,7 @@ import {
   XCircle,
   Sparkles,
   ShieldAlert,
+  AlertTriangle,
   Heart,
   X,
 } from 'lucide-react';
@@ -31,6 +32,7 @@ export type NotificationType =
   | 'verification_approved'
   | 'verification_rejected'
   | 'review_received'
+  | 'account_suspended'
   | 'system';
 
 export interface BookingNotification {
@@ -840,6 +842,51 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
                             <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
                             แตะเพื่อดูและส่งหัวใจขอบคุณ
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Account Suspended Notification
+                if (item.type === 'account_suspended') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-rose-50/60 cursor-pointer ${
+                        isUnread ? 'bg-rose-50/40' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-xs">
+                          <AlertTriangle className="w-5 h-5 text-white" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-600 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-rose-950 truncate flex items-center gap-1.5">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        {item.message && (
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                            {item.message}
+                          </p>
+                        )}
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            🚫 บัญชีถูกระงับการทำงานชั่วคราว
                           </span>
                         </div>
                       </div>

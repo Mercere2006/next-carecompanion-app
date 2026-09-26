@@ -360,14 +360,51 @@ export default function CustomerDashboard() {
             Math.round(
               (allRevs.reduce((s, r) => s + (Number(r.rating) || 0), 0) / count) * 10
             ) / 10;
+          const isLowRating = count > 0 && avg < 2.5;
+
           await supabase
             .from('companion_profiles')
             .update({
               rating_avg: avg,
               rating_count: count,
+              ...(isLowRating
+                ? {
+                    is_suspended: true,
+                    is_available: false,
+                    suspension_reason: `บัญชีถูกระงับอัตโนมัติ เนื่องจากคะแนนดาวเฉลี่ย (${avg.toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`,
+                  }
+                : {}),
               updated_at: new Date().toISOString(),
             })
             .eq('id', selectedBookingForReview.companion_id);
+
+          if (isLowRating) {
+            addSystemNotification(selectedBookingForReview.companion_id, {
+              id: `auto-susp-${Date.now()}`,
+              type: 'account_suspended',
+              title: '🚫 บัญชีผู้ช่วยของคุณถูกระงับการให้บริการชั่วคราว',
+              message: `คะแนนความพึงพอใจเฉลี่ยของคุณอยู่ที่ ${avg.toFixed(1)} ดาว (ต่ำกว่าเกณฑ์ 2.5 ดาว) ระบบได้ระงับการทำงานชั่วคราว กรุณารอทีมงานผู้ดูแลระบบ (Admin) ตรวจสอบและติดต่อพูดคุยเพื่อตัดสินใจ`,
+              link: '/companion/dashboard',
+            });
+
+            try {
+              const { data: adminUsers } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('role', 'admin');
+              adminUsers?.forEach((adm) => {
+                addSystemNotification(adm.id, {
+                  id: `admin-susp-alert-${Date.now()}`,
+                  type: 'system',
+                  title: '⚠️ มีผู้ช่วยถูกระงับบัญชีอัตโนมัติ (คะแนนต่ำกว่า 2.5 ดาว)',
+                  message: `ผู้ช่วยมีคะแนนเฉลี่ย ${avg.toFixed(1)} ดาว ระบบได้ระงับบัญชีชั่วคราวแล้ว กรุณาตรวจสอบและติดต่อพูดคุย`,
+                  link: '/admin',
+                });
+              });
+            } catch (admNotifErr) {
+              console.warn(admNotifErr);
+            }
+          }
         }
       } catch (rErr) {
         console.warn('Could not sync companion rating in profile table:', rErr);
