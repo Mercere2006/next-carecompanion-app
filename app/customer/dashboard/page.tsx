@@ -277,6 +277,32 @@ export default function CustomerDashboard() {
 
       if (error) throw error;
 
+      // Recalculate & update companion_profiles.rating_avg & rating_count as safety fallback
+      try {
+        const { data: allRevs } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('companion_id', selectedBookingForReview.companion_id);
+
+        if (allRevs && allRevs.length > 0) {
+          const count = allRevs.length;
+          const avg =
+            Math.round(
+              (allRevs.reduce((s, r) => s + (Number(r.rating) || 0), 0) / count) * 10
+            ) / 10;
+          await supabase
+            .from('companion_profiles')
+            .update({
+              rating_avg: avg,
+              rating_count: count,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', selectedBookingForReview.companion_id);
+        }
+      } catch (rErr) {
+        console.warn('Could not sync companion rating in profile table:', rErr);
+      }
+
       await Swal.fire({
         title: 'บันทึกรีวิวสำเร็จ',
         text: 'ขอบคุณสำหรับคะแนนและรีวิวของคุณ!',

@@ -29,8 +29,6 @@ import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
 import ReportCompanionButton from '@/components/customer/ReportCompanionButton';
 import {
   MOCK_COMPANIONS,
-  MOCK_REVIEWS,
-  DEFAULT_MOCK_REVIEWS,
 } from '@/components/companions/search/constants';
 
 function maskPhoneNumber(phone?: string | null) {
@@ -138,20 +136,28 @@ export default async function CompanionDetailPage({
     }
   }
 
-  // Fetch reviews for this companion (with fallback to mock reviews)
-  const { data: dbReviews } = await supabase
+  // Fetch real reviews for this companion from Supabase (disambiguating customer_id relationship)
+  const { data: dbReviews, error: reviewsError } = await supabase
     .from('reviews')
     .select(`
       *,
-      customer:profiles(full_name, avatar_url)
+      customer:profiles!customer_id(full_name, avatar_url)
     `)
     .eq('companion_id', id)
     .order('created_at', { ascending: false });
 
-  const reviews =
-    dbReviews && dbReviews.length > 0
-      ? dbReviews
-      : MOCK_REVIEWS[id] || DEFAULT_MOCK_REVIEWS;
+  if (reviewsError) {
+    console.warn('Error fetching real reviews:', reviewsError);
+  }
+
+  // Only real reviews from real users who actually booked and reviewed
+  const reviews = dbReviews || [];
+
+  const realReviewCount = reviews.length;
+  const realRatingAvg =
+    realReviewCount > 0
+      ? reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / realReviewCount
+      : 0;
 
   const { cleanBio, embeddedSchedule } = extractCleanBio(companion.bio);
   const activeSchedule = companion.available_schedule || embeddedSchedule;
@@ -199,7 +205,7 @@ export default async function CompanionDetailPage({
                   โหมดผู้เยี่ยมชม (Guest View)
                 </h4>
                 <p className="text-xs text-amber-900/80 mt-0.5">
-                  หมายเลขทะเบียนรถ และรีวิวจากลูกค้าฉบับเต็มถูกปิดบังไว้ เพื่อความเป็นส่วนตัวและความปลอดภัย (หมายเลขโทรศัพท์จะแสดงเมื่อคุณจองผู้ช่วยแล้วเท่านั้น)
+                  หมายเลขทะเบียนรถถูกปิดบังไว้บางส่วนเพื่อความปลอดภัย (หมายเลขโทรศัพท์จะแสดงเมื่อคุณจองผู้ช่วยแล้วเท่านั้น)
                 </p>
               </div>
             </div>
@@ -208,7 +214,7 @@ export default async function CompanionDetailPage({
               className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 transition active:scale-95 shadow-sm"
             >
               <LogIn className="w-4 h-4" />
-              เข้าสู่ระบบเพื่อดูข้อมูลทั้งหมด
+              เข้าสู่ระบบ Care Companion
             </Link>
           </div>
         )}
@@ -265,14 +271,14 @@ export default async function CompanionDetailPage({
                     ผู้ให้บริการร่วมเดินทาง (Companion)
                   </p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-600 pt-1">
-                    {(companion.rating_count ?? 0) > 0 ? (
+                    {realReviewCount > 0 ? (
                       <>
                         <span className="flex items-center gap-1 text-amber-500 font-bold text-sm">
                           <Star className="w-4 h-4 fill-amber-400" />
-                          {Number(companion.rating_avg).toFixed(1)}
+                          {realRatingAvg.toFixed(1)}
                         </span>
                         <span>•</span>
-                        <span>{companion.rating_count} รีวิว</span>
+                        <span>{realReviewCount} รีวิวจากผู้ใช้จริง</span>
                         <span>•</span>
                       </>
                     ) : (
@@ -559,49 +565,18 @@ export default async function CompanionDetailPage({
                 <div className="space-y-0.5">
                   <h2 className="text-base sm:text-lg font-bold text-gray-950 flex items-center gap-2">
                     <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
-                    รีวิวและความคิดเห็นจากผู้ใช้งาน ({companion.rating_count || 0})
+                    รีวิวและความคิดเห็นจากผู้ใช้งานจริง ({realReviewCount})
                   </h2>
                   <p className="text-xs text-gray-500">
-                    {(companion.rating_count || 0) > 0
-                      ? `คะแนนเฉลี่ย ${Number(companion.rating_avg).toFixed(1)} / 5.0 จากผู้รับบริการจริง`
-                      : 'ยังไม่มีคะแนนรีวิวสำหรับผู้ช่วยใหม่ (รอรับงานแรกจากลูกค้า)'}
+                    {realReviewCount > 0
+                      ? `คะแนนเฉลี่ย ${realRatingAvg.toFixed(1)} / 5.0 จากผู้รับบริการจริง`
+                      : 'ยังไม่มีคะแนนรีวิวสำหรับผู้ช่วยท่านนี้ (รอรับงานจริงจากลูกค้า)'}
                   </p>
                 </div>
-
-                {!currentUser && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 shrink-0">
-                    <Lock className="w-3 h-3 text-amber-600" />
-                    เข้าสู่ระบบเพื่อดูรีวิว
-                  </span>
-                )}
               </div>
 
-              {!currentUser ? (
-                /* Locked state for guest view */
-                <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-emerald-50/60 via-slate-50 to-teal-50/30 border border-emerald-100/90 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-xs">
-                    <Lock className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-gray-950 text-sm sm:text-base">
-                      เข้าสู่ระบบเพื่อดูคนมารีวิวและความคิดเห็นทั้งหมด
-                    </h3>
-                    <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
-                      เพื่อความเป็นส่วนตัวของลูกค้าและผู้ให้บริการ กรุณาเข้าสู่ระบบด้วย Google เพื่อดูรายชื่อผู้รีวิว ประสบการณ์จริง และคะแนนการประเมิน
-                    </p>
-                  </div>
-                  <div className="pt-1">
-                    <Link
-                      href={`/login?redirect=/companions/${id}`}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-200 transition active:scale-95"
-                    >
-                      <LogIn className="w-4 h-4" />
-                      เข้าสู่ระบบเพื่อดูคนมารีวิว
-                    </Link>
-                  </div>
-                </div>
-              ) : reviews && reviews.length > 0 ? (
-                /* Logged in state: Show full reviews and people who reviewed */
+              {reviews && reviews.length > 0 ? (
+                /* Show real reviews and real customers who reviewed */
                 <div className="space-y-4 divide-y divide-gray-100">
                   {reviews.map((rev) => (
                     <div key={rev.id} className="pt-4 first:pt-0 space-y-2.5">
@@ -652,9 +627,17 @@ export default async function CompanionDetailPage({
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic py-4 text-center">
-                  ยังไม่มีรีวิวสำหรับผู้ช่วยท่านนี้
-                </p>
+                <div className="p-8 rounded-2xl bg-slate-50/80 border border-dashed border-gray-200 text-center space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto shadow-2xs">
+                    <Star className="w-6 h-6 fill-amber-300 text-amber-500" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">
+                    ยังไม่มีรีวิวสำหรับผู้ช่วยท่านนี้
+                  </h3>
+                  <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                    เมื่อมีลูกค้าที่รับบริการจริงเสร็จสิ้นการเดินทางและส่งคะแนนประเมิน รีวิวและความคิดเห็นจริงจะปรากฏที่นี่
+                  </p>
+                </div>
               )}
             </div>
           </div>

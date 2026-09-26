@@ -45,8 +45,8 @@ export const MOCK_COMPANIONS: CompanionCardData[] = [
     hourly_rate: 350,
     id_card_image_url: null,
     verification_status: "verified",
-    rating_avg: 4.9,
-    rating_count: 32,
+    rating_avg: 0.0,
+    rating_count: 0,
     is_available: true,
     phone_verified: true,
     vehicle_type: "car",
@@ -77,8 +77,8 @@ export const MOCK_COMPANIONS: CompanionCardData[] = [
     hourly_rate: 300,
     id_card_image_url: null,
     verification_status: "verified",
-    rating_avg: 5.0,
-    rating_count: 46,
+    rating_avg: 0.0,
+    rating_count: 0,
     is_available: true,
     phone_verified: true,
     vehicle_type: "none",
@@ -109,8 +109,8 @@ export const MOCK_COMPANIONS: CompanionCardData[] = [
     hourly_rate: 380,
     id_card_image_url: null,
     verification_status: "verified",
-    rating_avg: 4.8,
-    rating_count: 24,
+    rating_avg: 0.0,
+    rating_count: 0,
     is_available: true,
     phone_verified: true,
     vehicle_type: "car",
@@ -141,8 +141,8 @@ export const MOCK_COMPANIONS: CompanionCardData[] = [
     hourly_rate: 220,
     id_card_image_url: null,
     verification_status: "verified",
-    rating_avg: 4.9,
-    rating_count: 38,
+    rating_avg: 0.0,
+    rating_count: 0,
     is_available: true,
     phone_verified: true,
     vehicle_type: "motorcycle",
@@ -170,162 +170,6 @@ export interface MockReviewItem {
   };
 }
 
-export const MOCK_REVIEWS: Record<string, MockReviewItem[]> = {
-  "d1000000-0000-0000-0000-000000000001": [
-    {
-      id: "rev-101",
-      rating: 5,
-      comment:
-        "คุณสมชายขับรถนิ่มมาก พาคุณแม่ไปหาหมอที่ รพ.ศิริราช ช่วยดูแลประคองขึ้นลงรถและช่วยถือเอกสารตลอดเวลา ประทับใจมากครับ",
-      created_at: "2026-09-18T10:30:00Z",
-      customer: {
-        full_name: "คุณณภัทร วราโชค",
-        avatar_url:
-          "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: "rev-102",
-      rating: 5,
-      comment:
-        "ตรงเวลามาก สุภาพ และใจเย็นมาก ช่วยรอรับยาและอธิบายคำแนะนำของแพทย์ให้ฟังอย่างละเอียด แนะนำเลยค่ะ",
-      created_at: "2026-09-15T14:20:00Z",
-      customer: {
-        full_name: "คุณกานดา สุวรรณรัตน์",
-        avatar_url:
-          "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: "rev-103",
-      rating: 5,
-      comment:
-        "มีประสบการณ์ดูแลผู้สูงอายุอย่างแท้จริง พยุงเดินถูกท่า คุณแม่ชมไม่ขาดปาก ไว้จะใช้บริการอีกแน่นอนครับ",
-      created_at: "2026-09-10T11:00:00Z",
-      customer: {
-        full_name: "คุณธีรพงศ์ รัตนดำรง",
-        avatar_url:
-          "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-  ],
-  "d1000000-0000-0000-0000-000000000002": [
-    {
-      id: "rev-201",
-      rating: 5,
-      comment:
-        "น้องฟ้าดูแลคุณยายดีมากๆ ช่วยเข็นวีลแชร์อย่างระมัดระวัง สื่อสารกับคุณหมอและพยาบาลได้อย่างคล่องแคล่ว อุ่นใจมากค่ะ",
-      created_at: "2026-09-19T09:15:00Z",
-      customer: {
-        full_name: "คุณพิมพ์ใจ อัครเดช",
-        avatar_url:
-          "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: "rev-202",
-      rating: 5,
-      comment:
-        "Vipada speaks fluent English and assisted my elderly father at Chulalongkorn Hospital smoothly. Truly excellent service!",
-      created_at: "2026-09-16T15:40:00Z",
-      customer: {
-        full_name: "Mr. David Miller",
-        avatar_url:
-          "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: "rev-203",
-      rating: 5,
-      comment:
-        "น่ารัก สดใส พูดจาเพราะ ช่วยประคองคุณยายตรวจเลือดและนั่งรอรับยาอย่างใจเย็น ให้ 5 ดาวเต็มเลยค่ะ",
-      created_at: "2026-09-12T13:10:00Z",
-      customer: {
-        full_name: "คุณสุนทรี พงษ์ไพโรจน์",
-        avatar_url:
-          "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-  ],
-  "d1000000-0000-0000-0000-000000000003": [
-    {
-      id: "rev-301",
-      rating: 5,
-      comment:
-        "พาไปทำธุรกรรมธนาคารและยื่นเอกสารที่เขต ชำนาญขั้นตอนมาก รถยนต์สะอาด แอร์เย็น ขับปลอดภัยครับ",
-      created_at: "2026-09-17T11:45:00Z",
-      customer: {
-        full_name: "คุณวิทยา เกียรติอนันต์",
-        avatar_url:
-          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: "rev-302",
-      rating: 5,
-      comment:
-        "ช่วยพาคุณตาไปจ่ายตลาด ยกของหนักให้ทั้งหมด มีน้ำใจและตรงต่อเวลามากค่ะ",
-      created_at: "2026-09-13T16:00:00Z",
-      customer: {
-        full_name: "คุณชุติมา เจริญพร",
-        avatar_url:
-          "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-  ],
-  "d1000000-0000-0000-0000-000000000004": [
-    {
-      id: "rev-401",
-      rating: 5,
-      comment:
-        "น้องเมย์คล่องแคล่วมาก ช่วยไปรับยาและซื้อของใช้ด่วนในชั่วโมงเร่งด่วน ส่งถึงบ้านรวดเร็วเรียบร้อยค่ะ",
-      created_at: "2026-09-18T13:30:00Z",
-      customer: {
-        full_name: "คุณพัชรี เลิศปรีชา",
-        avatar_url:
-          "https://images.unsplash.com/photo-1548142813-c348350df52b?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: "rev-402",
-      rating: 5,
-      comment:
-        "บริการดีมาก ขี่มอเตอร์ไซค์ปลอดภัย ใส่หมวกกันน็อกให้ครบ สุภาพเรียบร้อยมากครับ",
-      created_at: "2026-09-14T10:00:00Z",
-      customer: {
-        full_name: "คุณธวัชชัย รุ่งโรจน์",
-        avatar_url:
-          "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-  ],
-};
+export const MOCK_REVIEWS: Record<string, MockReviewItem[]> = {};
 
-export const DEFAULT_MOCK_REVIEWS: MockReviewItem[] = [
-  {
-    id: "rev-def-1",
-    rating: 5,
-    comment:
-      "ผู้ช่วยสุภาพและตรงเวลามาก ช่วยดูแลการเดินทางเป็นอย่างดี ให้ความช่วยเหลืออย่างเต็มที่ตลอดการทำธุระ",
-    created_at: "2026-09-17T09:00:00Z",
-    customer: {
-      full_name: "คุณสมศักดิ์ รัตนชัย",
-      avatar_url:
-        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80",
-    },
-  },
-  {
-    id: "rev-def-2",
-    rating: 5,
-    comment:
-      "บริการดีมาก อุ่นใจที่ได้เดินทางด้วย แนะนำสำหรับผู้ที่ต้องการผู้ช่วยพาผู้สูงอายุไปทำธุระครับ",
-    created_at: "2026-09-11T14:30:00Z",
-    customer: {
-      full_name: "คุณปาริฉัตร วรสาร",
-      avatar_url:
-        "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
-    },
-  },
-];
-
-
+export const DEFAULT_MOCK_REVIEWS: MockReviewItem[] = [];
