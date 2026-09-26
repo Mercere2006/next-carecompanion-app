@@ -1158,12 +1158,12 @@ export default function AdminDashboardPage() {
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-gray-50 text-xs uppercase font-bold text-gray-500 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4">หัวข้อธุระ</th>
-                    <th className="px-6 py-4">ผู้จอง (Customer)</th>
-                    <th className="px-6 py-4">ผู้ช่วย (Companion)</th>
-                    <th className="px-6 py-4">วันและเวลา</th>
-                    <th className="px-6 py-4">ยอดเงิน</th>
-                    <th className="px-6 py-4">สถานะ</th>
+                    <th className="px-5 py-4 min-w-[240px]">หัวข้อธุระ</th>
+                    <th className="px-5 py-4 min-w-[160px] whitespace-nowrap">ผู้จอง (Customer)</th>
+                    <th className="px-5 py-4 min-w-[160px] whitespace-nowrap">ผู้ช่วย (Companion)</th>
+                    <th className="px-5 py-4 min-w-[140px] whitespace-nowrap">วันและเวลา</th>
+                    <th className="px-5 py-4 min-w-[100px] text-right whitespace-nowrap">ยอดเงิน</th>
+                    <th className="px-5 py-4 min-w-[130px] text-center whitespace-nowrap">สถานะ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1177,32 +1177,46 @@ export default function AdminDashboardPage() {
                     bookings.map((b) => {
                       const statusInfo = getStatusBadgeInfo(b.status);
                       return (
-                        <tr key={b.id} className="hover:bg-slate-50/60 transition">
-                          <td className="px-6 py-4">
+                        <tr key={b.id} className="hover:bg-slate-50/60 transition align-middle">
+                          <td className="px-5 py-4 max-w-[280px]">
                             <button
                               type="button"
                               onClick={() => setSelectedBookingForDetails(b)}
                               className="text-left font-bold text-gray-900 hover:text-emerald-700 hover:underline transition flex items-center gap-1.5 cursor-pointer group"
                               title="คลิกเพื่อดูรายละเอียดการจองทั้งหมด"
                             >
-                              <span className="group-hover:text-emerald-700">{b.errand_title}</span>
+                              <span className="group-hover:text-emerald-700 truncate max-w-[220px]">
+                                {b.errand_title}
+                              </span>
                               <Eye className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 transition shrink-0" />
                             </button>
-                            <span className="text-xs text-gray-400 block mt-0.5">
+                            <span
+                              className="text-xs text-gray-400 block mt-0.5 truncate max-w-[260px]"
+                              title={`${b.origin_address} ➔ ${b.destination_address}`}
+                            >
                               {b.origin_address} ➔ {b.destination_address}
                             </span>
                           </td>
-                          <td className="px-6 py-4">{b.customer?.full_name || 'ลูกค้า'}</td>
-                          <td className="px-6 py-4">{b.companion?.full_name || 'ผู้ช่วย'}</td>
-                          <td className="px-6 py-4">
-                            {formatThaiDate(b.appointment_date)} {b.start_time?.slice(0, 5)} น.
+                          <td className="px-5 py-4 whitespace-nowrap font-medium text-gray-900">
+                            {b.customer?.full_name || 'ลูกค้า'}
                           </td>
-                          <td className="px-6 py-4 font-bold text-emerald-700">
+                          <td className="px-5 py-4 whitespace-nowrap font-medium text-gray-800">
+                            {b.companion?.full_name || 'ผู้ช่วย'}
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="font-semibold text-gray-900 text-xs">
+                              {formatThaiDate(b.appointment_date)}
+                            </div>
+                            <div className="text-[11px] text-gray-400 font-medium">
+                              {b.start_time?.slice(0, 5)} น.
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-right font-black text-emerald-700 whitespace-nowrap">
                             {formatPrice(b.total_price)}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-5 py-4 text-center whitespace-nowrap">
                             <span
-                              className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusInfo.bgColor}`}
+                              className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${statusInfo.bgColor}`}
                             >
                               {statusInfo.label}
                             </span>
