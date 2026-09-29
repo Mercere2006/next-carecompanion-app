@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+function getSafeNextUrl(next: string | null): string | null {
+  if (!next) return null;
+  // Ensure it's a relative path starting with / and not // (prevents open-redirect attacks)
+  if (next.startsWith('/') && !next.startsWith('//')) {
+    return next;
+  }
+  return null;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const requestedRole = searchParams.get('role'); // e.g. 'customer' | 'companion'
-  const next = searchParams.get('next') ?? '/';
+  const next = searchParams.get('next');
+  const safeNext = getSafeNextUrl(next);
 
   if (code) {
     const supabase = await createClient();
@@ -37,7 +47,7 @@ export async function GET(request: Request) {
           null;
 
         // If profile row was deleted or does not exist:
-        // Clear everything, wipe orphaned companion data, use strictly Google OAuth metadata, and return to home page
+        // Clear everything, wipe orphaned companion data, use strictly Google OAuth metadata
         if (!profile) {
           if (compProfile) {
             await supabase.from('companion_profiles').delete().eq('id', user.id);
@@ -54,7 +64,10 @@ export async function GET(request: Request) {
             updated_at: new Date().toISOString(),
           });
 
-          // Cleared / fresh profile returns completely to the home page (หน้าแรก)
+          // If a specific next destination was requested (e.g. companion page), return there!
+          if (safeNext && safeNext !== '/') {
+            return NextResponse.redirect(`${origin}${safeNext}`);
+          }
           return NextResponse.redirect(`${origin}/`);
         }
 
@@ -99,12 +112,18 @@ export async function GET(request: Request) {
         }
 
         if (determinedRole === 'companion') {
-          if (requestedRole === 'companion' && (!next || next === '/')) {
+          if (requestedRole === 'companion' && (!safeNext || safeNext === '/')) {
             return NextResponse.redirect(`${origin}/companion/profile`);
           }
-          if (next && next !== '/' && next !== '/customer/dashboard' && next !== '/companion/dashboard') {
-            return NextResponse.redirect(`${origin}${next}`);
+          if (safeNext && safeNext !== '/' && safeNext !== '/customer/dashboard' && safeNext !== '/companion/dashboard') {
+            return NextResponse.redirect(`${origin}${safeNext}`);
           }
+          return NextResponse.redirect(`${origin}/`);
+        }
+
+        // Customer role: If user requested a destination (e.g. companion page), return there!
+        if (safeNext && safeNext !== '/') {
+          return NextResponse.redirect(`${origin}${safeNext}`);
         }
 
         // Default: Return to home page (หน้าแรก)

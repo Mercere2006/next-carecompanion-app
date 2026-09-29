@@ -27,6 +27,7 @@ import {
 import { notFound } from 'next/navigation';
 import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
 import ReportCompanionButton from '@/components/customer/ReportCompanionButton';
+import BookCompanionButton from '@/components/companions/BookCompanionButton';
 import {
   MOCK_COMPANIONS,
 } from '@/components/companions/search/constants';
@@ -732,20 +733,12 @@ export default async function CompanionDetailPage({
                   )}
                 </div>
 
-                {companion.is_suspended ? (
-                  <div className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-200 text-gray-500 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
-                    <AlertTriangle className="w-4 h-4 text-gray-400" />
-                    ไม่สามารถจองได้ (บัญชีถูกระงับชั่วคราว)
-                  </div>
-                ) : (
-                  <Link
-                    href={`/customer/book/${companion.id}`}
-                    className="w-full py-4 rounded-2xl bg-emerald-700 text-white font-bold text-center text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98"
-                  >
-                    <Calendar className="w-5 h-5" />
-                    จองผู้ช่วยร่วมเดินทาง
-                  </Link>
-                )}
+                <BookCompanionButton
+                  companionId={companion.id}
+                  companionName={companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
+                  isSuspended={Boolean(companion.is_suspended)}
+                  initialIsLoggedIn={Boolean(currentUser)}
+                />
 
                 <p className="text-[11px] text-gray-400 text-center leading-relaxed">
                   *ระบบยังไม่มีการตัดเงินทันที ชำระค่าบริการโดยตรงหลังเสร็จสิ้นภารกิจ

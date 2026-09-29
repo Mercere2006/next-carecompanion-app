@@ -130,8 +130,8 @@ export default function Navbar() {
             setProfile(data);
             setIsCompanion(false);
 
-            // 4. Return to home page immediately if not already there
-            if (pathname !== '/') {
+            // 4. Return to home page immediately if on protected dashboard/admin/profile pages
+            if (pathname !== '/' && (pathname.startsWith('/companion/') || pathname.startsWith('/customer/') || pathname.startsWith('/admin'))) {
               router.push('/');
               router.refresh();
             }
