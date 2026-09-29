@@ -47,8 +47,8 @@ export default function VehicleManagerModal({
       return;
     }
 
-    if (!rate || rate < 50) {
-      setErrorMsg('กรุณาระบุอัตราค่าบริการที่ถูกต้อง (ขั้นต่ำ 50 บาท)');
+    if (!rate || rate < 20) {
+      setErrorMsg('กรุณาระบุอัตราค่าบริการที่ถูกต้อง (ขั้นต่ำ 20 บาท)');
       return;
     }
 
@@ -175,7 +175,7 @@ export default function VehicleManagerModal({
             </div>
             <input
               type="number"
-              min="50"
+              min="20"
               max="2000"
               step="10"
               required

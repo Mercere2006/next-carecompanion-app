@@ -675,7 +675,7 @@ export default function CompanionDetailsForm({
                     </label>
                     <input
                       type="number"
-                      min="50"
+                      min="20"
                       max="2000"
                       step="10"
                       value={hourlyRate}
@@ -736,7 +736,7 @@ export default function CompanionDetailsForm({
                   </label>
                   <input
                     type="number"
-                    min="50"
+                    min="20"
                     max="2000"
                     step="10"
                     value={hourlyRate}

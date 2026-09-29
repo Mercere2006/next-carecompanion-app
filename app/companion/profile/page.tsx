@@ -614,8 +614,8 @@ export default function CompanionProfilePage() {
       return;
     }
 
-    if (!hourlyRate || Number(hourlyRate) < 50) {
-      setErrorMsg('กรุณาระบุอัตราค่าบริการเริ่มต้นอย่างน้อย 50 บาท');
+    if (!hourlyRate || Number(hourlyRate) < 20) {
+      setErrorMsg('กรุณาระบุอัตราค่าบริการเริ่มต้นอย่างน้อย 20 บาท');
       return;
     }
 
@@ -765,7 +765,7 @@ export default function CompanionProfilePage() {
         skills: skillsArray,
         service_areas: areasArray,
         available_schedule: availableSchedule,
-        hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
+        hourly_rate: Math.max(20, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailableFinal,
         is_suspended: isCurrentlySuspended,
         suspension_reason: isCurrentlySuspended ? (existingComp?.suspension_reason || suspensionReason) : null,
@@ -784,7 +784,7 @@ export default function CompanionProfilePage() {
         experience_years: Math.max(0, Number(experienceYears) || 0),
         skills: skillsArray,
         service_areas: areasArray,
-        hourly_rate: Math.max(50, Number(hourlyRate) || formattedVehicles.hourly_rate),
+        hourly_rate: Math.max(20, Number(hourlyRate) || formattedVehicles.hourly_rate),
         is_available: isAvailableFinal,
         is_suspended: isCurrentlySuspended,
         suspension_reason: isCurrentlySuspended ? (existingComp?.suspension_reason || suspensionReason) : null,
