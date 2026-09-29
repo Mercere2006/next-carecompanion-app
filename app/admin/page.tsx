@@ -6,7 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, CompanionCardData, BookingDetailData, ReportDetailData } from '@/types/database';
 import { formatPrice, formatThaiDate, getStatusBadgeInfo } from '@/lib/utils';
-import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X, Clock, MapPin, Navigation, Car, Bike, FileText, ExternalLink, Star, Briefcase, Award, Shield, Sparkles } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phone, Mail, ShieldAlert, ShieldCheck, User, MessageSquare, X, Clock, MapPin, Navigation, Car, Bike, FileText, ExternalLink, Star, Briefcase, Award, Shield, Sparkles, Trash2 } from 'lucide-react';
 import { extractCleanBio, parseVehiclesList } from '@/lib/vehicleUtils';
 import Swal from 'sweetalert2';
 import { addSystemNotification } from '@/lib/notifications';
@@ -465,25 +465,34 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleClearUserProfile = async (userId: string, email: string, name: string) => {
+  const handleDeleteUserAccount = async (userId: string, email: string, name: string) => {
     const result = await Swal.fire({
-      title: 'ยืนยันการลบ/เคลียร์ข้อมูลโปรไฟล์?',
+      title: 'ยืนยันการลบบัญชีและข้อมูลทั้งหมด?',
       html: `
-        <div class="text-left space-y-2 text-sm text-gray-600">
-          <p>คุณต้องการลบข้อมูลโปรไฟล์และข้อมูล Companion ทั้งหมดของ:</p>
-          <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-900 font-semibold">
-            ${name} (${email})
+        <div class="text-left space-y-3 text-sm text-gray-600">
+          <p class="font-medium text-gray-800">คุณต้องการลบบัญชีผู้ใช้งานและข้อมูลทั้งหมดของ:</p>
+          <div class="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-rose-900 font-semibold">
+            ${name} <br/><span class="text-xs text-rose-600 font-normal">${email}</span>
           </div>
-          <p class="text-xs text-gray-500">
-            ระบบจะลบข้อมูลออกจากตาราง Companion และลบข้อมูลโปรไฟล์ เพื่อให้รีเซ็ตกลับเป็นโปรไฟล์เริ่มต้นจาก Google Login และกลับสู่หน้าแรก
-          </p>
+          <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1.5">
+            <p class="font-bold flex items-center gap-1.5 text-amber-950">
+              ⚠️ การดำเนินการนี้จะลบข้อมูลต่อไปนี้อย่างถาวร:
+            </p>
+            <ul class="list-disc list-inside space-y-1 text-amber-800">
+              <li>บัญชีผู้ใช้งาน (Authentication Account)</li>
+              <li>ข้อมูลโปรไฟล์ส่วนตัวทั้งหมด</li>
+              <li>ข้อมูลและสถานะผู้ช่วยร่วมเดินทาง (รวมถึงยานพาหนะ)</li>
+              <li>ประวัติการจอง, รีวิว และรายงานข้อร้องเรียนที่เกี่ยวข้อง</li>
+            </ul>
+            <p class="text-[11px] text-rose-600 font-bold mt-1">*ไม่สามารถกู้คืนข้อมูลได้หลังจากลบแล้ว</p>
+          </div>
         </div>
       `,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e11d48',
       cancelButtonColor: '#64748b',
-      confirmButtonText: 'ใช่, ลบข้อมูลโปรไฟล์',
+      confirmButtonText: 'ใช่, ลบบัญชีและข้อมูลทั้งหมด',
       cancelButtonText: 'ยกเลิก',
       customClass: {
         popup: 'rounded-3xl shadow-2xl font-sans',
@@ -496,28 +505,66 @@ export default function AdminDashboardPage() {
 
     try {
       setProcessingId(userId);
-      // 1. Delete companion profile
-      await supabase.from('companion_profiles').delete().eq('id', userId);
 
-      // 2. Delete profile
-      await supabase.from('profiles').delete().eq('id', userId);
+      // เรียก API Route /api/admin/delete-user สำหรับการลบแบบหลายระดับ (RPC -> Service Role -> Client Session)
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, email }),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok || !resData.success) {
+        // ลอง fallback เรียก RPC จากฝั่ง Client โดยตรง
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_delete_user', {
+          target_user_id: userId,
+        });
+
+        if (rpcErr || !rpcData?.success) {
+          throw new Error(
+            resData?.error || rpcErr?.message || 'ไม่สามารถลบบัญชีผู้ใช้ได้ กรุณารัน SQL Migration ใน Supabase Dashboard'
+          );
+        }
+      }
+
+      // นำข้อมูลออกจาก State ทันทีเพื่อให้หน้าจอแสดงผลตามจริงแบบ Realtime
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setCompanions((prev) => prev.filter((c) => c.id !== userId));
+      setBookings((prev) => prev.filter((b) => b.customer_id !== userId && b.companion_id !== userId));
+      setReports((prev) => prev.filter((r) => r.customer_id !== userId && r.companion_id !== userId));
 
       await Swal.fire({
-        title: 'ลบข้อมูลสำเร็จ',
-        text: `ลบข้อมูลโปรไฟล์ของ ${email} เรียบร้อยแล้ว`,
+        title: 'ลบบัญชีและข้อมูลสำเร็จ',
+        text: `ลบบัญชีของ ${email} (${name}) และข้อมูลทั้งหมดออกจากระบบเรียบร้อยแล้ว`,
         icon: 'success',
         confirmButtonColor: '#059669',
-        timer: 1800,
+        timer: 2000,
       });
 
       fetchAdminData();
     } catch (err: any) {
-      console.error('Error clearing profile:', err);
+      console.error('Error deleting user account:', err);
       Swal.fire({
-        title: 'เกิดข้อผิดพลาด',
-        text: err?.message || 'ไม่สามารถลบข้อมูลโปรไฟล์ได้',
+        title: 'ลบบัญชีไม่สำเร็จ',
+        html: `
+          <div class="text-left space-y-2 text-sm text-gray-700">
+            <p class="font-semibold text-rose-600">สาเหตุข้อผิดพลาด:</p>
+            <p class="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-800 break-words font-mono">
+              ${err?.message || 'ไม่สามารถลบข้อมูลจากฐานข้อมูลได้'}
+            </p>
+            <p class="text-xs text-gray-500 mt-2">
+              💡 แนะนำ: กรุณาคัดลอกโค้ดในไฟล์ <b>supabase/migration_full_account_deletion.sql</b> ไปวางและกด Run ใน <b>Supabase Dashboard &gt; SQL Editor</b> เพื่อเปิดฟังก์ชันลบบัญชีแบบสมบูรณ์
+            </p>
+          </div>
+        `,
         icon: 'error',
         confirmButtonColor: '#059669',
+        confirmButtonText: 'เข้าใจแล้ว',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+        },
       });
     } finally {
       setProcessingId(null);
@@ -1556,13 +1603,17 @@ export default function AdminDashboardPage() {
                             ตั้งเป็น Admin
                           </button>
                         )}
-                        <button
-                          onClick={() => handleClearUserProfile(u.id, u.email || '', u.full_name || 'ผู้ใช้งาน')}
-                          className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
-                          title="ลบข้อมูลโปรไฟล์และเคลียร์ข้อมูลทั้งหมดของอีเมลนี้"
-                        >
-                          ลบ/เคลียร์ข้อมูล
-                        </button>
+                        {u.role !== 'admin' && (
+                          <button
+                            onClick={() => handleDeleteUserAccount(u.id, u.email || '', u.full_name || 'ผู้ใช้งาน')}
+                            disabled={processingId === u.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors cursor-pointer disabled:opacity-50"
+                            title="ลบบัญชีผู้ใช้งานและข้อมูลทั้งหมดออกจากระบบอย่างถาวร"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {processingId === u.id ? 'กำลังลบ...' : 'ลบบัญชีและข้อมูล'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -2521,13 +2572,31 @@ export default function AdminDashboardPage() {
 
                 {/* Modal Footer / Actions */}
                 <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCompanionForDetails(null)}
-                    className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 transition cursor-pointer"
-                  >
-                    ปิดหน้าต่าง
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCompanionForDetails(null)}
+                      className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 transition cursor-pointer"
+                    >
+                      ปิดหน้าต่าง
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={async () => {
+                        const targetId = comp.id;
+                        const targetEmail = comp.profile?.email || '';
+                        const targetName = comp.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง';
+                        setSelectedCompanionForDetails(null);
+                        await handleDeleteUserAccount(targetId, targetEmail, targetName);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                      title="ลบบัญชีผู้ช่วยและข้อมูลทั้งหมดออกจากระบบอย่างถาวร"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      ลบบัญชีและข้อมูล
+                    </button>
+                  </div>
 
                   <div className="flex flex-wrap items-center gap-2 justify-end">
                     {comp.verification_status === 'pending' && (

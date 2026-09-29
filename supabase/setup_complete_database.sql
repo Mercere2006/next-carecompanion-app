@@ -249,6 +249,14 @@ TO authenticated
 USING (auth.uid() = id OR public.is_admin())
 WITH CHECK (auth.uid() = id OR public.is_admin());
 
+DROP POLICY IF EXISTS "Users and admins can delete profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can delete any profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins and owners can delete profile" ON public.profiles;
+CREATE POLICY "Admins and owners can delete profile"
+ON public.profiles FOR DELETE
+TO authenticated
+USING (auth.uid() = id OR public.is_admin());
+
 -- 8.2 ตาราง companion_profiles
 ALTER TABLE IF EXISTS public.companion_profiles ENABLE ROW LEVEL SECURITY;
 
@@ -273,10 +281,12 @@ USING (auth.uid() = id OR public.is_admin())
 WITH CHECK (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can delete their own companion profile" ON public.companion_profiles;
-CREATE POLICY "Users can delete their own companion profile"
+DROP POLICY IF EXISTS "Users and admins can delete companion profile" ON public.companion_profiles;
+DROP POLICY IF EXISTS "Admins and owners can delete companion profile" ON public.companion_profiles;
+CREATE POLICY "Admins and owners can delete companion profile"
 ON public.companion_profiles FOR DELETE
 TO authenticated
-USING (auth.uid() = id);
+USING (auth.uid() = id OR public.is_admin());
 
 -- 8.3 ตาราง service_categories
 ALTER TABLE IF EXISTS public.service_categories ENABLE ROW LEVEL SECURITY;
@@ -327,4 +337,83 @@ USING (auth.uid() = customer_id OR auth.uid() = companion_id);
 UPDATE public.profiles
 SET full_name = 'Admin'
 WHERE role = 'admin';
+
+-- 10. ฟังก์ชัน admin_delete_user (SECURITY DEFINER)
+-- สำหรับการลบบัญชีผู้ใช้และข้อมูลทั้งหมดออกจากระบบอย่างสมบูรณ์
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_user_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_caller UUID := auth.uid();
+  v_is_adm BOOLEAN := false;
+  v_target_email TEXT := NULL;
+  v_deleted_reviews INT := 0;
+  v_deleted_reports INT := 0;
+  v_deleted_bookings INT := 0;
+  v_deleted_companion INT := 0;
+  v_deleted_profile INT := 0;
+  v_deleted_auth INT := 0;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = v_caller AND role = 'admin'
+  ) INTO v_is_adm;
+
+  IF NOT (v_is_adm OR v_caller = target_user_id) THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'ไม่มีสิทธิ์ในการลบบัญชีนี้ (ต้องเป็น Admin เท่านั้น)'
+    );
+  END IF;
+
+  SELECT email INTO v_target_email FROM public.profiles WHERE id = target_user_id;
+  IF v_target_email IS NULL THEN
+    SELECT email INTO v_target_email FROM auth.users WHERE id = target_user_id;
+  END IF;
+
+  DELETE FROM public.reviews WHERE customer_id = target_user_id OR companion_id = target_user_id;
+  GET DIAGNOSTICS v_deleted_reviews = ROW_COUNT;
+
+  DELETE FROM public.reports WHERE customer_id = target_user_id OR companion_id = target_user_id;
+  GET DIAGNOSTICS v_deleted_reports = ROW_COUNT;
+
+  DELETE FROM public.bookings WHERE customer_id = target_user_id OR companion_id = target_user_id;
+  GET DIAGNOSTICS v_deleted_bookings = ROW_COUNT;
+
+  DELETE FROM public.companion_profiles WHERE id = target_user_id;
+  GET DIAGNOSTICS v_deleted_companion = ROW_COUNT;
+
+  DELETE FROM public.profiles WHERE id = target_user_id;
+  GET DIAGNOSTICS v_deleted_profile = ROW_COUNT;
+
+  DELETE FROM auth.users WHERE id = target_user_id;
+  GET DIAGNOSTICS v_deleted_auth = ROW_COUNT;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'deleted_user_id', target_user_id,
+    'email', v_target_email,
+    'details', jsonb_build_object(
+      'reviews', v_deleted_reviews,
+      'reports', v_deleted_reports,
+      'bookings', v_deleted_bookings,
+      'companion_profile', v_deleted_companion,
+      'profile', v_deleted_profile,
+      'auth_user', v_deleted_auth
+    ),
+    'message', 'ลบบัญชีผู้ใช้และข้อมูลทั้งหมดออกจากระบบเรียบร้อยแล้ว'
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object(
+    'success', false,
+    'error', SQLERRM
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO authenticated;
+
 
