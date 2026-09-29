@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { addSystemNotification } from '@/lib/notifications';
+import { calculateSuspendedUntil } from '@/lib/suspensionUtils';
+import { formatThaiDate } from '@/lib/utils';
 import { AlertTriangle, X, ShieldAlert, CheckCircle2, User } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -168,21 +170,32 @@ export default function ReportCompanionModal({
           Number(compProfile.rating_avg) < 2.5 &&
           !compProfile.is_suspended
         ) {
-          await supabase
+          const suspendedUntil = calculateSuspendedUntil(7);
+          const reason = `บัญชีถูกระงับอัตโนมัติ 7 วัน เนื่องจากได้รับรายงานข้อร้องเรียนและคะแนนดาวเฉลี่ย (${Number(compProfile.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว [SUSPENDED_UNTIL:${suspendedUntil}]`;
+
+          const updatePayload: Record<string, unknown> = {
+            is_suspended: true,
+            is_available: false,
+            suspension_reason: reason,
+            suspended_until: suspendedUntil,
+            updated_at: new Date().toISOString(),
+          };
+
+          let { error: err } = await supabase
             .from('companion_profiles')
-            .update({
-              is_suspended: true,
-              is_available: false,
-              suspension_reason: `บัญชีถูกระงับอัตโนมัติ เนื่องจากได้รับรายงานข้อร้องเรียนและคะแนนดาวเฉลี่ย (${Number(compProfile.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', companionId);
+
+          if (err && err.message?.includes('suspended_until')) {
+            delete updatePayload.suspended_until;
+            await supabase.from('companion_profiles').update(updatePayload).eq('id', companionId);
+          }
 
           addSystemNotification(companionId, {
             id: `auto-susp-${Date.now()}`,
             type: 'account_suspended',
-            title: '🚫 บัญชีผู้ช่วยของคุณถูกระงับการให้บริการชั่วคราว',
-            message: `เนื่องจากมีรายงานข้อร้องเรียนและคะแนนความพึงพอใจเฉลี่ยของคุณอยู่ที่ ${Number(compProfile.rating_avg).toFixed(1)} ดาว (ต่ำกว่าเกณฑ์ 2.5 ดาว) ระบบได้ระงับการทำงานชั่วคราว กรุณารอทีมงานผู้ดูแลระบบ (Admin) ตรวจสอบและติดต่อพูดคุยเพื่อตัดสินใจ`,
+            title: '🚫 บัญชีผู้ช่วยของคุณถูกระงับการให้บริการชั่วคราว (7 วัน)',
+            message: `เนื่องจากมีรายงานข้อร้องเรียนและคะแนนความพึงพอใจเฉลี่ยของคุณอยู่ที่ ${Number(compProfile.rating_avg).toFixed(1)} ดาว (ต่ำกว่าเกณฑ์ 2.5 ดาว) ระบบได้ระงับการทำงานชั่วคราวเป็นเวลา 7 วัน (ถึงวันที่ ${formatThaiDate(suspendedUntil)}) และจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด หรือเมื่อแอดมินพิจารณาพูดคุย`,
             link: '/companion/dashboard',
           });
         }

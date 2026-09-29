@@ -25,6 +25,11 @@ import {
   playNotificationSound,
   SystemNotification,
 } from '@/lib/notifications';
+import {
+  extractSuspendedUntil,
+  isSuspensionExpired,
+  autoUnsuspendCompanion,
+} from '@/lib/suspensionUtils';
 
 export type NotificationType =
   | 'booking'
@@ -33,6 +38,7 @@ export type NotificationType =
   | 'verification_rejected'
   | 'review_received'
   | 'account_suspended'
+  | 'account_unsuspended'
   | 'system';
 
 export interface BookingNotification {
@@ -272,12 +278,23 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         });
       }
 
-      // 2. Fetch companion profile verification status
+      // 2. Fetch companion profile verification status & suspension
       const { data: compProfile } = await supabase
         .from('companion_profiles')
-        .select('id, verification_status, updated_at, is_suspended, suspension_reason')
+        .select('id, verification_status, updated_at, is_suspended, suspension_reason, suspended_until, rating_avg')
         .eq('id', userId)
         .maybeSingle();
+
+      // Check if companion is suspended and 7-day period has expired
+      if (compProfile?.is_suspended) {
+        const suspendedUntil = extractSuspendedUntil(compProfile);
+        if (suspendedUntil && isSuspensionExpired(suspendedUntil)) {
+          await autoUnsuspendCompanion(supabase, userId, Number(compProfile.rating_avg));
+          compProfile.is_suspended = false;
+          compProfile.suspension_reason = null;
+          compProfile.suspended_until = null;
+        }
+      }
 
       // 3. Read custom system notifications from local storage helper
       const localSys = getSystemNotifications(userId);
@@ -887,6 +904,51 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                         <div className="pt-0.5">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
                             🚫 บัญชีถูกระงับการทำงานชั่วคราว
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Render Account Unsuspended Notification
+                if (item.type === 'account_unsuspended') {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item)}
+                      className={`w-full text-left p-4 transition flex items-start gap-3 hover:bg-emerald-50/60 cursor-pointer ${
+                        isUnread ? 'bg-emerald-50/40' : 'bg-white'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                          <CheckCircle2 className="w-5 h-5 text-white" />
+                        </div>
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-xs text-emerald-950 truncate flex items-center gap-1.5">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {getRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        {item.message && (
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">
+                            {item.message}
+                          </p>
+                        )}
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            ✅ ปลดระงับแล้ว (พร้อมรับงาน)
                           </span>
                         </div>
                       </div>

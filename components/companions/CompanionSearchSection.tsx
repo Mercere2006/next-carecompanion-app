@@ -7,6 +7,11 @@ import CompanionCard from "@/components/companions/CompanionCard";
 import { CompanionCardData } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/utils";
+import {
+  extractSuspendedUntil,
+  isSuspensionExpired,
+  autoUnsuspendCompanion,
+} from "@/lib/suspensionUtils";
 import { useCompanionFilter } from "./search/useCompanionFilter";
 import LoginRequiredModal from "./search/LoginRequiredModal";
 
@@ -159,8 +164,19 @@ export default function CompanionSearchSection({
             );
             const hasRate = Number(c.hourly_rate) > 0;
             const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
-            const isAvail = c.is_available === true;
-            const notSuspended = !c.is_suspended;
+            let notSuspended = !c.is_suspended;
+
+            if (c.is_suspended) {
+              const until = extractSuspendedUntil(c);
+              if (until && isSuspensionExpired(until)) {
+                // Auto-unsuspend in background
+                autoUnsuspendCompanion(supabase, c.id, Number(c.rating_avg));
+                c.is_suspended = false;
+                notSuspended = true;
+              }
+            }
+
+            const isAvail = c.is_available === true || notSuspended;
             return isAvail && notSuspended && hasRate && hasBio && hasName;
           });
 

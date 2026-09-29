@@ -43,6 +43,7 @@ export interface CompanionProfile {
   vehicle_plate?: string | null; // เช่น "1กข 1234 กทม."
   is_suspended?: boolean;        // ถูกระงับการให้บริการหรือไม่
   suspension_reason?: string | null; // สาเหตุการระงับ
+  suspended_until?: string | null;   // วันเวลาที่จะปลดระงับอัตโนมัติ (เช่น 7 วันนับจากวันที่ถูกระงับ)
   warning_count?: number;        // จำนวนครั้งที่ถูกตักเตือน
   updated_at: string;
 }

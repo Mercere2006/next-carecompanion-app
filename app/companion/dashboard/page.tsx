@@ -12,6 +12,13 @@ import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
 import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
 import { addSystemNotification } from '@/lib/notifications';
+import {
+  extractSuspendedUntil,
+  isSuspensionExpired,
+  cleanSuspensionReason,
+  formatSuspensionRemaining,
+  autoUnsuspendCompanion,
+} from '@/lib/suspensionUtils';
 
 export default function CompanionDashboard() {
   const router = useRouter();
@@ -65,6 +72,34 @@ export default function CompanionDashboard() {
       }
 
       if (compProfile) {
+        // Auto-unsuspend check: if suspended and 7-day period has expired
+        if (compProfile.is_suspended) {
+          const suspendedUntil = extractSuspendedUntil(compProfile);
+          if (suspendedUntil && isSuspensionExpired(suspendedUntil)) {
+            await autoUnsuspendCompanion(supabase, user.id, Number(compProfile.rating_avg));
+            compProfile.is_suspended = false;
+            compProfile.is_available = true;
+            compProfile.suspension_reason = null;
+            compProfile.suspended_until = null;
+            if (Number(compProfile.rating_avg) < 2.5) {
+              compProfile.rating_avg = 3.0;
+            }
+            if (typeof window !== 'undefined') {
+              Swal.fire({
+                title: 'ยินดีต้อนรับกลับมา! 🎉',
+                text: 'ครบกำหนดระยะเวลาระงับบัญชี 7 วันแล้ว ระบบได้ทำการปลดระงับบัญชีให้คุณอัตโนมัติ คุณสามารถเปิดรับงานและให้บริการลูกค้าได้ตามปกติ',
+                icon: 'success',
+                confirmButtonColor: '#059669',
+                confirmButtonText: 'รับทราบ',
+                customClass: {
+                  popup: 'rounded-3xl shadow-2xl font-sans',
+                  confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+                },
+              });
+            }
+          }
+        }
+
         setCompanionProfile(compProfile as CompanionProfile);
 
         // Verification approval celebration check
@@ -409,28 +444,40 @@ export default function CompanionDashboard() {
               <div className="space-y-1.5 flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-base sm:text-xl font-black text-rose-950">
-                    บัญชีของคุณถูกระงับการให้บริการชั่วคราว (Account Suspended)
+                    บัญชีของคุณถูกระงับการให้บริการชั่วคราว (เป็นเวลา 7 วัน)
                   </h2>
                   <span className="px-3 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white shadow-2xs">
-                    ระงับการทำงาน
+                    ระงับ 7 วัน
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-rose-900 leading-relaxed">
-                  <strong>สาเหตุ:</strong> {companionProfile.suspension_reason || 'คะแนนความพึงพอใจเฉลี่ยต่ำกว่า 2.5 ดาว หรืออยู่ระหว่างการตรวจสอบข้อร้องเรียน'}
+                  <strong>สาเหตุ:</strong> {cleanSuspensionReason(companionProfile.suspension_reason) || 'คะแนนความพึงพอใจเฉลี่ยต่ำกว่า 2.5 ดาว หรืออยู่ระหว่างการตรวจสอบข้อร้องเรียน'}
                 </p>
+
+                {/* 7 Days Remaining Badge */}
+                {(() => {
+                  const suspendedUntil = extractSuspendedUntil(companionProfile);
+                  if (!suspendedUntil) return null;
+                  return (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-100 border border-rose-300 text-rose-900 text-xs font-bold mt-1 shadow-2xs">
+                      <Clock className="w-3.5 h-3.5 text-rose-700" />
+                      <span>⏱️ {formatSuspensionRemaining(suspendedUntil)}</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
             <div className="bg-white/95 rounded-2xl p-4 sm:p-5 border border-rose-200 space-y-2 text-xs sm:text-sm text-gray-800">
               <div className="font-bold text-rose-800 flex items-center gap-1.5">
                 <span>⚠️</span>
-                <span>ข้อกำหนดและสิ่งที่ต้องทำในระหว่างการระงับบัญชี:</span>
+                <span>ข้อกำหนดและระบบการปลดระงับอัตโนมัติ:</span>
               </div>
               <ul className="list-disc list-inside space-y-1.5 text-gray-700 pl-1">
-                <li>ระบบได้ปิดสถานะพร้อมรับงานของคุณ และระงับการรับงานใหม่โดยอัตโนมัติ</li>
-                <li>ผู้ช่วยจะไม่สามารถตอบรับงาน หรือเปลี่ยนสถานะงานในระบบได้ในระหว่างนี้</li>
-                <li><strong>ต้องรอให้ทีมงานผู้ดูแลระบบ (Admin Care Companion) ตรวจสอบข้อมูลและติดต่อพูดคุยกับคุณก่อนเท่านั้น</strong> (ทางโทรศัพท์หรืออีเมล)</li>
-                <li>หลังจากแอดมินได้พูดคุยสอบถามข้อเท็จจริงเรียบร้อยแล้ว แอดมินจะเป็นผู้ตัดสินใจว่าจะตักเตือน ปลดการระงับบัญชี หรือดำเนินการอย่างไรต่อไป</li>
+                <li>บัญชีจะถูกระงับเป็นเวลา <strong>7 วัน</strong> นับตั้งแต่วันที่ถูกระงับ</li>
+                <li><strong>ระบบจะทำการปลดระงับบัญชีให้อัตโนมัติ</strong> เมื่อครบกำหนด 7 วัน พร้อมแจ้งเตือนส่งถึงคุณทันที</li>
+                <li>หรือหากผู้ดูแลระบบ (Admin) ตรวจสอบและพูดคุยเสร็จสิ้นก่อนกำหนด แอดมินสามารถพิจารณาปลดระงับให้ก่อนเวลาได้</li>
+                <li>ในระหว่างนี้ระบบจะปิดสถานะพร้อมรับงานและไม่อนุญาตให้ตอบรับงานใหม่</li>
               </ul>
             </div>
           </div>

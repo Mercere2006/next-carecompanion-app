@@ -29,6 +29,12 @@ import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
 import ReportCompanionButton from '@/components/customer/ReportCompanionButton';
 import BookCompanionButton from '@/components/companions/BookCompanionButton';
 import {
+  extractSuspendedUntil,
+  isSuspensionExpired,
+  cleanSuspensionReason,
+  autoUnsuspendCompanion,
+} from '@/lib/suspensionUtils';
+import {
   MOCK_COMPANIONS,
 } from '@/components/companions/search/constants';
 import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
@@ -118,6 +124,20 @@ export default async function CompanionDetailPage({
     }
     if (effectiveRate > 0) {
       data.hourly_rate = effectiveRate;
+    }
+
+    // Auto-unsuspend check: if suspended and 7-day period has expired
+    if (data.is_suspended) {
+      const suspendedUntil = extractSuspendedUntil(data);
+      if (suspendedUntil && isSuspensionExpired(suspendedUntil)) {
+        await autoUnsuspendCompanion(supabase as any, data.id, Number(data.rating_avg));
+        data.is_suspended = false;
+        data.suspension_reason = null;
+        data.suspended_until = null;
+        if (Number(data.rating_avg) < 2.5) {
+          data.rating_avg = 3.0;
+        }
+      }
     }
 
     const hasName = Boolean(data.profile?.full_name && data.profile.full_name.trim().length > 0);
@@ -227,13 +247,22 @@ export default async function CompanionDetailPage({
             <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
               <AlertTriangle className="w-5 h-5" />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 space-y-1">
               <strong className="block text-sm sm:text-base font-extrabold text-rose-950">
-                ผู้ช่วยท่านนี้อยู่ระหว่างการพักการให้บริการชั่วคราว
+                ผู้ช่วยท่านนี้อยู่ระหว่างการพักการให้บริการชั่วคราว (เป็นเวลา 7 วัน)
               </strong>
-              <p className="text-xs sm:text-sm text-rose-700 mt-0.5">
-                {companion.suspension_reason || 'ระบบพักการรับงานชั่วคราวเพื่อตรวจสอบข้อร้องเรียนและการบริการ'}
+              <p className="text-xs sm:text-sm text-rose-700">
+                {cleanSuspensionReason(companion.suspension_reason) || 'ระบบพักการรับงานชั่วคราวเพื่อตรวจสอบข้อร้องเรียนและการบริการ'}
               </p>
+              {(() => {
+                const until = extractSuspendedUntil(companion);
+                if (!until) return null;
+                return (
+                  <p className="text-xs text-rose-800 font-bold flex items-center gap-1.5 pt-0.5">
+                    <span>⏱️ จะพร้อมให้บริการอีกครั้งในวันที่ {formatThaiDate(until)} เวลา {new Date(until).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น. (ระบบจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด)</span>
+                  </p>
+                );
+              })()}
             </div>
           </div>
         )}

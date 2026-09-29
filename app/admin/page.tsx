@@ -10,6 +10,15 @@ import { Users, Calendar, AlertTriangle, Eye, ScanFace, CheckCircle2, Flag, Phon
 import { extractCleanBio, parseVehiclesList } from '@/lib/vehicleUtils';
 import Swal from 'sweetalert2';
 import { addSystemNotification } from '@/lib/notifications';
+import {
+  SUSPENSION_DURATION_DAYS,
+  calculateSuspendedUntil,
+  extractSuspendedUntil,
+  isSuspensionExpired,
+  cleanSuspensionReason,
+  formatSuspensionRemaining,
+  autoUnsuspendCompanion,
+} from '@/lib/suspensionUtils';
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
@@ -75,26 +84,65 @@ export default function AdminDashboardPage() {
           (c) => c.profile?.role !== 'admin'
         );
 
-        // Auto-suspend check: if rating_count > 0 and rating_avg < 2.5 and !is_suspended
+        // 1.a Auto-suspend check: if rating_count > 0 and rating_avg < 2.5 and !is_suspended (suspend for 7 days)
         for (const c of validCompanions) {
           if (
             (c.rating_count ?? 0) > 0 &&
             Number(c.rating_avg) < 2.5 &&
             !c.is_suspended
           ) {
-            console.log(`Auto-suspending companion ${c.id} due to rating < 2.5 (${c.rating_avg})`);
-            await supabase
+            console.log(`Auto-suspending companion ${c.id} for 7 days due to rating < 2.5 (${c.rating_avg})`);
+            const suspendedUntil = calculateSuspendedUntil(7);
+            const reason = `บัญชีถูกระงับอัตโนมัติ 7 วัน เนื่องจากคะแนนดาวเฉลี่ย (${Number(c.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว [SUSPENDED_UNTIL:${suspendedUntil}]`;
+
+            const updatePayload: Record<string, unknown> = {
+              is_suspended: true,
+              is_available: false,
+              suspension_reason: reason,
+              suspended_until: suspendedUntil,
+              updated_at: new Date().toISOString(),
+            };
+
+            let { error: suspErr } = await supabase
               .from('companion_profiles')
-              .update({
-                is_suspended: true,
-                is_available: false,
-                suspension_reason: `บัญชีถูกระงับอัตโนมัติ เนื่องจากคะแนนดาวเฉลี่ย (${Number(c.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`,
-                updated_at: new Date().toISOString(),
-              })
+              .update(updatePayload)
               .eq('id', c.id);
+
+            if (suspErr && suspErr.message?.includes('suspended_until')) {
+              delete updatePayload.suspended_until;
+              await supabase.from('companion_profiles').update(updatePayload).eq('id', c.id);
+            }
+
             c.is_suspended = true;
             c.is_available = false;
-            c.suspension_reason = `บัญชีถูกระงับอัตโนมัติ เนื่องจากคะแนนดาวเฉลี่ย (${Number(c.rating_avg).toFixed(1)} ดาว) ต่ำกว่าเกณฑ์ 2.5 ดาว (รอผู้ดูแลระบบตรวจสอบและพูดคุย)`;
+            c.suspension_reason = reason;
+            c.suspended_until = suspendedUntil;
+
+            addSystemNotification(c.id, {
+              id: `auto-susp-${Date.now()}`,
+              type: 'account_suspended',
+              title: '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว (7 วัน)',
+              message: `คะแนนดาวเฉลี่ยของคุณอยู่ที่ ${Number(c.rating_avg).toFixed(1)} ดาว (ต่ำกว่าเกณฑ์ 2.5 ดาว) ระบบจึงระงับการให้บริการชั่วคราวเป็นเวลา 7 วัน (ถึงวันที่ ${formatThaiDate(suspendedUntil)}) และจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด`,
+              link: '/companion/dashboard',
+            });
+          }
+        }
+
+        // 1.b Auto-unsuspend check: if is_suspended and 7-day period has expired, auto-unlock
+        for (const c of validCompanions) {
+          if (c.is_suspended) {
+            const suspendedUntil = extractSuspendedUntil(c);
+            if (suspendedUntil && isSuspensionExpired(suspendedUntil)) {
+              console.log(`Auto-unsuspending companion ${c.id}: 7-day suspension expired`);
+              await autoUnsuspendCompanion(supabase, c.id, Number(c.rating_avg));
+              c.is_suspended = false;
+              c.is_available = true;
+              c.suspension_reason = null;
+              c.suspended_until = null;
+              if (Number(c.rating_avg) < 2.5) {
+                c.rating_avg = 3.0;
+              }
+            }
           }
         }
 
@@ -579,32 +627,48 @@ export default function AdminDashboardPage() {
           link: '/companion/dashboard',
         });
       } else if (actionDecision === 'suspend') {
-        const { error: compErr } = await supabase
+        const suspendedUntil = calculateSuspendedUntil(7);
+        const reasonClean = suspensionReasonInput.trim() || 'ถูกพักการให้บริการชั่วคราวเนื่องจากข้อร้องเรียน (7 วัน)';
+        const fullReason = `${reasonClean} [SUSPENDED_UNTIL:${suspendedUntil}]`;
+
+        const compUpdatePayload: Record<string, unknown> = {
+          is_suspended: true,
+          is_available: false,
+          suspension_reason: fullReason,
+          suspended_until: suspendedUntil,
+          updated_at: new Date().toISOString(),
+        };
+
+        let { error: compErr } = await supabase
           .from('companion_profiles')
-          .update({
-            is_suspended: true,
-            is_available: false,
-            suspension_reason: suspensionReasonInput.trim() || 'ถูกพักการให้บริการชั่วคราวเนื่องจากข้อร้องเรียน',
-            updated_at: new Date().toISOString(),
-          })
+          .update(compUpdatePayload)
           .eq('id', companionId);
+
+        if (compErr && compErr.message?.includes('suspended_until')) {
+          delete compUpdatePayload.suspended_until;
+          const retry = await supabase.from('companion_profiles').update(compUpdatePayload).eq('id', companionId);
+          compErr = retry.error;
+        }
         if (compErr) throw compErr;
 
         const { error: repErr } = await supabase
           .from('reports')
           .update({
             status: 'investigating',
-            admin_notes: adminNoteInput.trim() || 'ระงับบัญชีชั่วคราวเพื่อรอการตรวจสอบเพิ่มเติม',
+            admin_notes: adminNoteInput.trim() || 'ระงับบัญชีชั่วคราว 7 วัน เพื่อรอการตรวจสอบและพูดคุยเพิ่มเติม',
             updated_at: new Date().toISOString(),
           })
           .eq('id', selectedReportForAction.id);
         if (repErr) throw repErr;
 
+        const unlockDateFormatted = formatThaiDate(suspendedUntil);
+        const unlockTimeFormatted = new Date(suspendedUntil).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
         addSystemNotification(companionId, {
           id: `rep-susp-${Date.now()}`,
           type: 'account_suspended',
-          title: '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว',
-          message: `ผู้ดูแลระบบได้ระงับการให้บริการบัญชีของคุณ สาเหตุ: "${suspensionReasonInput.trim() || adminNoteInput.trim() || 'อยู่ระหว่างตรวจสอบข้อร้องเรียน'}" กรุณารอแอดมินติดต่อพูดคุย`,
+          title: '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว (7 วัน)',
+          message: `ผู้ดูแลระบบได้ระงับการให้บริการบัญชีของคุณเป็นเวลา 7 วัน (ถึงวันที่ ${unlockDateFormatted} เวลา ${unlockTimeFormatted} น.) สาเหตุ: "${reasonClean}" โดยระบบจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด 7 วัน หรือเมื่อแอดมินพิจารณาปลดระงับให้ก่อนเวลา`,
           link: '/companion/dashboard',
         });
       } else if (actionDecision === 'reactivate') {
@@ -612,6 +676,7 @@ export default function AdminDashboardPage() {
           is_suspended: false,
           is_available: true,
           suspension_reason: null,
+          suspended_until: null,
           updated_at: new Date().toISOString(),
         };
         // If companion's rating was < 2.5 (the cause of auto-suspension), reset/grant 3.0 probation rating
@@ -619,10 +684,16 @@ export default function AdminDashboardPage() {
           updatePayload.rating_avg = 3.0;
         }
 
-        const { error: compErr } = await supabase
+        let { error: compErr } = await supabase
           .from('companion_profiles')
           .update(updatePayload)
           .eq('id', companionId);
+
+        if (compErr && compErr.message?.includes('suspended_until')) {
+          delete updatePayload.suspended_until;
+          const retry = await supabase.from('companion_profiles').update(updatePayload).eq('id', companionId);
+          compErr = retry.error;
+        }
         if (compErr) throw compErr;
 
         const { error: repErr } = await supabase
@@ -637,9 +708,9 @@ export default function AdminDashboardPage() {
 
         addSystemNotification(companionId, {
           id: `rep-react-${Date.now()}`,
-          type: 'verification_approved',
-          title: '✅ บัญชีของคุณได้รับการปลดระงับแล้ว',
-          message: 'ผู้ดูแลระบบ (Admin) ได้ตรวจสอบและพูดคุยเรียบร้อยแล้ว ได้ทำการปลดระงับบัญชีให้คุณสามารถกลับมารับงานได้ตามปกติ',
+          type: 'account_unsuspended',
+          title: '✅ บัญชีของคุณได้รับการปลดระงับแล้ว 🎉',
+          message: 'ผู้ดูแลระบบ (Admin) ได้ตรวจสอบและพูดคุยเรียบร้อยแล้ว ได้ทำการปลดระงับบัญชีให้คุณสามารถกลับมารับงานและเปิดให้บริการได้ตามปกติ',
           link: '/companion/dashboard',
         });
       } else if (actionDecision === 'dismiss') {
@@ -685,13 +756,13 @@ export default function AdminDashboardPage() {
 
   const handleToggleCompanionSuspension = async (companion: CompanionCardData) => {
     const isCurrentlySuspended = Boolean(companion.is_suspended);
-    const actionText = isCurrentlySuspended ? 'ปลดการระงับบัญชี' : 'ระงับการให้บริการชั่วคราว';
+    const actionText = isCurrentlySuspended ? 'ปลดการระงับบัญชี' : 'ระงับการให้บริการชั่วคราว (7 วัน)';
 
     const result = await Swal.fire({
       title: `ต้องการ${actionText}ใช่หรือไม่?`,
       text: isCurrentlySuspended
         ? `เมื่อปลดระงับ โปรไฟล์ของ ${companion.profile?.full_name || 'ผู้ช่วย'} จะกลับไปแสดงในหน้าค้นหา และสามารถรับงานได้ตามปกติ`
-        : `เมื่อระงับ โปรไฟล์ของ ${companion.profile?.full_name || 'ผู้ช่วย'} จะถูกซ่อน และจะไม่สามารถรับงานใหม่ได้จนกว่าจะปลดระงับ`,
+        : `เมื่อระงับ โปรไฟล์ของ ${companion.profile?.full_name || 'ผู้ช่วย'} จะถูกระงับเป็นเวลา 7 วัน (ระบบจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด 7 วัน) และมีข้อความแจ้งเตือนส่งให้ผู้ช่วย`,
       icon: isCurrentlySuspended ? 'question' : 'warning',
       showCancelButton: true,
       confirmButtonColor: isCurrentlySuspended ? '#059669' : '#e11d48',
@@ -709,38 +780,65 @@ export default function AdminDashboardPage() {
     if (!result.isConfirmed) return;
 
     try {
+      const suspendedUntil = !isCurrentlySuspended ? calculateSuspendedUntil(7) : null;
       const updatePayload: Record<string, unknown> = {
         is_suspended: !isCurrentlySuspended,
         is_available: isCurrentlySuspended,
-        suspension_reason: !isCurrentlySuspended ? 'ถูกระงับการให้บริการชั่วคราวโดยผู้ดูแลระบบ' : null,
+        suspension_reason: !isCurrentlySuspended
+          ? `ถูกระงับการให้บริการชั่วคราวโดยผู้ดูแลระบบ (7 วัน) [SUSPENDED_UNTIL:${suspendedUntil}]`
+          : null,
+        suspended_until: suspendedUntil,
         updated_at: new Date().toISOString(),
       };
       if (isCurrentlySuspended && Number(companion.rating_avg) < 2.5) {
         updatePayload.rating_avg = 3.0;
       }
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from('companion_profiles')
         .update(updatePayload)
         .eq('id', companion.id);
 
+      if (error && error.message?.includes('suspended_until')) {
+        delete updatePayload.suspended_until;
+        const retry = await supabase.from('companion_profiles').update(updatePayload).eq('id', companion.id);
+        error = retry.error;
+      }
+
       if (error) throw error;
 
-      addSystemNotification(companion.id, {
-        id: `susp-toggle-${Date.now()}`,
-        type: isCurrentlySuspended ? 'verification_approved' : 'account_suspended',
-        title: isCurrentlySuspended ? '✅ บัญชีของคุณได้รับการปลดระงับแล้ว' : '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว',
-        message: isCurrentlySuspended
-          ? 'ผู้ดูแลระบบได้ทำการปลดระงับบัญชีให้คุณแล้ว สามารถกลับมารับงานได้ตามปกติ'
-          : 'ผู้ดูแลระบบได้ทำการระงับบัญชีของคุณชั่วคราว กรุณารอการติดต่อพูดคุยจากแอดมิน',
-        link: '/companion/dashboard',
-      });
+      if (isCurrentlySuspended) {
+        addSystemNotification(companion.id, {
+          id: `susp-toggle-${Date.now()}`,
+          type: 'account_unsuspended',
+          title: '✅ บัญชีของคุณได้รับการปลดระงับแล้ว 🎉',
+          message: 'ผู้ดูแลระบบได้ทำการปลดระงับบัญชีให้คุณแล้ว สามารถกลับมารับงานและเปิดให้บริการได้ตามปกติ',
+          link: '/companion/dashboard',
+        });
+      } else {
+        const unlockDateFormatted = formatThaiDate(suspendedUntil!);
+        const unlockTimeFormatted = new Date(suspendedUntil!).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        addSystemNotification(companion.id, {
+          id: `susp-toggle-${Date.now()}`,
+          type: 'account_suspended',
+          title: '🚫 บัญชีของคุณถูกระงับการให้บริการชั่วคราว (7 วัน)',
+          message: `ผู้ดูแลระบบได้ทำการระงับบัญชีของคุณชั่วคราวเป็นเวลา 7 วัน (ถึงวันที่ ${unlockDateFormatted} เวลา ${unlockTimeFormatted} น.) โดยระบบจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด หรือเมื่อแอดมินพิจารณาปลดระงับให้ก่อนเวลา`,
+          link: '/companion/dashboard',
+        });
+      }
 
       await Swal.fire({
         title: `${actionText}สำเร็จ`,
+        text: isCurrentlySuspended
+          ? 'ระบบได้ปลดการระงับบัญชีและส่งแจ้งเตือนให้ผู้ช่วยเรียบร้อยแล้ว'
+          : 'ระบบได้บันทึกการระงับบัญชี 7 วัน และส่งแจ้งเตือนให้ผู้ช่วยรับทราบเรียบร้อยแล้ว',
         icon: 'success',
         confirmButtonColor: '#059669',
         confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
       });
 
       fetchAdminData();
@@ -749,6 +847,8 @@ export default function AdminDashboardPage() {
         title: 'เกิดข้อผิดพลาด',
         text: (err as Error).message,
         icon: 'error',
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'ตกลง',
       });
     }
   };
@@ -1704,7 +1804,7 @@ export default function AdminDashboardPage() {
                         onChange={() => setActionDecision('suspend')}
                         className="text-rose-600"
                       />
-                      <span>ระงับการให้บริการชั่วคราว</span>
+                      <span>ระงับการให้บริการชั่วคราว (7 วัน)</span>
                     </label>
 
                     <label className={`p-3 rounded-2xl border flex items-center gap-2 cursor-pointer transition ${
@@ -1740,6 +1840,19 @@ export default function AdminDashboardPage() {
                     </label>
                   </div>
                 </div>
+
+                {/* Suspension 7-Day Info Box */}
+                {actionDecision === 'suspend' && (
+                  <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-900 leading-relaxed space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                      <span>⏱️</span>
+                      <span>กำหนดระยะเวลาระงับ: 7 วัน (ระบบจะปลดระงับให้อัตโนมัติเมื่อครบกำหนด)</span>
+                    </div>
+                    <p>
+                      ผู้ช่วยจะถูกระงับการให้บริการเป็นเวลา <strong>7 วัน</strong> นับตั้งแต่ตอนนี้ โดยระบบจะทำการปลดระงับให้อัตโนมัติเมื่อครบกำหนด หรือหากแอดมินตรวจสอบเสร็จก่อนเวลา แอดมินสามารถกดปลดระงับได้ทันที พร้อมส่งแจ้งเตือนไปยังผู้ช่วย
+                    </p>
+                  </div>
+                )}
 
                 {/* Reactivation Notice if companion had low rating */}
                 {actionDecision === 'reactivate' && (() => {

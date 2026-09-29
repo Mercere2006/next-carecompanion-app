@@ -712,7 +712,7 @@ export default function CompanionProfilePage() {
       // 1. Check if companion_profiles row exists
       const { data: existingComp } = await supabase
         .from('companion_profiles')
-        .select('id, verification_status, is_suspended, suspension_reason')
+        .select('id, verification_status, is_suspended, suspension_reason, suspended_until')
         .eq('id', userId)
         .maybeSingle();
 
@@ -769,6 +769,7 @@ export default function CompanionProfilePage() {
         is_available: isAvailableFinal,
         is_suspended: isCurrentlySuspended,
         suspension_reason: isCurrentlySuspended ? (existingComp?.suspension_reason || suspensionReason) : null,
+        suspended_until: isCurrentlySuspended ? (existingComp?.suspended_until || null) : null,
         verification_status: nextVerificationStatus,
         phone_verified: true,
         vehicle_type: formattedVehicles.vehicle_type,
@@ -788,6 +789,7 @@ export default function CompanionProfilePage() {
         is_available: isAvailableFinal,
         is_suspended: isCurrentlySuspended,
         suspension_reason: isCurrentlySuspended ? (existingComp?.suspension_reason || suspensionReason) : null,
+        suspended_until: isCurrentlySuspended ? (existingComp?.suspended_until || null) : null,
         verification_status: nextVerificationStatus,
         phone_verified: true,
         id_card_image_url: avatarUrl || faceImageUrl,
