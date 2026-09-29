@@ -63,15 +63,23 @@ export default function Navbar() {
             .eq('id', user.id)
             .maybeSingle();
 
-          // Check if user has companion profile and fetch uploaded avatar / id_card_image_url / verification_status
+          // Check if user has companion profile
           const { data: comp } = await supabase
             .from('companion_profiles')
-            .select('id, id_card_image_url, verification_status')
+            .select('id, verification_status')
             .eq('id', user.id)
             .maybeSingle();
 
-          const isGoogleAvatar = (url?: string | null) =>
-            Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+          const googleAvatar =
+            user.user_metadata?.avatar_url ||
+            user.user_metadata?.picture ||
+            null;
+
+          const googleName =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split('@')[0] ||
+            'ผู้ใช้งาน';
 
           let localAvatarOverride: string | null = null;
           let localNameOverride: string | null = null;
@@ -80,36 +88,34 @@ export default function Navbar() {
             localNameOverride = localStorage.getItem('user_fullname_override');
           }
 
-          // Prioritize user's uploaded photo over Google OAuth photo
-          let resolvedAvatar: string | null = null;
-          if (data?.avatar_url && !isGoogleAvatar(data.avatar_url)) {
-            resolvedAvatar = data.avatar_url;
-          } else if (comp?.id_card_image_url) {
-            resolvedAvatar = comp.id_card_image_url;
-          } else if (localAvatarOverride) {
-            resolvedAvatar = localAvatarOverride;
-          } else if (data?.avatar_url) {
-            resolvedAvatar = data.avatar_url;
-          } else {
-            resolvedAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
-          }
-
           if (!data) {
-            // Profile row was deleted from public.profiles table, but auth session exists!
-            // Re-create initial profile row automatically from Google Auth user metadata:
+            // Profile row was deleted from public.profiles table!
+            // CLEAR EVERYTHING:
+            // 1. Delete companion profile if left orphaned
+            if (comp) {
+              await supabase.from('companion_profiles').delete().eq('id', user.id);
+            }
+
+            // 2. Clear all local storage overrides & session storage
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('user_avatar_override');
+              localStorage.removeItem('user_fullname_override');
+              localStorage.removeItem('profile_updated');
+              localStorage.removeItem('pending_booking_requirements');
+              localStorage.removeItem(`carecompanion_last_status_${user.id}`);
+              localStorage.removeItem(`carecompanion_shown_approval_${user.id}`);
+              sessionStorage.clear();
+            }
+
+            // 3. Reset to clean profile strictly from Google Login (NO pulled companion avatar!)
             const fallbackProfile: Profile = {
               id: user.id,
               email: user.email || '',
-              full_name:
-                localNameOverride ||
-                user.user_metadata?.full_name ||
-                user.user_metadata?.name ||
-                user.email?.split('@')[0] ||
-                'ผู้ใช้งาน',
-              avatar_url: resolvedAvatar,
-              phone: user.user_metadata?.phone || null,
+              full_name: googleName,
+              avatar_url: googleAvatar,
+              phone: null,
               emergency_phone: null,
-              role: comp?.verification_status === 'verified' ? 'companion' : 'customer',
+              role: 'customer',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
@@ -121,26 +127,56 @@ export default function Navbar() {
               .single();
 
             data = upsertedData || fallbackProfile;
-          } else {
-            data = {
-              ...data,
-              full_name: localNameOverride || data.full_name,
-              avatar_url: resolvedAvatar,
-            };
+            setProfile(data);
+            setIsCompanion(false);
 
-            // If companion has uploaded photo but profiles table still holds Google avatar,
-            // sync profiles.avatar_url in background
-            if (comp?.id_card_image_url && (!data.avatar_url || isGoogleAvatar(data.avatar_url))) {
-              supabase
-                .from('profiles')
-                .update({ avatar_url: comp.id_card_image_url, updated_at: new Date().toISOString() })
-                .eq('id', user.id)
-                .then(() => {});
+            // 4. Return to home page immediately if not already there
+            if (pathname !== '/') {
+              router.push('/');
+              router.refresh();
+            }
+            return;
+          }
+
+          // If companion_profiles was deleted but profiles still marked as companion
+          if (!comp && data.role === 'companion') {
+            await supabase
+              .from('profiles')
+              .update({
+                role: 'customer',
+                avatar_url: googleAvatar,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', user.id);
+            data.role = 'customer';
+            data.avatar_url = googleAvatar;
+            setIsCompanion(false);
+
+            if (pathname.startsWith('/companion/')) {
+              router.push('/');
+              router.refresh();
+              return;
             }
           }
 
+          // Resolve avatar strictly: profile avatar, local override, or Google avatar (NEVER pull companion ID card)
+          let resolvedAvatar: string | null = null;
+          if (data.avatar_url) {
+            resolvedAvatar = data.avatar_url;
+          } else if (localAvatarOverride) {
+            resolvedAvatar = localAvatarOverride;
+          } else {
+            resolvedAvatar = googleAvatar;
+          }
+
+          data = {
+            ...data,
+            full_name: localNameOverride || data.full_name,
+            avatar_url: resolvedAvatar,
+          };
+
           setProfile(data);
-          setIsCompanion(comp?.verification_status === 'verified' || data?.role === 'companion');
+          setIsCompanion(comp?.verification_status === 'verified' && data?.role === 'companion');
         } else {
           setProfile(null);
           setIsCompanion(false);
@@ -158,6 +194,25 @@ export default function Navbar() {
       loadUser();
     });
 
+    // Realtime listener for immediate sync if profile or companion profile is deleted in database
+    const profileChannel = supabase
+      .channel('navbar-realtime-profile-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          loadUser();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'companion_profiles' },
+        () => {
+          loadUser();
+        }
+      )
+      .subscribe();
+
     const handleProfileUpdate = () => {
       loadUser();
     };
@@ -173,11 +228,12 @@ export default function Navbar() {
 
     return () => {
       subscription.unsubscribe();
+      supabase.removeChannel(profileChannel);
       if (typeof window !== 'undefined') {
         window.removeEventListener('profileUpdated', handleProfileUpdate);
       }
     };
-  }, [supabase]);
+  }, [supabase, pathname, router]);
 
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({

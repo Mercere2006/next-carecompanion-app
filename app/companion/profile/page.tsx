@@ -141,10 +141,10 @@ export default function CompanionProfilePage() {
       }
       setUserId(user.id);
 
-      // Load full_name, phone, avatar_url from profiles
+      // Load full_name, phone, avatar_url, role from profiles
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, phone, avatar_url')
+        .select('full_name, phone, avatar_url, role')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -155,20 +155,52 @@ export default function CompanionProfilePage() {
         .eq('id', user.id)
         .maybeSingle();
 
-      // Determine preferred avatar: prefer user's uploaded photo over Google OAuth avatar
-      const isGoogleAvatar = (url?: string | null) =>
-        Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+      const googleAvatar =
+        user.user_metadata?.avatar_url ||
+        user.user_metadata?.picture ||
+        null;
 
-      let chosenAvatar: string | null = null;
-      if (profileData?.avatar_url && !isGoogleAvatar(profileData.avatar_url)) {
-        chosenAvatar = profileData.avatar_url;
-      } else if (data?.id_card_image_url) {
-        chosenAvatar = data.id_card_image_url;
-      } else if (profileData?.avatar_url) {
-        chosenAvatar = profileData.avatar_url;
-      } else {
-        chosenAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+      const googleFullName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        null;
+
+      // If profileData is null, the row in profiles table was deleted!
+      // Clear everything, wipe orphaned companion data, and return to home page
+      if (!profileData) {
+        if (data) {
+          await supabase.from('companion_profiles').delete().eq('id', user.id);
+        }
+
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user_fullname_override');
+          localStorage.removeItem('user_avatar_override');
+          localStorage.removeItem('profile_updated');
+          localStorage.removeItem('pending_booking_requirements');
+          localStorage.removeItem(`carecompanion_last_status_${user.id}`);
+          localStorage.removeItem(`carecompanion_shown_approval_${user.id}`);
+          sessionStorage.clear();
+          window.dispatchEvent(new Event('profileUpdated'));
+        }
+
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          email: user.email || '',
+          full_name: googleFullName,
+          role: 'customer',
+          avatar_url: googleAvatar,
+          phone: null,
+          emergency_phone: null,
+          updated_at: new Date().toISOString(),
+        });
+
+        router.push('/');
+        router.refresh();
+        return;
       }
+
+      // Determine preferred avatar: prefer profile avatar or Google OAuth avatar (DO NOT pull companion ID card)
+      const chosenAvatar: string | null = profileData.avatar_url || googleAvatar;
 
       if (chosenAvatar) {
         setAvatarUrl(chosenAvatar);
@@ -181,9 +213,8 @@ export default function CompanionProfilePage() {
 
       const initialName =
         localNameOverride ||
-        profileData?.full_name ||
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
+        profileData.full_name ||
+        googleFullName ||
         '';
       if (initialName) {
         const parsed = parseFullName(initialName);
@@ -195,20 +226,8 @@ export default function CompanionProfilePage() {
       const metadataChanges = Number(user.user_metadata?.name_change_count) || 0;
       setNameChangeCount(metadataChanges);
 
-      if (profileData?.phone) {
+      if (profileData.phone) {
         setPhone(profileData.phone);
-      }
-
-      // Ensure profile row exists in profiles table so foreign key constraint is satisfied
-      if (!profileData) {
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          email: user.email || '',
-          full_name: initialName || null,
-          role: 'customer',
-          avatar_url: chosenAvatar,
-          updated_at: new Date().toISOString(),
-        });
       }
 
       if (data) {
@@ -690,7 +709,19 @@ export default function CompanionProfilePage() {
         data: userMetadataUpdates,
       });
 
-      // 1. Ensure user has an existing row in profiles table (UPSERT)
+      // 1. Check if companion_profiles row exists
+      const { data: existingComp } = await supabase
+        .from('companion_profiles')
+        .select('id, verification_status, is_suspended, suspension_reason')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const isAlreadyVerified = existingComp?.verification_status === 'verified';
+      const isCurrentlySuspended = Boolean(existingComp?.is_suspended || isSuspended);
+      const nextVerificationStatus = isAlreadyVerified ? 'verified' : 'pending';
+      const isAvailableFinal = (isAlreadyVerified && !isCurrentlySuspended) ? isAvailable : false;
+
+      // 2. Ensure user has an existing row in profiles table (UPSERT)
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
@@ -704,10 +735,9 @@ export default function CompanionProfilePage() {
           authUser?.user_metadata?.name ||
           null,
         phone: phone.trim() || null,
-        role: 'companion' as const,
+        role: (isAlreadyVerified ? 'companion' : 'customer') as 'companion' | 'customer',
         avatar_url:
           avatarUrl ||
-          faceImageUrl ||
           authUser?.user_metadata?.avatar_url ||
           authUser?.user_metadata?.picture ||
           null,
@@ -721,18 +751,6 @@ export default function CompanionProfilePage() {
       if (profileError) {
         console.warn('Profile upsert notice:', profileError.message);
       }
-
-      // 2. Check if companion_profiles row exists
-      const { data: existingComp } = await supabase
-        .from('companion_profiles')
-        .select('id, verification_status, is_suspended, suspension_reason')
-        .eq('id', userId)
-        .maybeSingle();
-
-      const isAlreadyVerified = existingComp?.verification_status === 'verified';
-      const isCurrentlySuspended = Boolean(existingComp?.is_suspended || isSuspended);
-      const nextVerificationStatus = isAlreadyVerified ? 'verified' : 'pending';
-      const isAvailableFinal = (isAlreadyVerified && !isCurrentlySuspended) ? isAvailable : false;
 
       // 3. Fallback bio with embedded metadata (vehicles list & schedule)
       const enrichedBio = embedBioMetadata(bio, {
@@ -992,11 +1010,19 @@ export default function CompanionProfilePage() {
           .eq('id', userId);
       }
 
-      // 2. Change role in profiles table to customer
+      // 2. Change role in profiles table to customer and RESET avatar & name strictly to Google login
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const googleAvatar = currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || null;
+      const googleFullName = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || null;
+
       await supabase
         .from('profiles')
         .update({
           role: 'customer',
+          avatar_url: googleAvatar,
+          full_name: googleFullName,
+          phone: null,
+          emergency_phone: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId);
@@ -1012,12 +1038,15 @@ export default function CompanionProfilePage() {
         console.warn('Reset quota notice:', authErr);
       }
 
-      // 4. Clear all local storage overrides
+      // 4. Clear all local storage overrides & session storage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('user_fullname_override');
         localStorage.removeItem('user_avatar_override');
         localStorage.removeItem('profile_updated');
         localStorage.removeItem('pending_booking_requirements');
+        localStorage.removeItem(`carecompanion_last_status_${userId}`);
+        localStorage.removeItem(`carecompanion_shown_approval_${userId}`);
+        sessionStorage.clear();
         window.dispatchEvent(new Event('profileUpdated'));
       }
 

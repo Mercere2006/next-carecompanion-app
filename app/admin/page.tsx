@@ -417,6 +417,65 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleClearUserProfile = async (userId: string, email: string, name: string) => {
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบ/เคลียร์ข้อมูลโปรไฟล์?',
+      html: `
+        <div class="text-left space-y-2 text-sm text-gray-600">
+          <p>คุณต้องการลบข้อมูลโปรไฟล์และข้อมูล Companion ทั้งหมดของ:</p>
+          <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-900 font-semibold">
+            ${name} (${email})
+          </div>
+          <p class="text-xs text-gray-500">
+            ระบบจะลบข้อมูลออกจากตาราง Companion และลบข้อมูลโปรไฟล์ เพื่อให้รีเซ็ตกลับเป็นโปรไฟล์เริ่มต้นจาก Google Login และกลับสู่หน้าแรก
+          </p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบข้อมูลโปรไฟล์',
+      cancelButtonText: 'ยกเลิก',
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl font-sans',
+        confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+        cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setProcessingId(userId);
+      // 1. Delete companion profile
+      await supabase.from('companion_profiles').delete().eq('id', userId);
+
+      // 2. Delete profile
+      await supabase.from('profiles').delete().eq('id', userId);
+
+      await Swal.fire({
+        title: 'ลบข้อมูลสำเร็จ',
+        text: `ลบข้อมูลโปรไฟล์ของ ${email} เรียบร้อยแล้ว`,
+        icon: 'success',
+        confirmButtonColor: '#059669',
+        timer: 1800,
+      });
+
+      fetchAdminData();
+    } catch (err: any) {
+      console.error('Error clearing profile:', err);
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: err?.message || 'ไม่สามารถลบข้อมูลโปรไฟล์ได้',
+        icon: 'error',
+        confirmButtonColor: '#059669',
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleOpenEmailComposer = (report: ReportDetailData) => {
     const compEmail = report.companion?.email || '';
     if (!compEmail) {
@@ -1372,7 +1431,7 @@ export default function AdminDashboardPage() {
                     <th className="px-6 py-4">อีเมล</th>
                     <th className="px-6 py-4">เบอร์โทร</th>
                     <th className="px-6 py-4">สิทธิ์ (Role)</th>
-                    <th className="px-6 py-4 text-right">เปลี่ยนสิทธิ์</th>
+                    <th className="px-6 py-4 text-right">การจัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1388,17 +1447,22 @@ export default function AdminDashboardPage() {
                           {u.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        {u.role !== 'admin' ? (
+                      <td className="px-6 py-4 text-right space-x-3">
+                        {u.role !== 'admin' && (
                           <button
                             onClick={() => handleChangeRole(u.id, 'admin')}
                             className="text-xs font-bold text-amber-700 hover:text-amber-800 hover:underline cursor-pointer"
                           >
                             ตั้งเป็น Admin
                           </button>
-                        ) : (
-                          <span className="text-xs text-gray-400 font-medium">-</span>
                         )}
+                        <button
+                          onClick={() => handleClearUserProfile(u.id, u.email || '', u.full_name || 'ผู้ใช้งาน')}
+                          className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                          title="ลบข้อมูลโปรไฟล์และเคลียร์ข้อมูลทั้งหมดของอีเมลนี้"
+                        >
+                          ลบ/เคลียร์ข้อมูล
+                        </button>
                       </td>
                     </tr>
                   ))}

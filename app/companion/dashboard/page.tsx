@@ -8,11 +8,13 @@ import { BookingDetailData, CompanionProfile } from '@/types/database';
 import { formatThaiDate, formatPrice, getStatusBadgeInfo } from '@/lib/utils';
 import { Calendar, Clock, MapPin, Navigation, Phone, CheckCircle2, XCircle, Play, CheckCheck, Star, AlertTriangle, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
 import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
 import { addSystemNotification } from '@/lib/notifications';
 
 export default function CompanionDashboard() {
+  const router = useRouter();
   const supabase = createClient();
   const [bookings, setBookings] = useState<BookingDetailData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,25 @@ export default function CompanionDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setLoading(false);
+        return;
+      }
+
+      // Check if user has an active profile and verified companion status
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const { data: compProfile } = await supabase
+        .from('companion_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      // If user profile was deleted or companion profile is not verified, redirect to home page
+      if (!profile || !compProfile || compProfile.verification_status !== 'verified') {
+        router.push('/');
         return;
       }
 
@@ -42,13 +63,6 @@ export default function CompanionDashboard() {
       if (!error && data) {
         setBookings(data as unknown as BookingDetailData[]);
       }
-
-      // Fetch companion's own profile for suspension & warning checks
-      const { data: compProfile } = await supabase
-        .from('companion_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
 
       if (compProfile) {
         setCompanionProfile(compProfile as CompanionProfile);

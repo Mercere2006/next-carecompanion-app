@@ -22,35 +22,53 @@ export async function GET(request: Request) {
 
         const { data: compProfile } = await supabase
           .from('companion_profiles')
-          .select('id_card_image_url, verification_status')
+          .select('id, verification_status')
           .eq('id', user.id)
           .maybeSingle();
 
-        const isGoogleAvatar = (url?: string | null) =>
-          Boolean(url && (url.includes('googleusercontent.com') || url.includes('google.com')));
+        const googleAvatar =
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          null;
 
-        // Preserve uploaded avatar if available, otherwise use Google OAuth avatar
-        let finalAvatar: string | null = null;
-        if (profile?.avatar_url && !isGoogleAvatar(profile.avatar_url)) {
-          finalAvatar = profile.avatar_url;
-        } else if (compProfile?.id_card_image_url) {
-          finalAvatar = compProfile.id_card_image_url;
-        } else {
-          finalAvatar =
-            profile?.avatar_url ||
-            user.user_metadata?.avatar_url ||
-            user.user_metadata?.picture ||
-            null;
+        const googleFullName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          null;
+
+        // If profile row was deleted or does not exist:
+        // Clear everything, wipe orphaned companion data, use strictly Google OAuth metadata, and return to home page
+        if (!profile) {
+          if (compProfile) {
+            await supabase.from('companion_profiles').delete().eq('id', user.id);
+          }
+
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            email: user.email || '',
+            full_name: googleFullName,
+            role: 'customer',
+            avatar_url: googleAvatar,
+            phone: null,
+            emergency_phone: null,
+            updated_at: new Date().toISOString(),
+          });
+
+          // Cleared / fresh profile returns completely to the home page (หน้าแรก)
+          return NextResponse.redirect(`${origin}/`);
         }
+
+        // For existing profile: use saved avatar_url or fall back to Google OAuth avatar (NEVER pull companion ID card)
+        const finalAvatar = profile.avatar_url || googleAvatar;
 
         // Determine user role:
         // 1. Admin remains admin
         // 2. Verified companion remains companion
         // 3. All other users (new sign-ins, unverified/pending/rejected companions) are strictly 'customer'
         let determinedRole: 'admin' | 'companion' | 'customer' = 'customer';
-        if (profile?.role === 'admin') {
+        if (profile.role === 'admin') {
           determinedRole = 'admin';
-        } else if (compProfile?.verification_status === 'verified') {
+        } else if (profile.role === 'companion' && compProfile?.verification_status === 'verified') {
           determinedRole = 'companion';
         } else {
           determinedRole = 'customer';
@@ -61,14 +79,10 @@ export async function GET(request: Request) {
         if (determinedRole === 'admin') {
           finalFullName = 'Admin';
         } else {
-          finalFullName =
-            profile?.full_name ||
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            null;
+          finalFullName = profile.full_name || googleFullName;
         }
 
-        // Always ensure profiles row exists in Supabase for this user
+        // Always ensure profiles row is synchronized in Supabase for this user
         await supabase
           .from('profiles')
           .upsert({
@@ -80,24 +94,23 @@ export async function GET(request: Request) {
             updated_at: new Date().toISOString(),
           });
 
+        if (determinedRole === 'admin') {
+          return NextResponse.redirect(`${origin}/admin`);
+        }
+
         if (determinedRole === 'companion') {
           if (requestedRole === 'companion' && (!next || next === '/')) {
             return NextResponse.redirect(`${origin}/companion/profile`);
           }
+          if (next && next !== '/' && next !== '/customer/dashboard' && next !== '/companion/dashboard') {
+            return NextResponse.redirect(`${origin}${next}`);
+          }
         }
 
-        if (next && next !== '/' && next !== '/customer/dashboard' && next !== '/companion/dashboard') {
-          return NextResponse.redirect(`${origin}${next}`);
-        }
-
-        if (profile?.role === 'admin') {
-          return NextResponse.redirect(`${origin}/admin`);
-        }
-
-        // Default: Redirect to companions directory so the user sees other companions immediately
-        return NextResponse.redirect(`${origin}/companions`);
+        // Default: Return to home page (หน้าแรก)
+        return NextResponse.redirect(`${origin}/`);
       }
-      return NextResponse.redirect(`${origin}/companions`);
+      return NextResponse.redirect(`${origin}/`);
     }
   }
 
