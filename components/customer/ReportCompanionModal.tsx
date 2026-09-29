@@ -83,13 +83,36 @@ export default function ReportCompanionModal({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Swal.fire({
+        setSubmitting(false);
+        const loginResult = await Swal.fire({
           title: 'กรุณาเข้าสู่ระบบ',
-          text: 'คุณต้องเข้าสู่ระบบก่อนจึงจะสามารถส่งรายงานได้',
-          icon: 'info',
-          confirmButtonColor: '#059669',
-          confirmButtonText: 'ตกลง',
+          text: 'คุณต้องเข้าสู่ระบบด้วยบัญชี Google ก่อน จึงจะสามารถส่งรายงานข้อร้องเรียนได้',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#e11d48',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: 'เข้าสู่ระบบด้วย Google',
+          cancelButtonText: 'ยกเลิก',
+          reverseButtons: true,
+          customClass: {
+            popup: 'rounded-3xl shadow-2xl font-sans',
+            confirmButton: 'rounded-xl px-5 py-2.5 font-bold',
+            cancelButton: 'rounded-xl px-5 py-2.5 font-bold',
+          },
         });
+
+        if (loginResult.isConfirmed) {
+          const nextTarget = `/companions/${companionId}?report=1`;
+          await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextTarget)}`,
+              queryParams: {
+                prompt: 'select_account',
+              },
+            },
+          });
+        }
         return;
       }
 
