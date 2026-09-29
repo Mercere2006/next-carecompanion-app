@@ -112,7 +112,7 @@ export default function VehicleManagerModal({
                 }`}
               >
                 <Car className={`w-5 h-5 ${type === 'car' ? 'text-emerald-700' : 'text-gray-500'}`} />
-                <span>🚗 รถยนต์ส่วนตัว</span>
+                <span>รถยนต์ส่วนตัว</span>
               </button>
 
               <button
@@ -125,7 +125,7 @@ export default function VehicleManagerModal({
                 }`}
               >
                 <Bike className={`w-5 h-5 ${type === 'motorcycle' ? 'text-teal-700' : 'text-gray-500'}`} />
-                <span>🛵 รถมอเตอร์ไซค์</span>
+                <span>รถมอเตอร์ไซค์</span>
               </button>
             </div>
           </div>
