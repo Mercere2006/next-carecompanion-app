@@ -45,6 +45,7 @@ export interface CompanionProfile {
   suspension_reason?: string | null; // สาเหตุการระงับ
   suspended_until?: string | null;   // วันเวลาที่จะปลดระงับอัตโนมัติ (เช่น 7 วันนับจากวันที่ถูกระงับ)
   warning_count?: number;        // จำนวนครั้งที่ถูกตักเตือน
+  is_busy?: boolean;             // กำลังติดภารกิจกับลูกค้าคนอื่นอยู่หรือไม่
   updated_at: string;
 }
 
@@ -114,6 +115,8 @@ export interface CompanionCardData extends CompanionProfile {
   profile: Pick<Profile, 'full_name' | 'avatar_url' | 'phone' | 'email'> & {
     role?: UserRole;
   };
+  is_busy?: boolean;
+  active_booking_status?: 'in_progress' | 'accepted' | null;
 }
 
 export interface BookingDetailData extends Booking {

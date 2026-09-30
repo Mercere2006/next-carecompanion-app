@@ -3,6 +3,7 @@ import { CompanionCardData } from '@/types/database';
 import { ShieldCheck, Star, MapPin, Briefcase, ChevronRight, User, Clock, Lock } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
+import { getCompanionAvailabilityInfo } from '@/lib/availabilityUtils';
 
 interface CompanionCardProps {
   companion: CompanionCardData;
@@ -34,6 +35,13 @@ export default function CompanionCard({
     companion.profile?.avatar_url && !isGoogleAvatar(companion.profile.avatar_url)
       ? companion.profile.avatar_url
       : companion.id_card_image_url || companion.profile?.avatar_url || '';
+
+  const availability = getCompanionAvailabilityInfo({
+    isSuspended: companion.is_suspended,
+    isBusy: companion.is_busy,
+    isAvailable: companion.is_available,
+    activeBookingStatus: companion.active_booking_status,
+  });
 
   return (
     <div className={`bg-white rounded-3xl p-4 sm:p-6 border transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden ${isSelf ? 'border-amber-300 ring-2 ring-amber-100 shadow-md' : 'border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300'}`}>
@@ -77,6 +85,17 @@ export default function CompanionCard({
                     <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                   </span>
                 )}
+                <span
+                  title={availability.badgeLabel}
+                  className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold border ${availability.badgeColor}`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${availability.dotColor} ${
+                      availability.isBusy ? 'animate-pulse' : ''
+                    }`}
+                  />
+                  {availability.badgeShortLabel}
+                </span>
               </div>
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-gray-500 min-w-0">
                 {(companion.rating_count ?? 0) > 0 ? (
@@ -278,6 +297,24 @@ export default function CompanionCard({
           className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn shadow-xs cursor-pointer active:scale-98"
         >
           จัดการโปรไฟล์ของคุณ
+          <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
+        </Link>
+      ) : availability.isBusy ? (
+        <Link
+          href={`/companions/${companion.id}`}
+          className="w-full py-3 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-amber-300 shadow-2xs cursor-pointer active:scale-98"
+          title="ผู้ช่วยกำลังติดภารกิจกับลูกค้าท่านอื่นอยู่ ณ ขณะนี้ (ไม่ว่าง)"
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+          <span>ติดภารกิจ (ดูประวัติ)</span>
+          <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
+        </Link>
+      ) : availability.isSuspended ? (
+        <Link
+          href={`/companions/${companion.id}`}
+          className="w-full py-3 px-4 rounded-xl bg-gray-100 text-gray-500 font-bold text-sm text-center transition-all flex items-center justify-center gap-2 group/btn border border-gray-200 cursor-pointer"
+        >
+          <span>ระงับการให้บริการ (ดูประวัติ)</span>
           <ChevronRight className="w-4 h-4 transition group-hover/btn:translate-x-1" />
         </Link>
       ) : (

@@ -328,6 +328,49 @@ export default function CompanionDashboard() {
         });
       }
 
+      // Sync is_busy flag on companion_profiles table for instant availability updates
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        if (newStatus === 'accepted' || newStatus === 'in_progress') {
+          await supabase
+            .from('companion_profiles')
+            .update({ is_busy: true })
+            .eq('id', user.id);
+        } else if (newStatus === 'completed' || newStatus === 'rejected' || newStatus === 'cancelled') {
+          const remainingActive = bookings.some(
+            (b) => b.id !== bookingId && (b.status === 'in_progress' || b.status === 'accepted')
+          );
+          if (!remainingActive) {
+            await supabase
+              .from('companion_profiles')
+              .update({ is_busy: false })
+              .eq('id', user.id);
+          }
+        }
+      }
+
+      if (newStatus === 'completed') {
+        Swal.fire({
+          title: 'เสร็จสิ้นภารกิจเรียบร้อยแล้ว! 🎉',
+          html: `
+            <div class="text-left space-y-2 text-sm text-gray-700">
+              <p class="font-bold text-emerald-800">✓ คุณได้จบภารกิจการดูแลลูกค้าแล้ว</p>
+              <p>ระบบได้ปรับสถานะความพร้อมของคุณกลับมาเป็น <strong>&ldquo;🟢 ว่าง (พร้อมให้บริการ)&rdquo;</strong> เรียบร้อยแล้ว</p>
+              <div class="text-xs text-emerald-900 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                ขณะนี้ลูกค้าท่านอื่นสามารถค้นหาและเลือกจองคุณเพื่อร่วมเดินทางได้ตามปกติครับ
+              </div>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonColor: '#059669',
+          confirmButtonText: 'ตกลง',
+          customClass: {
+            popup: 'rounded-3xl shadow-2xl font-sans',
+            confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+          },
+        });
+      }
+
       fetchCompanionBookings();
     } catch (err) {
       alert('ไม่สามารถอัปเดตสถานะได้: ' + (err as Error).message);
@@ -340,6 +383,7 @@ export default function CompanionDashboard() {
   const completedJobs = bookings.filter((b) => b.status === 'completed');
   const totalEarnings = completedJobs.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
   const pendingJobs = bookings.filter((b) => b.status === 'pending');
+  const activeJob = bookings.find((b) => b.status === 'in_progress' || b.status === 'accepted');
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -389,26 +433,57 @@ export default function CompanionDashboard() {
           </div>
         )}
 
-        {/* Verified Status Banner */}
+        {/* Live Availability Status Banner */}
         {companionProfile?.verification_status === 'verified' && !companionProfile?.is_suspended && (
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 mb-6 sm:mb-8 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <CheckCircle2 className="w-5 h-5" />
+          activeJob ? (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 mb-6 sm:mb-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Clock className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm sm:text-base font-extrabold text-amber-950">
+                      สถานะของคุณ ณ ขณะนี้: กำลังติดภารกิจ (ไม่ว่าง)
+                    </p>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                      🔴 ติดภารกิจดูแลลูกค้า
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900/80 mt-0.5 leading-relaxed">
+                    คุณกำลังปฏิบัติหน้าที่สำหรับงาน &ldquo;{activeJob.errand_title}&rdquo; (ระบบจะปิดรับการจองใหม่ชั่วคราว และจะปรับสถานะกลับมาเป็น <strong>&ldquo;ว่าง&rdquo;</strong> อัตโนมัติเมื่อกดจบงาน)
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm font-bold text-emerald-950">
-                  บัญชีของคุณได้รับการอนุมัติแล้ว (พร้อมรับงาน)
-                </p>
-                <p className="text-[11px] sm:text-xs text-emerald-700">
-                  คุณผ่านการตรวจสอบจากผู้ดูแลระบบเรียบร้อยแล้ว พร้อมให้บริการแก่ลูกค้า CareCompanion
-                </p>
-              </div>
+              <span className="shrink-0 text-xs font-bold text-amber-900 bg-white px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs">
+                {activeJob.status === 'in_progress' ? '🚗 กำลังเดินทาง/ดูแล' : '📋 ตอบรับงานแล้ว'}
+              </span>
             </div>
-            <span className="shrink-0 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              ✓ อนุมัติแล้ว
-            </span>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 mb-6 sm:mb-8 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs sm:text-sm font-bold text-emerald-950">
+                      สถานะของคุณ ณ ขณะนี้: ว่าง (พร้อมให้บริการ / รอรับงานใหม่)
+                    </p>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      🟢 ว่างตอนนี้
+                    </span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-emerald-700">
+                    คุณไม่มีภารกิจค้างอยู่ ลูกค้าสามารถค้นหาและเลือกจองคุณเพื่อร่วมเดินทางได้ตามปกติ
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                ✓ พร้อมรับงาน
+              </span>
+            </div>
+          )
         )}
 
         {/* Rejected Status Banner */}

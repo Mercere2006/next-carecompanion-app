@@ -16,6 +16,7 @@ export function useCompanionFilter(
   const [appointmentDate, setAppointmentDate] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
   const [onlyAvailableSchedule, setOnlyAvailableSchedule] = useState<boolean>(true);
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'busy'>('all');
 
   const hasActiveFilters = Boolean(
     selectedCategory ||
@@ -25,7 +26,8 @@ export function useCompanionFilter(
       maxRate ||
       excludeId ||
       appointmentDate ||
-      startTime
+      startTime ||
+      availabilityFilter !== 'all'
   );
 
   const resetFilters = () => {
@@ -37,6 +39,7 @@ export function useCompanionFilter(
     setExcludeId("");
     setAppointmentDate("");
     setStartTime("");
+    setAvailabilityFilter("all");
   };
 
   const filteredCompanions = useMemo(() => {
@@ -185,13 +188,20 @@ export function useCompanionFilter(
           startTime
         );
 
+      // Availability matching (all / available / busy)
+      const availabilityMatch =
+        availabilityFilter === 'all' ||
+        (availabilityFilter === 'available' && !comp.is_busy) ||
+        (availabilityFilter === 'busy' && Boolean(comp.is_busy));
+
       return (
         keywordMatch &&
         areaMatch &&
         rateMatch &&
         categoryMatch &&
         needMatch &&
-        scheduleMatch
+        scheduleMatch &&
+        availabilityMatch
       );
     });
 
@@ -216,6 +226,7 @@ export function useCompanionFilter(
     appointmentDate,
     startTime,
     onlyAvailableSchedule,
+    availabilityFilter,
   ]);
 
   return {
@@ -237,6 +248,8 @@ export function useCompanionFilter(
     setStartTime,
     onlyAvailableSchedule,
     setOnlyAvailableSchedule,
+    availabilityFilter,
+    setAvailabilityFilter,
     filteredCompanions,
     hasActiveFilters,
     resetFilters,

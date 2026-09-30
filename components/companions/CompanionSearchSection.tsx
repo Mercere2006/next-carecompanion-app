@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import CompanionCard from "@/components/companions/CompanionCard";
 import { CompanionCardData } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/utils";
+import Swal from "sweetalert2";
 import {
   extractSuspendedUntil,
   isSuspensionExpired,
   autoUnsuspendCompanion,
 } from "@/lib/suspensionUtils";
+import { fetchActiveCompanionBookingsMap } from "@/lib/availabilityUtils";
 import { useCompanionFilter } from "./search/useCompanionFilter";
 import LoginRequiredModal from "./search/LoginRequiredModal";
 
@@ -73,6 +75,8 @@ export default function CompanionSearchSection({
     setStartTime,
     onlyAvailableSchedule,
     setOnlyAvailableSchedule,
+    availabilityFilter,
+    setAvailabilityFilter,
     filteredCompanions,
     hasActiveFilters,
     resetFilters,
@@ -104,102 +108,148 @@ export default function CompanionSearchSection({
     setSpecialNeedFilter,
   ]);
 
-  useEffect(() => {
-    async function loadInitial() {
-      // 1. Check user auth & role
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setCurrentUser(user ? { id: user.id } : null);
+  const loadInitial = useCallback(async () => {
+    // 1. Check user auth & role
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    setCurrentUser(user ? { id: user.id } : null);
 
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (profile?.role === "admin") {
-          setIsAdmin(true);
-        }
-      }
-
-      // 2. Fetch companions from DB and merge with fallback companions
-      try {
-        const { data, error } = await supabase
-          .from("companion_profiles")
-          .select(
-            `
-            *,
-            profile:profiles(full_name, avatar_url, phone, email)
-          `,
-          )
-          .eq("is_available", true);
-
-        if (error) {
-          console.warn("Companion profiles query notice:", error.message);
-        }
-
-        if (!error && data && data.length > 0) {
-          // Enrich hourly_rate from vehicle or bio if DB column has 0
-          const enriched = (data as unknown as CompanionCardData[]).map((c) => {
-            let rate = Number(c.hourly_rate) || 0;
-            if (rate <= 0 && c.vehicle_model) {
-              const match = c.vehicle_model.match(/\[฿(\d+)\]/);
-              if (match && match[1]) rate = parseInt(match[1], 10);
-            }
-            if (rate <= 0 && c.bio) {
-              const match = c.bio.match(/\[฿(\d+)\]/);
-              if (match && match[1]) rate = parseInt(match[1], 10);
-            }
-            return {
-              ...c,
-              hourly_rate: rate > 0 ? rate : c.hourly_rate,
-            };
-          });
-
-          // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, เปิดรับงาน และไม่ถูกระงับ)
-          const completeProfiles = enriched.filter((c) => {
-            const hasName = Boolean(
-              c.profile?.full_name && c.profile.full_name.trim().length > 0,
-            );
-            const hasRate = Number(c.hourly_rate) > 0;
-            const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
-            let notSuspended = !c.is_suspended;
-
-            if (c.is_suspended) {
-              const until = extractSuspendedUntil(c);
-              if (until && isSuspensionExpired(until)) {
-                // Auto-unsuspend in background
-                autoUnsuspendCompanion(supabase, c.id, Number(c.rating_avg));
-                c.is_suspended = false;
-                notSuspended = true;
-              }
-            }
-
-            const isAvail = c.is_available === true || notSuspended;
-            return isAvail && notSuspended && hasRate && hasBio && hasName;
-          });
-
-          const realIds = new Set(completeProfiles.map((c) => c.id));
-          const complementaryMocks = MOCK_COMPANIONS.filter(
-            (m) => !realIds.has(m.id),
-          );
-          setCompanions([
-            ...completeProfiles,
-            ...complementaryMocks,
-          ]);
-        } else {
-          setCompanions(MOCK_COMPANIONS);
-        }
-      } catch (err) {
-        console.warn("Fetch companions caught error:", err);
-        setCompanions(MOCK_COMPANIONS);
-      } finally {
-        setLoading(false);
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.role === "admin") {
+        setIsAdmin(true);
       }
     }
 
+    // 2. Fetch active bookings map to detect busy companions
+    const busyMap = await fetchActiveCompanionBookingsMap(supabase);
+
+    // 3. Fetch companions from DB and merge with fallback companions
+    try {
+      const { data, error } = await supabase
+        .from("companion_profiles")
+        .select(
+          `
+          *,
+          profile:profiles(full_name, avatar_url, phone, email)
+        `,
+        )
+        .eq("is_available", true);
+
+      if (error) {
+        console.warn("Companion profiles query notice:", error.message);
+      }
+
+      if (!error && data && data.length > 0) {
+        // Enrich hourly_rate from vehicle or bio if DB column has 0 & assign is_busy status
+        const enriched = (data as unknown as CompanionCardData[]).map((c) => {
+          let rate = Number(c.hourly_rate) || 0;
+          if (rate <= 0 && c.vehicle_model) {
+            const match = c.vehicle_model.match(/\[฿(\d+)\]/);
+            if (match && match[1]) rate = parseInt(match[1], 10);
+          }
+          if (rate <= 0 && c.bio) {
+            const match = c.bio.match(/\[฿(\d+)\]/);
+            if (match && match[1]) rate = parseInt(match[1], 10);
+          }
+
+          const activeBookingStatus = busyMap.get(c.id) || (c.is_busy ? 'in_progress' : null);
+          const isBusy = Boolean(c.is_busy || busyMap.has(c.id));
+
+          return {
+            ...c,
+            hourly_rate: rate > 0 ? rate : c.hourly_rate,
+            is_busy: isBusy,
+            active_booking_status: activeBookingStatus,
+          };
+        });
+
+        // กรองเฉพาะ Companion ที่กรอกข้อมูลครบถ้วนจริง ๆ (มีชื่อ, เรทราคา > 0, มี bio, เปิดรับงาน และไม่ถูกระงับ)
+        const completeProfiles = enriched.filter((c) => {
+          const hasName = Boolean(
+            c.profile?.full_name && c.profile.full_name.trim().length > 0,
+          );
+          const hasRate = Number(c.hourly_rate) > 0;
+          const hasBio = Boolean(c.bio && c.bio.trim().length > 0);
+          let notSuspended = !c.is_suspended;
+
+          if (c.is_suspended) {
+            const until = extractSuspendedUntil(c);
+            if (until && isSuspensionExpired(until)) {
+              // Auto-unsuspend in background
+              autoUnsuspendCompanion(supabase, c.id, Number(c.rating_avg));
+              c.is_suspended = false;
+              notSuspended = true;
+            }
+          }
+
+          const isAvail = c.is_available === true || notSuspended;
+          return isAvail && notSuspended && hasRate && hasBio && hasName;
+        });
+
+        const realIds = new Set(completeProfiles.map((c) => c.id));
+        const complementaryMocks = MOCK_COMPANIONS.filter(
+          (m) => !realIds.has(m.id),
+        ).map((m) => ({
+          ...m,
+          is_busy: Boolean(m.is_busy || busyMap.has(m.id)),
+          active_booking_status: busyMap.get(m.id) || m.active_booking_status || null,
+        }));
+
+        setCompanions([
+          ...completeProfiles,
+          ...complementaryMocks,
+        ]);
+      } else {
+        setCompanions(
+          MOCK_COMPANIONS.map((m) => ({
+            ...m,
+            is_busy: Boolean(m.is_busy || busyMap.has(m.id)),
+            active_booking_status: busyMap.get(m.id) || m.active_booking_status || null,
+          }))
+        );
+      }
+    } catch (err) {
+      console.warn("Fetch companions caught error:", err);
+      setCompanions(
+        MOCK_COMPANIONS.map((m) => ({
+          ...m,
+          is_busy: Boolean(m.is_busy || busyMap.has(m.id)),
+          active_booking_status: busyMap.get(m.id) || m.active_booking_status || null,
+        }))
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
     loadInitial();
+
+    // Listen for realtime booking or profile updates to refresh availability
+    const channelId = `companions-list-${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        () => {
+          loadInitial();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'companion_profiles' },
+        () => {
+          loadInitial();
+        }
+      )
+      .subscribe();
 
     const {
       data: { subscription },
@@ -209,8 +259,9 @@ export default function CompanionSearchSection({
 
     return () => {
       subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [loadInitial, supabase]);
 
   // Build target booking URL with pre-filled query params
   const getBookingUrl = (companionId: string) => {
@@ -229,6 +280,30 @@ export default function CompanionSearchSection({
     // If the companion selected is the user themselves, route to profile edit
     if (currentUser && companion.id === currentUser.id) {
       router.push("/companion/profile");
+      return;
+    }
+
+    // If the companion is busy, block booking selection with friendly alert
+    if (companion.is_busy) {
+      Swal.fire({
+        title: 'ผู้ช่วยติดภารกิจในขณะนี้',
+        html: `
+          <div class="text-left space-y-2 text-sm text-gray-700">
+            <p class="font-bold text-amber-800">⚠️ ขณะนี้ผู้ช่วยกำลังติดภารกิจดูแลลูกค้าท่านอื่นอยู่</p>
+            <p>ระบบไม่อนุญาตให้เลือกหรือจองผู้ช่วยท่านนี้ในระหว่างที่กำลังให้บริการลูกค้าท่านอื่นอยู่ครับ</p>
+            <div class="text-xs text-amber-900 bg-amber-50 p-3 rounded-xl border border-amber-200 leading-relaxed">
+              เมื่อผู้ช่วยเสร็จสิ้นภารกิจกับลูกค้าท่านก่อนหน้าแล้ว สถานะจะกลับมาเป็น <strong>&ldquo;ว่าง&rdquo;</strong> และเปิดให้จองได้ตามปกติทันทีครับ
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'เข้าใจแล้ว',
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl font-sans',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+        },
+      });
       return;
     }
 
@@ -318,6 +393,69 @@ export default function CompanionSearchSection({
           </div>
         </div>
 
+        {/* Availability Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+          <span className="text-xs font-bold text-gray-500 mr-1">สถานะความพร้อม:</span>
+          <button
+            type="button"
+            onClick={() => setAvailabilityFilter('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+              availabilityFilter === 'all'
+                ? 'bg-gray-900 text-white shadow-xs'
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <span>ทั้งหมด</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                availabilityFilter === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {companions.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAvailabilityFilter('available')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+              availabilityFilter === 'available'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>ว่างตอนนี้</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                availabilityFilter === 'available' ? 'bg-emerald-800 text-white' : 'bg-emerald-50 text-emerald-800'
+              }`}
+            >
+              {companions.filter((c) => !c.is_busy && !c.is_suspended && c.is_available).length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAvailabilityFilter('busy')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+              availabilityFilter === 'busy'
+                ? 'bg-amber-700 text-white shadow-xs'
+                : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-50'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>ติดภารกิจ (ไม่ว่าง)</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                availabilityFilter === 'busy' ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-900'
+              }`}
+            >
+              {companions.filter((c) => Boolean(c.is_busy)).length}
+            </span>
+          </button>
+        </div>
+
         {/* Alternative Companion Banner (when filtered from rejected booking) */}
         {excludeId && (
           <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -368,6 +506,7 @@ export default function CompanionSearchSection({
                 companion={comp}
                 currentUser={currentUser}
                 isAdmin={isAdmin}
+                onSelect={handleSelectCompanion}
               />
             ))}
           </div>

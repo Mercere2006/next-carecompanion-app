@@ -8,6 +8,7 @@ interface BookingSubmitBarProps {
   distanceFee?: number;
   totalDistanceKm?: number;
   submitting: boolean;
+  isBusy?: boolean;
 }
 
 export default function BookingSubmitBar({
@@ -16,6 +17,7 @@ export default function BookingSubmitBar({
   distanceFee = 0,
   totalDistanceKm = 0,
   submitting,
+  isBusy = false,
 }: BookingSubmitBarProps) {
   return (
     <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
@@ -40,11 +42,15 @@ export default function BookingSubmitBar({
 
       <button
         type="submit"
-        disabled={submitting}
-        className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-2xl bg-emerald-700 text-white font-bold text-base hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
+        disabled={submitting || isBusy}
+        className={`w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-2xl font-bold text-base transition shadow-lg flex items-center justify-center gap-2 active:scale-98 disabled:opacity-60 cursor-pointer ${
+          isBusy
+            ? 'bg-amber-600 text-white cursor-not-allowed shadow-amber-200'
+            : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-emerald-200'
+        }`}
       >
         <HeartHandshake className="w-5 h-5" />
-        {submitting ? "กำลังส่งคำขอ..." : "ยืนยันการส่งคำขอจอง"}
+        {submitting ? "กำลังส่งคำขอ..." : isBusy ? "ผู้ช่วยติดภารกิจ (ไม่ว่าง)" : "ยืนยันการส่งคำขอจอง"}
       </button>
     </div>
   );

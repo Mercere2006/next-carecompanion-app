@@ -130,6 +130,7 @@ function BookingForm({ companionId }: { companionId: string }) {
               distanceFee={form.distanceFee}
               totalDistanceKm={form.totalDistanceKm}
               submitting={form.submitting}
+              isBusy={form.isBusy}
             />
           </form>
         </div>

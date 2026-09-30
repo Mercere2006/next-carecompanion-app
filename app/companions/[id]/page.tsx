@@ -38,6 +38,7 @@ import {
   MOCK_COMPANIONS,
 } from '@/components/companions/search/constants';
 import ReviewHeartButton from '@/components/reviews/ReviewHeartButton';
+import { checkIsCompanionBusy, getCompanionAvailabilityInfo } from '@/lib/availabilityUtils';
 
 function maskPhoneNumber(phone?: string | null) {
   if (!phone) return '08x-***-****';
@@ -158,6 +159,17 @@ export default async function CompanionDetailPage({
     }
   }
 
+  // Check active booking status to see if companion is busy with another customer
+  const { isBusy: liveIsBusy, activeStatus: liveActiveStatus } = await checkIsCompanionBusy(supabase, id);
+  const companionIsBusy = Boolean(companion.is_busy || liveIsBusy);
+
+  const availability = getCompanionAvailabilityInfo({
+    isSuspended: companion.is_suspended,
+    isBusy: companionIsBusy,
+    isAvailable: companion.is_available,
+    activeBookingStatus: liveActiveStatus || companion.active_booking_status,
+  });
+
   // Fetch real reviews for this companion from Supabase (disambiguating customer_id relationship)
   const { data: dbReviews, error: reviewsError } = await supabase
     .from('reviews')
@@ -267,6 +279,28 @@ export default async function CompanionDetailPage({
           </div>
         )}
 
+        {/* Busy Status Notice Banner */}
+        {companionIsBusy && !companion.is_suspended && (
+          <div className="bg-amber-50 border-2 border-amber-300 text-amber-950 p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex items-start sm:items-center gap-3.5 shadow-xs mb-6">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <strong className="block text-sm sm:text-base font-extrabold text-amber-950">
+                  ขณะนี้ผู้ช่วยกำลังติดภารกิจดูแลลูกค้าท่านอื่นอยู่ (สถานะ: ไม่ว่าง)
+                </strong>
+                <span className="shrink-0 text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-200 text-amber-950 border border-amber-300">
+                  🔴 ติดภารกิจ
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-900/90 leading-relaxed">
+                ระบบไม่อนุญาตให้จองผู้ช่วยท่านนี้ซ้อนได้ในขณะที่ติดภารกิจอยู่ เมื่อผู้ช่วยเสร็จสิ้นภารกิจกับลูกค้าท่านก่อนหน้าแล้ว ระบบจะปลดล็อคให้กลับมารับงานใหม่อัตโนมัติทันทีครับ
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className={isAdmin ? 'max-w-4xl mx-auto space-y-6' : 'grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8'}>
           {/* Main Profile Info (Col 1 & 2 for regular users, full width for admin) */}
           <div className={isAdmin ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
@@ -297,6 +331,17 @@ export default async function CompanionDetailPage({
                         ยืนยันใบหน้า & เบอร์โทรแล้ว
                       </span>
                     )}
+                    <span
+                      title={availability.badgeLabel}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${availability.badgeColor} shrink-0`}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full ${availability.dotColor} ${
+                          availability.isBusy ? 'animate-pulse' : ''
+                        }`}
+                      />
+                      {availability.badgeLabel}
+                    </span>
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500 font-medium">
                     ผู้ให้บริการร่วมเดินทาง (Companion)
@@ -766,6 +811,7 @@ export default async function CompanionDetailPage({
                   companionId={companion.id}
                   companionName={companion.profile?.full_name || 'ผู้ช่วยร่วมเดินทาง'}
                   isSuspended={Boolean(companion.is_suspended)}
+                  isBusy={companionIsBusy}
                   initialIsLoggedIn={Boolean(currentUser)}
                 />
 

@@ -10,6 +10,7 @@ interface BookCompanionButtonProps {
   companionId: string;
   companionName: string;
   isSuspended?: boolean;
+  isBusy?: boolean;
   initialIsLoggedIn?: boolean;
 }
 
@@ -17,6 +18,7 @@ export default function BookCompanionButton({
   companionId,
   companionName,
   isSuspended = false,
+  isBusy = false,
   initialIsLoggedIn = false,
 }: BookCompanionButtonProps) {
   const router = useRouter();
@@ -39,6 +41,17 @@ export default function BookCompanionButton({
 
   const handleBookingClick = async () => {
     if (isSuspended) return;
+
+    if (isBusy) {
+      Swal.fire({
+        title: 'ผู้ช่วยติดภารกิจในขณะนี้',
+        text: `ขณะนี้ ${companionName} กำลังติดภารกิจดูแลลูกค้าท่านอื่นอยู่ ไม่สามารถรับการจองได้ในขณะนี้ เมื่อเสร็จสิ้นภารกิจแล้วระบบจะเปิดให้เลือกตามปกติ`,
+        icon: 'warning',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'รับทราบ',
+      });
+      return;
+    }
 
     // Check live login status
     const { data: { user } } = await supabase.auth.getUser();
@@ -101,6 +114,20 @@ export default function BookCompanionButton({
       <div className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-200 text-gray-500 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
         <AlertTriangle className="w-4 h-4 text-gray-400" />
         ไม่สามารถจองได้ (บัญชีถูกระงับชั่วคราว)
+      </div>
+    );
+  }
+
+  if (isBusy) {
+    return (
+      <div className="w-full py-3.5 px-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 font-bold text-center text-sm flex flex-col items-center justify-center gap-1 shadow-2xs">
+        <div className="flex items-center gap-2 text-amber-900 font-extrabold">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+          <span>ขณะนี้ผู้ช่วยติดภารกิจ (ไม่ว่าง)</span>
+        </div>
+        <span className="text-[11px] text-amber-800/90 font-normal">
+          กำลังให้บริการลูกค้าท่านอื่น ไม่สามารถจองซ้อนได้
+        </span>
       </div>
     );
   }

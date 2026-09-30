@@ -13,6 +13,7 @@ import {
   BookingPricingResult,
 } from "@/lib/distancePricing";
 import { addSystemNotification } from "@/lib/notifications";
+import { checkIsCompanionBusy } from "@/lib/availabilityUtils";
 
 export interface CompanionVehicleInfo {
   type: string;
@@ -78,6 +79,7 @@ export function useBookingForm(companionId: string) {
   const [specialNeeds, setSpecialNeeds] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isSuspended, setIsSuspended] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   const [companionVehicle, setCompanionVehicle] =
     useState<CompanionVehicleInfo | null>(null);
@@ -202,9 +204,19 @@ export function useBookingForm(companionId: string) {
 
       if (compData) {
         setIsSuspended(Boolean(compData.is_suspended));
+
+        // Check active booking status to see if companion is busy
+        const busyCheck = await checkIsCompanionBusy(supabase, companionId);
+        const compIsBusy = Boolean(compData.is_busy || busyCheck.isBusy);
+        setIsBusy(compIsBusy);
+
         if (compData.is_suspended) {
           setErrorMsg(
             'ผู้ช่วยท่านนี้อยู่ระหว่างการตรวจสอบและถูกระงับการให้บริการชั่วคราว จึงไม่สามารถรับการจองได้'
+          );
+        } else if (compIsBusy) {
+          setErrorMsg(
+            'ผู้ช่วยท่านนี้กำลังติดภารกิจดูแลลูกค้าท่านอื่นอยู่ ณ ขณะนี้ จึงไม่สามารถรับการจองได้'
           );
         } else if (
           compData.verification_status !== 'verified' ||
@@ -514,6 +526,23 @@ export function useBookingForm(companionId: string) {
       return;
     }
 
+    if (isBusy) {
+      Swal.fire({
+        title: "ไม่สามารถส่งคำขอจองได้",
+        text: "ผู้ช่วยท่านนี้กำลังติดภารกิจดูแลลูกค้าท่านอื่นอยู่ ณ ขณะนี้ จึงไม่สามารถรับการจองได้ กรุณาเลือกผู้ช่วยท่านอื่น หรือรอจนกว่าผู้ช่วยจะเสร็จสิ้นภารกิจ",
+        icon: "warning",
+        confirmButtonColor: "#059669",
+        confirmButtonText: "กลับไปเลือกผู้ช่วยท่านอื่น",
+        showCancelButton: true,
+        cancelButtonText: "ปิด",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          router.push("/companions");
+        }
+      });
+      return;
+    }
+
     const isMeetAtDestination = selectedVehicle === 'none';
     const errors: BookingFormErrors = {};
     let firstInvalidId: string | null = null;
@@ -627,6 +656,26 @@ export function useBookingForm(companionId: string) {
         .filter(Boolean)
         .join("\n\n")
         .trim();
+
+      // Live busy check to prevent race-condition booking
+      const liveBusyCheck = await checkIsCompanionBusy(supabase, companionId);
+      if (liveBusyCheck.isBusy) {
+        setIsBusy(true);
+        Swal.fire({
+          title: "ผู้ช่วยติดภารกิจแล้ว",
+          text: "ขออภัยด้วยครับ มีลูกค้ารายอื่นได้รับการตอบรับหรือผู้ช่วยกำลังติดภารกิจอยู่ ณ ขณะนี้ ไม่สามารถจองซ้อนได้",
+          icon: "warning",
+          confirmButtonColor: "#059669",
+          confirmButtonText: "กลับไปเลือกผู้ช่วยท่านอื่น",
+          customClass: {
+            popup: "rounded-3xl shadow-2xl font-sans",
+            confirmButton: "rounded-xl px-6 py-2.5 font-bold",
+          },
+        }).then(() => {
+          router.push("/companions");
+        });
+        return;
+      }
 
       // Create Booking in Supabase
       const { data: insertedBooking, error } = await supabase
@@ -753,6 +802,8 @@ export function useBookingForm(companionId: string) {
     specialNeeds,
     setSpecialNeeds,
     errorMsg,
+    isSuspended,
+    isBusy,
     handleGoogleLogin,
     handleCategorySelect,
     handleCustomCategoryChange,

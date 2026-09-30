@@ -21,6 +21,7 @@ import {
   CompanionLocation,
 } from '@/lib/distancePricing';
 import { addSystemNotification } from '@/lib/notifications';
+import { fetchActiveCompanionBookingsMap } from '@/lib/availabilityUtils';
 
 export default function CustomerDashboard() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function CustomerDashboard() {
 
       // Also fetch verified available companions to provide recommendations if any booking is rejected
       try {
+        const busyMap = await fetchActiveCompanionBookingsMap(supabase);
         const { data: companionsData } = await supabase
           .from('companion_profiles')
           .select(`
@@ -79,11 +81,21 @@ export default function CustomerDashboard() {
 
         let compsList: CompanionCardData[] = [];
         if (companionsData && companionsData.length > 0) {
-          compsList = (companionsData as unknown as CompanionCardData[]).filter((c) => !c.is_suspended);
+          compsList = (companionsData as unknown as CompanionCardData[])
+            .filter((c) => !c.is_suspended)
+            .map((c) => ({
+              ...c,
+              is_busy: Boolean(c.is_busy || busyMap.has(c.id)),
+              active_booking_status: busyMap.get(c.id) || null,
+            }));
         }
         MOCK_COMPANIONS.forEach((mock) => {
           if (!compsList.some((c) => c.id === mock.id)) {
-            compsList.push(mock);
+            compsList.push({
+              ...mock,
+              is_busy: Boolean(mock.is_busy || busyMap.has(mock.id)),
+              active_booking_status: busyMap.get(mock.id) || null,
+            });
           }
         });
         setAllCompanions(compsList);
@@ -174,6 +186,7 @@ export default function CustomerDashboard() {
         // 1. MUST NOT be the companion who rejected!
         if (c.id === rejectedId) return false;
         if (c.is_suspended) return false;
+        if (c.is_busy) return false;
         // 2. Check schedule availability for date and time
         return isCompanionAvailableAt(c.available_schedule, c.bio, date, time);
       });
@@ -226,6 +239,16 @@ export default function CustomerDashboard() {
 
   // Quick re-booking with chosen alternative companion, preserving original booking inputs with cleaned details
   const handleQuickRebook = (booking: BookingDetailData, targetCompanion: CompanionCardData) => {
+    if (targetCompanion.is_busy) {
+      Swal.fire({
+        title: 'ผู้ช่วยติดภารกิจในขณะนี้',
+        text: 'ขออภัยด้วยครับ ผู้ช่วยท่านนี้กำลังติดภารกิจดูแลลูกค้าท่านอื่นอยู่ ไม่สามารถจองได้ในขณะนี้ กรุณาเลือกผู้ช่วยท่านอื่นครับ',
+        icon: 'warning',
+        confirmButtonColor: '#059669',
+      });
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(
         'pending_booking_requirements',
