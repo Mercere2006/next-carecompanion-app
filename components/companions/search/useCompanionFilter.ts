@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { CompanionCardData } from "@/types/database";
 import { isCompanionAvailableAt } from "@/lib/scheduleUtils";
+import { isCompanionMatchingCategory } from "@/lib/categoryUtils";
 
 export function useCompanionFilter(
   companions: CompanionCardData[]
@@ -65,70 +66,8 @@ export function useCompanionFilter(
         !searchArea || comp.service_areas?.some((a) => a.includes(searchArea));
       const rateMatch = !maxRate || comp.hourly_rate <= Number(maxRate);
 
-      // Smart category matching (supports preset selection & freeform text)
-      const categoryMatch =
-        !selectedCategory.trim() ||
-        (() => {
-          const cat = selectedCategory.trim().toLowerCase();
-          if (
-            !cat ||
-            cat === "เลือกทุกประเภทธุระ" ||
-            cat === "ธุระทั่วไป"
-          )
-            return true;
-          if (
-            cat.includes("แพทย์") ||
-            cat.includes("โรงพยาบาล") ||
-            cat.includes("รพ.")
-          ) {
-            return (
-              comp.bio?.includes("พยาบาล") ||
-              comp.bio?.includes("รพ.") ||
-              comp.bio?.includes("แพทย์") ||
-              comp.skills?.some(
-                (s) =>
-                  s.includes("รพ.") ||
-                  s.includes("แพทย์") ||
-                  s.includes("สุขภาพ"),
-              )
-            );
-          }
-          if (cat.includes("ธนาคาร") || cat.includes("การเงิน")) {
-            return (
-              comp.bio?.includes("ธนาคาร") ||
-              comp.skills?.some((s) => s.includes("ธนาคาร"))
-            );
-          }
-          if (cat.includes("ราชการ")) {
-            return (
-              comp.bio?.includes("ราชการ") ||
-              comp.skills?.some((s) => s.includes("ราชการ"))
-            );
-          }
-          if (
-            cat.includes("ซื้อ") ||
-            cat.includes("ตลาด") ||
-            cat.includes("ช้อป")
-          ) {
-            return (
-              comp.bio?.includes("ซื้อ") ||
-              comp.bio?.includes("ตลาด") ||
-              comp.skills?.some(
-                (s) => s.includes("ช้อป") || s.includes("สัมภาระ"),
-              )
-            );
-          }
-          // If custom text was typed
-          const matchesCustom =
-            comp.bio?.toLowerCase().includes(cat) ||
-            comp.skills?.some((s) => s.toLowerCase().includes(cat));
-          const anyOneMatches = companions.some(
-            (c) =>
-              c.bio?.toLowerCase().includes(cat) ||
-              c.skills?.some((s) => s.toLowerCase().includes(cat)),
-          );
-          return anyOneMatches ? matchesCustom : true;
-        })();
+      // Smart category matching using categoryUtils (supports preset IDs 1-5, slugs, Thai names & custom keywords)
+      const categoryMatch = isCompanionMatchingCategory(comp, selectedCategory);
 
       // Smart special need matching (supports preset selection & freeform text)
       const needMatch =

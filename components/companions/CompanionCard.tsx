@@ -4,6 +4,7 @@ import { ShieldCheck, Star, MapPin, Briefcase, ChevronRight, User, Clock, Lock }
 import { formatPrice } from '@/lib/utils';
 import { parseVehicleDetails, extractCleanBio } from '@/lib/vehicleUtils';
 import { getCompanionAvailabilityInfo } from '@/lib/availabilityUtils';
+import { getCompanionCategories } from '@/lib/categoryUtils';
 
 interface CompanionCardProps {
   companion: CompanionCardData;
@@ -42,6 +43,8 @@ export default function CompanionCard({
     isAvailable: companion.is_available,
     activeBookingStatus: companion.active_booking_status,
   });
+
+  const errandCategories = getCompanionCategories(companion);
 
   return (
     <div className={`bg-white rounded-3xl p-4 sm:p-6 border transition-all duration-300 flex flex-col justify-between group min-w-0 overflow-hidden ${isSelf ? 'border-amber-300 ring-2 ring-amber-100 shadow-md' : 'border-gray-200/80 shadow-xs hover:shadow-xl hover:border-emerald-300'}`}>
@@ -257,6 +260,36 @@ export default function CompanionCard({
           <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50/50 px-3 py-1.5 rounded-xl border border-emerald-100/80 mb-3">
             <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="truncate">สะดวก: {activeSchedule}</span>
+          </div>
+        )}
+
+        {/* Supported Errand Categories Badges */}
+        {errandCategories && errandCategories.length > 0 && (
+          <div className="mb-3">
+            <div className="flex flex-wrap gap-1.5">
+              {errandCategories.map((cat) => {
+                const iconEmoji =
+                  cat.id === 1
+                    ? '🏥'
+                    : cat.id === 2
+                    ? '🏦'
+                    : cat.id === 3
+                    ? '🏛️'
+                    : cat.id === 4
+                    ? '🛒'
+                    : '📍';
+                return (
+                  <span
+                    key={cat.id}
+                    title={`รองรับธุระ: ${cat.name}`}
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${cat.color.bgLight} ${cat.color.badgeText} ${cat.color.border}`}
+                  >
+                    <span>{iconEmoji}</span>
+                    <span>{cat.shortName}</span>
+                  </span>
+                );
+              })}
+            </div>
           </div>
         )}
 
